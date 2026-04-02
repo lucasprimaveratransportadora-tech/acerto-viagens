@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:#0e0f11;
+  --surface:#16181c;
+  --surface2:#1e2127;
+  --surface3:#252830;
+  --border:#2a2d35;
+  --accent:#E30613;
+  --accent2:#a00010;
+  --text:#e8eaf0;
+  --muted:#6b7280;
+  --success:#22c55e;
+  --danger:#ef4444;
+  --info:#38bdf8;
+}

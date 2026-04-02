@@ -1,0 +1,11 @@
+@media (max-width: 768px) {
+  .container { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+  .kpi-row { flex-wrap: wrap; }
+  .kpi-card { min-width: calc(50% - 10px); }
+  .detail-grid { grid-template-columns: 1fr; }
+  .desp-grid { grid-template-columns: 1fr; }
+  .form-row { flex-direction: column; }
+  .month-stats { display: none; }
+  .trip-nums { font-size: .65rem; }
+}

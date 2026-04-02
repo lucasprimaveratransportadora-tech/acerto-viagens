@@ -1,0 +1,271 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-accent:hover {
+  background: #b8000f;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background: var(--surface2);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,.3);
+}
+
+.btn-danger:hover {
+  background: rgba(239,68,68,.1);
+}
+
+.btn-sm {
+  padding: 3px 8px;
+  font-size: .7rem;
+}
+
+.btn-blue {
+  background: rgba(56,189,248,.1);
+  color: var(--info);
+  border: 1px solid rgba(56,189,248,.25);
+}
+
+.btn-blue:hover {
+  background: rgba(56,189,248,.2);
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: .72rem;
+  transition: all .15s;
+}
+
+.action-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.action-btn.del:hover {
+  color: var(--danger);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: .63rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+}
+
+.status-ok {
+  background: rgba(34,197,94,.12);
+  color: var(--success);
+  border: 1px solid rgba(34,197,94,.25);
+}
+
+.status-pend {
+  background: rgba(227,6,19,.12);
+  color: var(--accent);
+  border: 1px solid rgba(227,6,19,.25);
+}
+
+.status-canc {
+  background: rgba(239,68,68,.12);
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,.25);
+}
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 1.5rem 1rem;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  width: 640px;
+  max-width: 98vw;
+  padding: 1.3rem;
+  animation: slideIn .2s ease;
+  margin: auto;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: .9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: .9rem;
+  border-top: 1px solid var(--border);
+}
+
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.8);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-overlay.open {
+  display: flex;
+}
+
+.confirm-box {
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  padding: 1.4rem;
+  width: 340px;
+  text-align: center;
+}
+
+.confirm-box h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  color: var(--danger);
+  margin-bottom: .4rem;
+}
+
+.confirm-box p {
+  font-size: .78rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.plate-preview {
+  background: #fff;
+  color: #000;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: 4px;
+  text-align: center;
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 3px solid #000;
+  margin: .35rem 0;
+  display: inline-block;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: .8rem;
+  opacity: .3;
+}
+
+.empty-state h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 2px;
+  margin-bottom: .4rem;
+  color: var(--text);
+}
+
+.empty-state p {
+  font-size: .78rem;
+}
+
+.collapse-icon {
+  transition: transform .2s;
+  display: inline-block;
+}
+
+.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+}
+
+.val.pos {
+  color: var(--success);
+}
+
+.val.neg {
+  color: var(--danger);
+}
+
+.val.neu {
+  color: var(--text);
+}
+
+.cargo-tag {
+  font-size: .68rem;
+  color: var(--muted);
+  background: rgba(255,255,255,.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+}

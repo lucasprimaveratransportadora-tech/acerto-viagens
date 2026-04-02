@@ -1,0 +1,35 @@
+.kpi-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.kpi-card {
+  flex: 1;
+  min-width: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+}
+
+.kpi-label {
+  font-size: .58rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.kpi-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.kpi-sub {
+  font-size: .63rem;
+  color: var(--muted);
+}

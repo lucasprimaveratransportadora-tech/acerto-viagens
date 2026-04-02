@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role { ADMIN GESTOR }
+enum TripStatus { OK PENDENTE CANCELADA }
+enum ExpenseCategory {
+  DESC_CTE_1 DESC_CTE_2 DESC_CTE_3 DESC_CTE_4 DESC_CTE_5 DESC_CTE_6
+  ABASTECIMENTO COMISSAO_MOTORISTA BORRACHARIA LIMPEZA
+  ESTACIONAMENTO CARREGAMENTO AGENCIAMENTO EXTRAS
+  PEDAGIO ARLA AVARIA
+}
+enum AttachmentType {
+  DOC_CAMINHAO DOC_MOTORISTA NOTA_ABASTECIMENTO CTE_ARQUIVO
+  RECIBO COMPROVANTE OUTRO
+}
+
+model Empresa {
+  id         String   @id @default(uuid())
+  nome       String
+  cnpj       String?  @unique
+  logo_url   String?
+  ativo      Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  users      User[]
+  trucks     Truck[]
+  attachments Attachment[]
+  @@map("empresas")
+}
+
+model User {
+  id             String         @id @default(uuid())
+  empresa_id     String
+  empresa        Empresa        @relation(fields: [empresa_id], references: [id])
+  nome           String
+  email          String         @unique
+  senha_hash     String
+  role           Role           @default(GESTOR)
+  ativo          Boolean        @default(true)
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  refresh_tokens RefreshToken[]
+  @@index([empresa_id])
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  expires_at DateTime
+  created_at DateTime @default(now())
+  @@index([user_id])
+  @@map("refresh_tokens")
+}
+
+model Truck {
+  id         String      @id @default(uuid())
+  empresa_id String
+  empresa    Empresa     @relation(fields: [empresa_id], references: [id])
+  placa      String      @unique
+  modelo     String?
+  motorista  String?
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  deleted_at DateTime?
+  trips      Trip[]
+  attachments Attachment[]
+  @@index([empresa_id])
+  @@map("trucks")
+}
+
+model Trip {
+  id           String      @id @default(uuid())
+  truck_id     String
+  truck        Truck       @relation(fields: [truck_id], references: [id])
+  data_inicio  DateTime
+  data_fim     DateTime?
+  origem       String?
+  destino      String?
+  carga        String?
+  km_total     Int         @default(0)
+  status       TripStatus  @default(PENDENTE)
+  adiantamento Decimal     @default(0) @db.Decimal(12, 2)
+  observacoes  String?
+  km_inicial   Decimal?    @db.Decimal(12, 2)
+  km_final     Decimal?    @db.Decimal(12, 2)
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+  deleted_at   DateTime?
+  ctes         Cte[]
+  fuels        Fuel[]
+  expenses     Expense[]
+  attachments  Attachment[]
+  @@index([truck_id])
+  @@index([data_inicio])
+  @@map("trips")
+}
+
+model Cte {
+  id         String      @id @default(uuid())
+  trip_id    String
+  trip       Trip        @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  data       DateTime?
+  numero     String?
+  origem     String?
+  destino    String?
+  valor      Decimal     @default(0) @db.Decimal(12, 2)
+  created_at DateTime    @default(now())
+  attachments Attachment[]
+  @@index([trip_id])
+  @@map("ctes")
+}
+
+model Fuel {
+  id          String      @id @default(uuid())
+  trip_id     String
+  trip        Trip        @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  data        DateTime?
+  litros      Decimal     @default(0) @db.Decimal(10, 3)
+  preco_litro Decimal     @default(0) @db.Decimal(8, 4)
+  posto_cnpj  String?
+  nota_fiscal String?
+  km          Int?
+  valor_total Decimal     @default(0) @db.Decimal(12, 2)
+  created_at  DateTime    @default(now())
+  attachments Attachment[]
+  @@index([trip_id])
+  @@map("fuels")
+}
+
+model Expense {
+  id         String          @id @default(uuid())
+  trip_id    String
+  trip       Trip            @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  categoria  ExpenseCategory
+  valor      Decimal         @default(0) @db.Decimal(12, 2)
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+  @@unique([trip_id, categoria])
+  @@index([trip_id])
+  @@map("expenses")
+}
+
+model Attachment {
+  id           String         @id @default(uuid())
+  empresa_id   String
+  empresa      Empresa        @relation(fields: [empresa_id], references: [id])
+  tipo         AttachmentType
+  nome_arquivo String
+  storage_key  String
+  mime_type    String
+  tamanho      Int
+  truck_id     String?
+  truck        Truck?         @relation(fields: [truck_id], references: [id])
+  trip_id      String?
+  trip         Trip?          @relation(fields: [trip_id], references: [id])
+  cte_id       String?
+  cte          Cte?           @relation(fields: [cte_id], references: [id])
+  fuel_id      String?
+  fuel         Fuel?          @relation(fields: [fuel_id], references: [id])
+  created_at   DateTime       @default(now())
+  @@index([empresa_id])
+  @@index([truck_id])
+  @@index([trip_id])
+  @@map("attachments")
+}
