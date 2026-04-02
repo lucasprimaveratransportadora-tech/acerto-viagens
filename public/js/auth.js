@@ -46,20 +46,4 @@ export function showApp() {
   }
 }
 
-// Expose to window for onclick
-window.doLogin = async function () {
-  const email = document.getElementById('loginEmail').value;
-  const senha = document.getElementById('loginSenha').value;
-  const errEl = document.getElementById('loginError');
-  errEl.textContent = '';
-  try {
-    await login(email, senha);
-    showApp();
-    // Trigger app init
-    window.dispatchEvent(new Event('authenticated'));
-  } catch (e) {
-    errEl.textContent = e.message;
-  }
-};
-
-window.doLogout = function () { logout(); };
+// doLogin and doLogout are registered in app.js to avoid circular issues
