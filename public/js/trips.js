@@ -9,14 +9,14 @@ import { fmt, fmtD, esc, calcFrete, calcDesp } from './utils.js';
 export function buildDetail(tr) {
   const frete = calcFrete(tr);
   const despTotal = calcDesp(tr);
-  const adto = parseFloat(tr.adiantamento || tr.adto || 0);
+  const adto = parseFloat(tr.adiantamento || 0);
   const saldo = frete - despTotal;
 
   const fuels = tr.fuels || [];
   const totL = fuels.reduce((s, f) => s + parseFloat(f.litros || 0), 0);
-  const totFuelVal = fuels.reduce((s, f) => s + parseFloat(f.valor || 0), 0);
-  const kmIni = parseFloat(tr.fuelKmInicial || tr.kmInicial || 0);
-  const kmFin = parseFloat(tr.fuelKmFinal || tr.kmFinal || 0);
+  const totFuelVal = fuels.reduce((s, f) => s + parseFloat(f.valor_total || 0), 0);
+  const kmIni = parseFloat(tr.km_inicial || 0);
+  const kmFin = parseFloat(tr.km_final || 0);
   const kmPerc = kmFin > kmIni ? kmFin - kmIni : 0;
   const media = (totL > 0 && kmPerc > 0) ? (kmPerc / totL).toFixed(2) + ' km/L' : '\u2014';
 
@@ -32,8 +32,8 @@ export function buildDetail(tr) {
     h += `<div class="cte-list">`;
     tr.ctes.forEach(c => {
       h += `<div class="cte-row">
-        <span class="cte-num">${esc(c.numero || c.num || '\u2014')}</span>
-        <span class="cte-route-lbl">${esc(c.origem || c.origin || '')}${(c.destino || c.dest) ? ' \u2192 ' + esc(c.destino || c.dest) : ''}</span>
+        <span class="cte-num">${esc(c.numero || '\u2014')}</span>
+        <span class="cte-route-lbl">${esc(c.origem || '')}${c.destino ? ' \u2192 ' + esc(c.destino) : ''}</span>
         <span class="cte-val">R$ ${fmt(c.valor)}</span>
         <button class="inline-del" onclick="event.stopPropagation();inlineRemoveCte('${esc(tr.id)}','${esc(c.id)}')" title="Remover">\u2715</button>
       </div>`;
@@ -67,18 +67,18 @@ export function buildDetail(tr) {
   if (fuels.length) {
     h += `<table class="mini-table"><thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto</th><th>Nota Fiscal</th><th>KM</th><th>Valor</th><th></th></tr></thead><tbody>`;
     fuels.forEach(f => {
-      const pl = parseFloat(f.precoLitro || 0);
+      const pl = parseFloat(f.preco_litro || 0);
       const litF = parseFloat(f.litros || 0);
-      const valF = parseFloat(f.valor || 0);
+      const valF = parseFloat(f.valor_total || 0);
       const precoCalc = pl > 0 ? pl : (litF > 0 && valF > 0 ? (valF / litF) : 0);
       h += `<tr>
         <td style="font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:.7rem">${fmtD(f.data)}</td>
         <td style="font-family:'IBM Plex Mono',monospace">${litF.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}L</td>
         <td style="font-family:'IBM Plex Mono',monospace;color:var(--info)">${precoCalc > 0 ? 'R$ ' + fmt(precoCalc) : '\u2014'}</td>
-        <td style="color:var(--muted)">${esc(f.posto || '\u2014')}</td>
-        <td style="color:var(--muted);font-size:.7rem">${esc(f.notaFiscal || f.nf || '\u2014')}</td>
+        <td style="color:var(--muted)">${esc(f.posto_cnpj || '\u2014')}</td>
+        <td style="color:var(--muted);font-size:.7rem">${esc(f.nota_fiscal || '\u2014')}</td>
         <td style="font-family:'IBM Plex Mono',monospace;color:var(--muted)">${f.km ? parseInt(f.km).toLocaleString('pt-BR') + 'km' : '\u2014'}</td>
-        <td class="val neu">R$ ${fmt(f.valor)}</td>
+        <td class="val neu">R$ ${fmt(f.valor_total)}</td>
         <td><button class="inline-del" onclick="event.stopPropagation();inlineRemoveFuel('${esc(tr.id)}','${esc(f.id)}')" title="Remover">\u2715</button></td>
       </tr>`;
     });
@@ -114,7 +114,7 @@ export function buildDetail(tr) {
   h += `</div></div>`;
 
   // ---- Acerto ----
-  const obs = tr.observacoes || tr.obs || '';
+  const obs = tr.observacoes || '';
   h += `<div class="acerto-box" style="grid-column:1/-1">
     <div class="acerto-line"><span class="al-label">Total Fretes (CTes)</span><span class="al-val" style="color:var(--success)">R$ ${fmt(frete)}</span></div>
     <div class="acerto-line"><span class="al-label">(-) Total Despesas</span><span class="al-val" style="color:var(--danger)">R$ ${fmt(despTotal)}</span></div>
@@ -151,7 +151,7 @@ async function inlineRefreshTrip(tripId) {
           <span class="val pos">R$ ${fmt(f)}</span>
           <span class="val neg">- R$ ${fmt(d)}</span>
           <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
-          ${trip.km ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(trip.km).toLocaleString('pt-BR')}km</span>` : ''}`;
+          ${trip.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(trip.km_total).toLocaleString('pt-BR')}km</span>` : ''}`;
       }
     }
 
@@ -169,7 +169,7 @@ function updateKPIs() {
   trips.forEach(t => {
     totF += calcFrete(t);
     totD += calcDesp(t);
-    totKm += parseInt(t.km || 0);
+    totKm += parseInt(t.km_total || 0);
     (t.fuels || []).forEach(f => totL += parseFloat(f.litros || 0));
   });
   const kpis = document.querySelectorAll('.kpi-card .kpi-value');
@@ -187,7 +187,7 @@ function updateMonthStats() {
   const trips = state.trips;
   const byM = {};
   trips.forEach(tr => {
-    const d = new Date((tr.dataInicio || tr.date || '2000-01-01') + 'T12:00:00');
+    const d = new Date((tr.data_inicio || '2000-01-01').slice(0, 10) + 'T12:00:00');
     const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     if (!byM[k]) byM[k] = [];
     byM[k].push(tr);
@@ -262,7 +262,7 @@ window.inlineUpdateDesp = async function (tripId, categoria, val) {
           <span class="val pos">R$ ${fmt(f)}</span>
           <span class="val neg">- R$ ${fmt(d)}</span>
           <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
-          ${tr.km ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(tr.km).toLocaleString('pt-BR')}km</span>` : ''}`;
+          ${tr.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(tr.km_total).toLocaleString('pt-BR')}km</span>` : ''}`;
       }
 
       updateKPIs();
@@ -314,8 +314,8 @@ window.inlineSaveFuel = async function (tripId) {
   if (!litros && !valor) { alert('Informe pelo menos litros ou valor.'); return; }
   try {
     await api.post('/api/fuels/trip/' + tripId, {
-      data, litros: parseFloat(litros) || 0, precoLitro: parseFloat(precoLitro) || 0,
-      posto, notaFiscal: nf, km: parseFloat(km) || 0, valor: parseFloat(valor) || 0
+      data, litros: parseFloat(litros) || 0, preco_litro: parseFloat(precoLitro) || 0,
+      posto_cnpj: posto, nota_fiscal: nf, km: parseFloat(km) || 0, valor_total: parseFloat(valor) || 0
     });
     await inlineRefreshTrip(tripId);
   } catch (e) {

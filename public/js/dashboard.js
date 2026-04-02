@@ -14,7 +14,7 @@ export async function renderMain() {
 
   // Fetch trips from API
   try {
-    const trips = await api.get('/api/trucks/' + truck.id + '/trips');
+    const trips = await api.get('/api/trips/truck/' + truck.id);
     setTrips(trips);
   } catch (e) {
     main.innerHTML = `<div class="empty-state"><div class="empty-icon">&#x26A0;&#xFE0F;</div><h3>Erro</h3><p>${esc(e.message)}</p></div>`;
@@ -27,14 +27,15 @@ export async function renderMain() {
   trips.forEach(tr => {
     totF += calcFrete(tr);
     totD += calcDesp(tr);
-    totKm += parseInt(tr.km || 0);
+    totKm += parseInt(tr.km_total || 0);
     (tr.fuels || []).forEach(f => totL += parseFloat(f.litros || 0));
   });
 
   // Group by month
   const byM = {};
   trips.forEach(tr => {
-    const d = new Date((tr.dataInicio || tr.date || '2000-01-01') + 'T12:00:00');
+    const ds = (tr.data_inicio || '2000-01-01').slice(0, 10);
+    const d = new Date(ds + 'T12:00:00');
     const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     if (!byM[k]) byM[k] = [];
     byM[k].push(tr);
@@ -66,7 +67,7 @@ export async function renderMain() {
     html += `<div class="empty-state"><div class="empty-icon">&#x1F4CB;</div><h3>Sem Viagens</h3><p>Nenhuma viagem registrada.</p></div>`;
   } else {
     months.forEach(mk => {
-      const mTrips = byM[mk].sort((a, b) => (b.dataInicio || b.date || '').localeCompare(a.dataInicio || a.date || ''));
+      const mTrips = byM[mk].sort((a, b) => (b.data_inicio || '').localeCompare(a.data_inicio || ''));
       const [yr, mo] = mk.split('-');
       const mName = new Date(+yr, +mo - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
       const mF = mTrips.reduce((s, t) => s + calcFrete(t), 0);
@@ -87,23 +88,23 @@ export async function renderMain() {
 
       mTrips.forEach(tr => {
         const f = calcFrete(tr), d = calcDesp(tr), l = f - d;
-        const dateField = tr.dataInicio || tr.date || '';
+        const dateField = (tr.data_inicio || '').slice(0, 10);
         const sm = {
-          ok: ['status-ok', '&#x2705; Conclu\u00EDda'],
-          pend: ['status-pend', '&#x23F3; Pendente'],
-          canc: ['status-canc', '&#x274C; Cancelada'],
+          OK: ['status-ok', '&#x2705; Conclu\u00EDda'],
+          PENDENTE: ['status-pend', '&#x23F3; Pendente'],
+          CANCELADA: ['status-canc', '&#x274C; Cancelada'],
         };
-        const [sc, sl] = sm[tr.status] || sm.ok;
+        const [sc, sl] = sm[tr.status] || sm.OK;
 
         html += `<div class="trip-card">
           <div class="trip-header" onclick="toggleTrip('${esc(tr.id)}')">
             <span class="trip-date">${fmtD(dateField)}</span>
-            <span class="trip-route">${esc(tr.origem || tr.origin || '\u2014')} <span class="route-arrow">\u2192</span> ${esc(tr.destino || tr.dest || '\u2014')}${tr.carga || tr.cargo ? `<span class="cargo-tag">${esc(tr.carga || tr.cargo)}</span>` : ''}</span>
+            <span class="trip-route">${esc(tr.origem || '\u2014')} <span class="route-arrow">\u2192</span> ${esc(tr.destino || '\u2014')}${tr.carga ? `<span class="cargo-tag">${esc(tr.carga)}</span>` : ''}</span>
             <div class="trip-nums">
               <span class="val pos">R$ ${fmt(f)}</span>
               <span class="val neg">- R$ ${fmt(d)}</span>
               <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
-              ${tr.km ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(tr.km).toLocaleString('pt-BR')}km</span>` : ''}
+              ${tr.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(tr.km_total).toLocaleString('pt-BR')}km</span>` : ''}
             </div>
             <span class="status-badge ${sc}">${sl}</span>
             <div class="trip-actions">

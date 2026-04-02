@@ -59,8 +59,8 @@ async function create(truckId, empresaId, data) {
   return prisma.trip.create({
     data: {
       truck_id: truckId,
-      data_inicio: data.data_inicio,
-      data_fim: data.data_fim,
+      data_inicio: new Date(data.data_inicio),
+      data_fim: data.data_fim ? new Date(data.data_fim) : null,
       origem: data.origem,
       destino: data.destino,
       carga: data.carga,
@@ -81,6 +81,9 @@ async function create(truckId, empresaId, data) {
 
 async function update(id, empresaId, data) {
   await verifyTripOwnership(id, empresaId);
+
+  if (data.data_inicio) data.data_inicio = new Date(data.data_inicio);
+  if (data.data_fim) data.data_fim = new Date(data.data_fim);
 
   return prisma.trip.update({
     where: { id },

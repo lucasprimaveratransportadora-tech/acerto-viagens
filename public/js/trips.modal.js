@@ -34,7 +34,7 @@ window.openTripModal = function (pre) {
   ['trpDateEnd', 'trpOrigin', 'trpDest', 'trpCargo', 'trpObs'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('trpKm').value = '';
   document.getElementById('trpAdto').value = '';
-  document.getElementById('trpStatus').value = 'ok';
+  document.getElementById('trpStatus').value = 'PENDENTE';
   document.getElementById('tripEditId').dataset.id = '';
   document.getElementById('cteTbody').innerHTML = '';
   document.getElementById('fuelTbody').innerHTML = '';
@@ -60,26 +60,26 @@ window.closeTripModal = function () {
 window.editTrip = async function (id) {
   try {
     const tr = await api.get('/api/trips/' + id);
-    window.openTripModal(tr.truckId);
+    window.openTripModal(tr.truck_id);
 
-    document.getElementById('trpTruck').value = tr.truckId;
-    document.getElementById('trpDate').value = tr.dataInicio || tr.date || '';
-    document.getElementById('trpDateEnd').value = tr.dataFim || tr.dateEnd || '';
-    document.getElementById('trpOrigin').value = tr.origem || tr.origin || '';
-    document.getElementById('trpDest').value = tr.destino || tr.dest || '';
-    document.getElementById('trpCargo').value = tr.carga || tr.cargo || '';
-    document.getElementById('trpKm').value = tr.km || '';
-    document.getElementById('trpStatus').value = tr.status || 'ok';
-    document.getElementById('trpAdto').value = tr.adiantamento || tr.adto || '';
-    document.getElementById('trpObs').value = tr.observacoes || tr.obs || '';
+    document.getElementById('trpTruck').value = tr.truck_id;
+    document.getElementById('trpDate').value = (tr.data_inicio || '').slice(0, 10);
+    document.getElementById('trpDateEnd').value = (tr.data_fim || '').slice(0, 10);
+    document.getElementById('trpOrigin').value = tr.origem || '';
+    document.getElementById('trpDest').value = tr.destino || '';
+    document.getElementById('trpCargo').value = tr.carga || '';
+    document.getElementById('trpKm').value = tr.km_total || '';
+    document.getElementById('trpStatus').value = tr.status || 'PENDENTE';
+    document.getElementById('trpAdto').value = tr.adiantamento || '';
+    document.getElementById('trpObs').value = tr.observacoes || '';
     document.getElementById('tripEditId').dataset.id = id;
 
     // Load CTEs
     (tr.ctes || []).forEach(c => window.addCteRow({
       data: c.data || '',
-      num: c.numero || c.num || '',
-      origin: c.origem || c.origin || '',
-      dest: c.destino || c.dest || '',
+      num: c.numero || '',
+      origin: c.origem || '',
+      dest: c.destino || '',
       valor: c.valor || ''
     }));
     window.updateCteTotals();
@@ -88,14 +88,14 @@ window.editTrip = async function (id) {
     (tr.fuels || []).forEach(f => window.addFuelRow({
       data: f.data || '',
       litros: f.litros || '',
-      precoLitro: f.precoLitro || '',
-      posto: f.posto || '',
-      nf: f.notaFiscal || f.nf || '',
+      precoLitro: f.preco_litro || '',
+      posto: f.posto_cnpj || '',
+      nf: f.nota_fiscal || '',
       km: f.km || '',
-      valor: f.valor || ''
+      valor: f.valor_total || ''
     }));
-    document.getElementById('fuelKmInicial').value = tr.fuelKmInicial || tr.kmInicial || '';
-    document.getElementById('fuelKmFinal').value = tr.fuelKmFinal || tr.kmFinal || '';
+    document.getElementById('fuelKmInicial').value = tr.km_inicial || '';
+    document.getElementById('fuelKmFinal').value = tr.km_final || '';
     window.updateFuelTotals();
 
     // Load Despesas from expenses array
@@ -205,13 +205,13 @@ function getFuelRows() {
     return {
       data: ins[0].value,
       litros: parseFloat(ins[1].value) || 0,
-      precoLitro: parseFloat(ins[2].value) || 0,
-      posto: ins[3].value,
-      notaFiscal: ins[4].value,
+      preco_litro: parseFloat(ins[2].value) || 0,
+      posto_cnpj: ins[3].value,
+      nota_fiscal: ins[4].value,
       km: parseFloat(ins[5].value) || 0,
-      valor: parseFloat(ins[6].value) || 0
+      valor_total: parseFloat(ins[6].value) || 0
     };
-  }).filter(f => f.litros || f.valor || f.posto);
+  }).filter(f => f.litros || f.valor_total || f.posto_cnpj);
 }
 
 // ==================== DESPESAS ====================
@@ -252,18 +252,17 @@ window.saveTrip = async function () {
   if (!truckId || !date) { alert('Informe o caminh\u00E3o e a data!'); return; }
 
   const tripData = {
-    truckId,
-    dataInicio: date,
-    dataFim: document.getElementById('trpDateEnd').value || null,
+    data_inicio: date,
+    data_fim: document.getElementById('trpDateEnd').value || null,
     origem: document.getElementById('trpOrigin').value.trim(),
     destino: document.getElementById('trpDest').value.trim(),
     carga: document.getElementById('trpCargo').value.trim(),
-    km: parseInt(document.getElementById('trpKm').value) || 0,
+    km_total: parseInt(document.getElementById('trpKm').value) || 0,
     status: document.getElementById('trpStatus').value,
     adiantamento: parseFloat(document.getElementById('trpAdto').value) || 0,
     observacoes: document.getElementById('trpObs').value.trim(),
-    fuelKmInicial: parseFloat(document.getElementById('fuelKmInicial').value) || 0,
-    fuelKmFinal: parseFloat(document.getElementById('fuelKmFinal').value) || 0,
+    km_inicial: parseFloat(document.getElementById('fuelKmInicial').value) || 0,
+    km_final: parseFloat(document.getElementById('fuelKmFinal').value) || 0,
   };
 
   const ctes = getCteRows();
