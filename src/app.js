@@ -10,6 +10,9 @@ const routes = require('./routes');
 
 const app = express();
 
+// Trust Railway/Proxy headers (X-Forwarded-For) for rate-limit and secure cookies
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
