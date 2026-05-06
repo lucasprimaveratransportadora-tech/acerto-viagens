@@ -10,5 +10,7 @@ router.use('/ctes', require('./ctes.routes'));
 router.use('/fuels', require('./fuels.routes'));
 router.use('/expenses', require('./expenses.routes'));
 router.use('/dashboard', require('./dashboard.routes'));
+router.use('/audit', require('./audit.routes'));
+router.use('/login-events', require('./loginEvents.routes'));
 
 module.exports = router;
