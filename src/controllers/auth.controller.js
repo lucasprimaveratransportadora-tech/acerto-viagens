@@ -4,7 +4,8 @@ const config = require('../config');
 
 const login = asyncHandler(async (req, res) => {
   const { email, senha } = req.body;
-  const result = await authService.login(email, senha);
+  const reqMeta = { ip: req.ip, headers: req.headers };
+  const result = await authService.login(email, senha, reqMeta);
 
   // Set refresh token as httpOnly cookie
   res.cookie('refreshToken', result.refreshToken, {
@@ -23,7 +24,8 @@ const login = asyncHandler(async (req, res) => {
 
 const refresh = asyncHandler(async (req, res) => {
   const refreshToken = req.cookies.refreshToken;
-  const result = await authService.refresh(refreshToken);
+  const reqMeta = { ip: req.ip, headers: req.headers };
+  const result = await authService.refresh(refreshToken, reqMeta);
 
   res.cookie('refreshToken', result.refreshToken, {
     httpOnly: true,
@@ -38,7 +40,8 @@ const refresh = asyncHandler(async (req, res) => {
 
 const logout = asyncHandler(async (req, res) => {
   const refreshToken = req.cookies.refreshToken;
-  await authService.logout(refreshToken);
+  const reqMeta = { ip: req.ip, headers: req.headers };
+  await authService.logout(refreshToken, reqMeta);
 
   res.clearCookie('refreshToken', { path: '/api/auth' });
   res.json({ message: 'Logout realizado.' });
