@@ -12,17 +12,17 @@ const getById = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const trip = await tripsService.create(req.params.truckId, req.empresaId, req.body);
+  const trip = await tripsService.create(req.params.truckId, req.empresaId, req, req.body);
   res.status(201).json(trip);
 });
 
 const update = asyncHandler(async (req, res) => {
-  const trip = await tripsService.update(req.params.id, req.empresaId, req.body);
+  const trip = await tripsService.update(req.params.id, req.empresaId, req, req.body);
   res.json(trip);
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await tripsService.remove(req.params.id, req.empresaId);
+  await tripsService.remove(req.params.id, req.empresaId, req);
   res.json({ message: 'Viagem removida.' });
 });
 

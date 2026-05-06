@@ -12,17 +12,17 @@ const getById = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const truck = await trucksService.create(req.empresaId, req.body);
+  const truck = await trucksService.create(req.empresaId, req, req.body);
   res.status(201).json(truck);
 });
 
 const update = asyncHandler(async (req, res) => {
-  const truck = await trucksService.update(req.params.id, req.empresaId, req.body);
+  const truck = await trucksService.update(req.params.id, req.empresaId, req, req.body);
   res.json(truck);
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await trucksService.remove(req.params.id, req.empresaId);
+  await trucksService.remove(req.params.id, req.empresaId, req);
   res.json({ message: 'Caminhão removido.' });
 });
 

@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
+const audit = require('./audit.service');
 
 async function verifyTruckOwnership(truckId, empresaId) {
   const truck = await prisma.truck.findFirst({
@@ -53,10 +54,10 @@ async function getById(id, empresaId) {
   return trip;
 }
 
-async function create(truckId, empresaId, data) {
+async function create(truckId, empresaId, req, data) {
   await verifyTruckOwnership(truckId, empresaId);
 
-  return prisma.trip.create({
+  const trip = await prisma.trip.create({
     data: {
       truck_id: truckId,
       data_inicio: new Date(data.data_inicio),
@@ -77,15 +78,18 @@ async function create(truckId, empresaId, data) {
       expenses: true,
     },
   });
+  await audit.log({ req, empresaId, entity: 'TRIP', action: 'CREATE', entityId: trip.id, before: null, after: trip });
+  return trip;
 }
 
-async function update(id, empresaId, data) {
+async function update(id, empresaId, req, data) {
   await verifyTripOwnership(id, empresaId);
 
   if (data.data_inicio) data.data_inicio = new Date(data.data_inicio);
   if (data.data_fim) data.data_fim = new Date(data.data_fim);
 
-  return prisma.trip.update({
+  const before = await prisma.trip.findUnique({ where: { id } });
+  const after = await prisma.trip.update({
     where: { id },
     data,
     include: {
@@ -94,15 +98,20 @@ async function update(id, empresaId, data) {
       expenses: true,
     },
   });
+  await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id, before, after });
+  return after;
 }
 
-async function remove(id, empresaId) {
+async function remove(id, empresaId, req) {
   await verifyTripOwnership(id, empresaId);
 
-  return prisma.trip.update({
+  const before = await prisma.trip.findUnique({ where: { id } });
+  const after = await prisma.trip.update({
     where: { id },
     data: { deleted_at: new Date() },
   });
+  await audit.log({ req, empresaId, entity: 'TRIP', action: 'DELETE', entityId: id, before, after });
+  return after;
 }
 
 module.exports = { listByTruck, getById, create, update, remove };
