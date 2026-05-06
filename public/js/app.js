@@ -39,10 +39,11 @@ window.doLogout = async function () {
 
 async function loadAppModules() {
   try {
-    const [sidebarMod, dashMod, stateMod] = await Promise.all([
+    const [sidebarMod, dashMod, stateMod, adminMod] = await Promise.all([
       import('./sidebar.js'),
       import('./dashboard.js'),
       import('./state.js'),
+      import('./admin/index.js'),
     ]);
     // Load UI modules (they register window functions)
     await Promise.all([
@@ -51,6 +52,8 @@ async function loadAppModules() {
       import('./trips.modal.js'),
       import('./trips.js'),
     ]);
+
+    adminMod.initAdmin();
 
     await sidebarMod.loadTrucks();
     if (stateMod.state.trucks.length) {

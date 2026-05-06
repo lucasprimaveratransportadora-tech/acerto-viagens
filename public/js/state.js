@@ -4,6 +4,16 @@ export let state = {
   trucks: [],
   trips: [],
   selectedTruckId: null,
+  // Admin panel state
+  adminView: false,
+  adminTab: 'users',
+  adminFilters: {
+    audit:  { entity: '', entity_id: '', actor_id: '', action: '', from: '', to: '', page: 1, limit: 50 },
+    logins: { user_id: '', action: '', page: 1, limit: 50 },
+  },
+  adminUsers: [],
+  adminAuditPage:  { items: [], total: 0, page: 1, totalPages: 1 },
+  adminLoginsPage: { items: [], total: 0, page: 1, totalPages: 1 },
 };
 
 export function setTrucks(trucks) { state.trucks = trucks; }
