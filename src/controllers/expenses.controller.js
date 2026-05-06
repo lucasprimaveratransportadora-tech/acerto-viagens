@@ -2,12 +2,12 @@ const expensesService = require('../services/expenses.service');
 const asyncHandler = require('../utils/asyncHandler');
 
 const upsertAll = asyncHandler(async (req, res) => {
-  const expenses = await expensesService.upsertAll(req.params.tripId, req.empresaId, req.body);
+  const expenses = await expensesService.upsertAll(req.params.tripId, req.empresaId, req, req.body);
   res.json(expenses);
 });
 
 const updateOne = asyncHandler(async (req, res) => {
-  const expense = await expensesService.updateOne(req.params.tripId, req.empresaId, req.params.cat, req.body.valor);
+  const expense = await expensesService.updateOne(req.params.tripId, req.empresaId, req, req.params.cat, req.body.valor);
   res.json(expense);
 });
 

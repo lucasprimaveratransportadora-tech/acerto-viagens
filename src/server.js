@@ -1,11 +1,15 @@
 const app = require('./app');
 const config = require('./config');
 const prisma = require('./config/database');
+const { schedule: scheduleCleanup } = require('./jobs/cleanupLoginEvents');
 
 async function main() {
   try {
     await prisma.$connect();
     console.log('Database connected successfully');
+
+    scheduleCleanup();
+    console.log('Login events cleanup scheduled (every 6h, retention 48h)');
 
     app.listen(config.port, () => {
       console.log(`Server running on port ${config.port} [${config.nodeEnv}]`);

@@ -48,6 +48,28 @@ enum AttachmentType {
   OUTRO
 }
 
+enum AuditEntity {
+  TRIP
+  CTE
+  FUEL
+  EXPENSE
+  USER
+  TRUCK
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum LoginAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  REFRESH_FAILED
+}
+
 model Empresa {
   id         String   @id @default(uuid())
   nome       String
@@ -59,6 +81,8 @@ model Empresa {
   users      User[]
   trucks     Truck[]
   attachments Attachment[]
+  audit_logs   AuditLog[]
+  login_events LoginEvent[]
   @@map("empresas")
 }
 
@@ -74,6 +98,8 @@ model User {
   created_at     DateTime       @default(now())
   updated_at     DateTime       @updatedAt
   refresh_tokens RefreshToken[]
+  audit_logs     AuditLog[]
+  login_events   LoginEvent[]
   @@index([empresa_id])
   @@map("users")
 }
@@ -199,4 +225,44 @@ model Attachment {
   @@index([truck_id])
   @@index([trip_id])
   @@map("attachments")
+}
+
+model AuditLog {
+  id           String       @id @default(uuid())
+  empresa_id   String
+  empresa      Empresa      @relation(fields: [empresa_id], references: [id])
+  actor_id     String?
+  actor        User?        @relation(fields: [actor_id], references: [id])
+  actor_email  String
+  entity_type  AuditEntity
+  entity_id    String
+  action       AuditAction
+  before       Json?
+  after        Json?
+  ip           String?
+  user_agent   String?
+  created_at   DateTime     @default(now())
+
+  @@index([empresa_id, created_at(sort: Desc)])
+  @@index([entity_type, entity_id])
+  @@index([actor_id, created_at(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model LoginEvent {
+  id            String       @id @default(uuid())
+  empresa_id    String?
+  empresa       Empresa?     @relation(fields: [empresa_id], references: [id])
+  user_id       String?
+  user          User?        @relation(fields: [user_id], references: [id])
+  email_attempt String
+  action        LoginAction
+  ip            String?
+  user_agent    String?
+  created_at    DateTime     @default(now())
+
+  @@index([empresa_id, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([created_at])
+  @@map("login_events")
 }

@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/css/trips.css">
 <link rel="stylesheet" href="/css/forms.css">
 <link rel="stylesheet" href="/css/responsive.css">
+<link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
 
@@ -47,14 +48,15 @@
     <div style="display:flex;align-items:center;gap:12px">
       <span id="userInfo" style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
       <div class="header-actions">
-        <button class="btn btn-ghost" onclick="openTruckModal()">+ Caminhão</button>
-        <button class="btn btn-accent" onclick="openTripModal()">+ Nova Viagem</button>
+        <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
+        <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
+        <button class="btn btn-ghost btn-sm" id="adminBtn" onclick="toggleAdmin()" style="display:none">⚙️ Admin</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger);margin-left:8px">Sair</button>
       </div>
     </div>
   </header>
 
-  <div class="container">
+  <div class="container" id="frotaContainer">
     <aside class="sidebar">
       <div class="sidebar-hdr"><span class="sidebar-title">Frota / Placas</span></div>
       <div class="sidebar-list" id="truckList"></div>
@@ -67,6 +69,18 @@
         <button class="btn btn-accent" onclick="openTruckModal()">+ Cadastrar Caminhão</button>
       </div>
     </main>
+  </div>
+
+  <div id="adminView" style="display:none">
+    <div class="admin-header">
+      <button class="btn btn-ghost btn-sm" onclick="toggleAdmin()">&larr; Voltar à Frota</button>
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="users" onclick="switchAdminTab('users')">Usuários</button>
+        <button class="admin-tab" data-tab="audit" onclick="switchAdminTab('audit')">Auditoria</button>
+        <button class="admin-tab" data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>
+      </div>
+    </div>
+    <div id="adminContent"></div>
   </div>
 
 </div>
