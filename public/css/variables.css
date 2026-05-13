@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
-:root {
+:root, [data-theme="dark"] {
   --bg:#0e0f11;
   --surface:#16181c;
   --surface2:#1e2127;
@@ -14,3 +14,26 @@
   --danger:#ef4444;
   --info:#38bdf8;
 }
+
+[data-theme="light"] {
+  --bg:#f5f6f8;
+  --surface:#ffffff;
+  --surface2:#f0f2f5;
+  --surface3:#e6e9ee;
+  --border:#d4d7dd;
+  --accent:#E30613;
+  --accent2:#a00010;
+  --text:#1a1d23;
+  --muted:#6b7280;
+  --success:#16a34a;
+  --danger:#dc2626;
+  --info:#0284c7;
+}
+
+/* Adjustments for light theme — translucent overlays need more opacity */
+[data-theme="light"] .admin-tab:hover { background: rgba(0,0,0,.04); color: var(--text); }
+[data-theme="light"] .admin-table tr:hover td { background: rgba(0,0,0,.02); }
+[data-theme="light"] .admin-filters { background: rgba(0,0,0,.02); }
+[data-theme="light"] .pagination button { background: var(--surface); }
+[data-theme="light"] .diff-col { background: rgba(0,0,0,.03); }
+[data-theme="light"] .diff-line.changed { background: rgba(234,179,8,.18); }

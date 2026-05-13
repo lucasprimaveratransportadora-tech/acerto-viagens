@@ -14,11 +14,19 @@
 <link rel="stylesheet" href="/css/forms.css">
 <link rel="stylesheet" href="/css/responsive.css">
 <link rel="stylesheet" href="/css/admin.css">
+<script>
+  // Aplica tema antes do paint para evitar flash
+  (function() {
+    var t = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 </head>
 <body>
 
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center">
+  <button onclick="toggleTheme()" id="themeBtnLogin" style="position:absolute;top:1rem;right:1rem;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.4rem .6rem;border-radius:6px;cursor:pointer;font-size:.85rem" title="Alternar tema">🌙</button>
   <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;padding:2rem;width:380px;max-width:95vw;text-align:center">
     <img src="/assets/images/logo-full.png" alt="Prima" style="height:45px;margin-bottom:.5rem">
     <div style="font-size:.65rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:1.5rem">Acerto de Viagem</div>
@@ -51,6 +59,7 @@
         <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
         <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
         <button class="btn btn-ghost btn-sm" id="adminBtn" onclick="toggleAdmin()" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()" title="Alternar tema">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger);margin-left:8px">Sair</button>
       </div>
     </div>
