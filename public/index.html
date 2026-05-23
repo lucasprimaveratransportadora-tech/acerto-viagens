@@ -289,9 +289,9 @@
             <div class="ft-kpi-hint">Fretes ainda não liquidados</div>
           </div>
           <div class="ft-kpi blue">
-            <div class="ft-kpi-label">Total adiantado</div>
+            <div class="ft-kpi-label">Adiantamento aguardado</div>
             <div class="ft-kpi-value" id="kpiAdiantado">R$ 0,00</div>
-            <div class="ft-kpi-hint">Já recebido como adiantamento</div>
+            <div class="ft-kpi-hint">1ª parcela planejada e ainda não recebida</div>
           </div>
           <div class="ft-kpi green">
             <div class="ft-kpi-label">Recebido no mês</div>
@@ -436,8 +436,12 @@
 
     <div class="form-row" id="ftAdiRow" style="display:none">
       <div class="form-group">
-        <label>Valor adiantamento (R$)</label>
+        <label>Valor planejado do adiantamento (1ª parcela)</label>
         <input type="number" id="ftAdi" placeholder="0,00" step="0.01" min="0">
+        <small style="color:var(--muted);font-size:.68rem">
+          Valor da primeira parcela que será recebida. Ela ainda não foi paga —
+          será baixada quando o pagamento chegar.
+        </small>
       </div>
     </div>
 

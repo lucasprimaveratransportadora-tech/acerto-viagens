@@ -2,14 +2,12 @@ const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
 
-function computeStatus({ valor_total, valor_adiantamento, valor_pago, forma_pagamento }) {
+function computeStatus({ valor_total, valor_pago }) {
   const total = Number(valor_total || 0);
-  const adi   = Number(valor_adiantamento || 0);
   const pago  = Number(valor_pago || 0);
-  const liquidado = adi + pago;
   if (total <= 0) return 'ABERTO';
-  if (liquidado >= total - 0.001) return 'PAGO';
-  if (liquidado > 0) return 'PAGO_PARCIAL';
+  if (pago >= total - 0.001) return 'PAGO';
+  if (pago > 0) return 'PAGO_PARCIAL';
   return 'ABERTO';
 }
 
@@ -61,23 +59,33 @@ async function list(empresaId, filters = {}) {
 async function summary(empresaId) {
   const all = await prisma.freteTerceiro.findMany({
     where: { empresa_id: empresaId, deleted_at: null },
-    select: { status: true, valor_total: true, valor_adiantamento: true, valor_pago: true, data: true },
+    select: { status: true, valor_total: true, valor_adiantamento: true, valor_pago: true, data: true, forma_pagamento: true, data_pagamento: true },
   });
   const now = new Date();
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  let aberto = 0, adiantado = 0, pagoMes = 0, qtdMes = 0;
+  let aberto = 0;             // saldo a receber em fretes não pagos
+  let adiantadoPendente = 0;  // adiantamentos planejados ainda não recebidos
+  let pagoMes = 0;            // valor recebido cuja última baixa caiu no mês
+  let qtdMes = 0;             // fretes lançados no mês
+
   for (const f of all) {
     const total = Number(f.valor_total);
     const adi   = Number(f.valor_adiantamento);
     const pago  = Number(f.valor_pago);
-    if (f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL') aberto += (total - adi - pago);
-    adiantado += adi;
-    if (f.data >= startMonth) {
-      qtdMes += 1;
-      pagoMes += pago + adi;
+    const status = f.status;
+
+    if (status !== 'PAGO' && status !== 'CANCELADO') {
+      aberto += (total - pago);
+      if (f.forma_pagamento === 'ADIANTAMENTO_SALDO' && pago < adi) {
+        adiantadoPendente += (adi - pago);
+      }
+    }
+    if (f.data >= startMonth) qtdMes += 1;
+    if (pago > 0 && f.data_pagamento && f.data_pagamento >= startMonth) {
+      pagoMes += pago;
     }
   }
-  return { aberto, adiantado, pagoMes, qtdMes };
+  return { aberto, adiantado: adiantadoPendente, pagoMes, qtdMes };
 }
 
 async function create(empresaId, req, data) {
@@ -91,7 +99,9 @@ async function create(empresaId, req, data) {
 
   const total = Number(data.valor_total || 0);
   const adi   = Number(data.valor_adiantamento || 0);
-  const status = computeStatus({ valor_total: total, valor_adiantamento: adi, valor_pago: 0, forma_pagamento: data.forma_pagamento });
+  // Adiantamento é o valor PLANEJADO da 1ª parcela (ainda não recebido).
+  // Status inicial é sempre ABERTO; só muda quando há baixa.
+  const status = computeStatus({ valor_total: total, valor_pago: 0 });
 
   const frete = await prisma.freteTerceiro.create({
     data: {
@@ -108,7 +118,7 @@ async function create(empresaId, req, data) {
       valor_pago:         0,
       forma_pagamento:    data.forma_pagamento || 'INTEGRAL',
       status,
-      data_adiantamento:  adi > 0 ? new Date(data.data_adiantamento || data.data) : null,
+      data_adiantamento:  null,
       observacoes:        data.observacoes || null,
       created_by_id:      req.user.id,
     },
@@ -126,7 +136,7 @@ async function update(id, empresaId, req, data) {
   const total = data.valor_total != null ? Number(data.valor_total) : Number(before.valor_total);
   const adi   = data.valor_adiantamento != null ? Number(data.valor_adiantamento) : Number(before.valor_adiantamento);
   const pago  = Number(before.valor_pago);
-  const status = computeStatus({ valor_total: total, valor_adiantamento: adi, valor_pago: pago });
+  const status = computeStatus({ valor_total: total, valor_pago: pago });
 
   const patch = {};
   if (data.empresa_pagadora != null) patch.empresa_pagadora = data.empresa_pagadora;
@@ -174,20 +184,25 @@ async function baixar(id, empresaId, req, data) {
   if (valor <= 0) throw ApiError.badRequest('Valor de baixa deve ser maior que zero.');
 
   const total = Number(before.valor_total);
-  const adi   = Number(before.valor_adiantamento);
-  const pago  = Number(before.valor_pago) + valor;
-  if (adi + pago > total + 0.001) {
+  const pagoAnterior = Number(before.valor_pago);
+  const pago  = pagoAnterior + valor;
+  if (pago > total + 0.001) {
     throw ApiError.badRequest('Valor de baixa excede o saldo em aberto.');
   }
-  const status = computeStatus({ valor_total: total, valor_adiantamento: adi, valor_pago: pago });
+  const status = computeStatus({ valor_total: total, valor_pago: pago });
   const data_pagamento = data.data_pagamento ? new Date(data.data_pagamento) : new Date();
 
+  const isFirstBaixa = pagoAnterior <= 0.001;
   const after = await prisma.freteTerceiro.update({
     where: { id },
     data: {
       valor_pago: pago,
       status,
       data_pagamento,
+      // Na primeira baixa de fretes Adiantamento+Saldo, registra a data do adiantamento
+      data_adiantamento: (isFirstBaixa && before.forma_pagamento === 'ADIANTAMENTO_SALDO')
+        ? data_pagamento
+        : before.data_adiantamento,
       paid_by_id: req.user.id,
       observacoes: data.observacoes ? `${before.observacoes ? before.observacoes + '\n' : ''}[BAIXA ${data_pagamento.toISOString().slice(0,10)}] ${data.observacoes}` : before.observacoes,
     },

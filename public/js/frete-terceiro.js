@@ -75,9 +75,8 @@ function renderTable() {
   }
   tbody.innerHTML = state.items.map(f => {
     const total = Number(f.valor_total);
-    const adi   = Number(f.valor_adiantamento);
     const pago  = Number(f.valor_pago);
-    const saldo = total - adi - pago;
+    const saldo = total - pago;
     const linked = f.trip_id ? `<span class="ft-trip-badge">VIAGEM</span>` : '';
     const canBaixar = f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL';
     const rota = (f.origem || f.destino) ? `<div class="ft-row-meta">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div>` : '';
@@ -193,14 +192,21 @@ function setPagamento(p) {
 function updateSaldoPreview() {
   const total = Number(document.getElementById('ftValor').value || 0);
   const adi   = Number(document.getElementById('ftAdi').value || 0);
+  const forma = document.querySelector('[data-ft-pag].active')?.dataset.ftPag || 'INTEGRAL';
   const saldo = total - adi;
   const el = document.getElementById('ftSaldoPreview');
   if (!el) return;
-  el.innerHTML = `
-    <span class="lbl">Total</span><span class="val">${fmtBRL(total)}</span>
-    <span class="lbl">Adiantamento</span><span class="val warn">${fmtBRL(adi)}</span>
-    <span class="lbl">Saldo a receber</span><span class="val ok">${fmtBRL(saldo)}</span>
-  `;
+  if (forma === 'ADIANTAMENTO_SALDO' && adi > 0) {
+    el.innerHTML = `
+      <span class="lbl">Total</span><span class="val">${fmtBRL(total)}</span>
+      <span class="lbl">1ª parcela (adiantamento)</span><span class="val warn">${fmtBRL(adi)}</span>
+      <span class="lbl">2ª parcela (saldo)</span><span class="val ok">${fmtBRL(saldo)}</span>
+    `;
+  } else {
+    el.innerHTML = `
+      <span class="lbl">Total a receber</span><span class="val ok">${fmtBRL(total)}</span>
+    `;
+  }
 }
 
 async function save() {
@@ -243,15 +249,43 @@ function openBaixa(id) {
   const total = Number(f.valor_total);
   const adi   = Number(f.valor_adiantamento);
   const pago  = Number(f.valor_pago);
-  const saldo = total - adi - pago;
+  const saldoTotal = total - pago;
+
+  // Para fretes Adiantamento+Saldo:
+  //   - 1ª parcela esperada = adiantamento (se ainda não recebido)
+  //   - 2ª parcela esperada = total - adiantamento (saldo) ou o que faltar
+  let proximaParcela = saldoTotal;
+  let parcelaLabel = 'Saldo a receber';
+  if (f.forma_pagamento === 'ADIANTAMENTO_SALDO') {
+    if (pago < adi - 0.001) {
+      proximaParcela = adi - pago;
+      parcelaLabel = '1ª parcela — Adiantamento';
+    } else {
+      proximaParcela = saldoTotal;
+      parcelaLabel = '2ª parcela — Saldo final';
+    }
+  }
+
+  const breakdown = f.forma_pagamento === 'ADIANTAMENTO_SALDO'
+    ? `
+      <span class="lbl">1ª parcela (adiantamento)</span><span class="val">${fmtBRL(adi)}</span>
+      <span class="lbl">2ª parcela (saldo)</span><span class="val">${fmtBRL(total - adi)}</span>`
+    : `
+      <span class="lbl">Pagamento</span><span class="val">Integral</span>`;
+
   document.getElementById('ftBaixaInfo').innerHTML = `
     <div class="ft-saldo-bar">
       <span class="lbl">Empresa</span><span class="val">${esc(f.empresa_pagadora)}</span>
       <span class="lbl">Total</span><span class="val">${fmtBRL(total)}</span>
-      <span class="lbl">Já recebido</span><span class="val">${fmtBRL(adi + pago)}</span>
-      <span class="lbl">Saldo</span><span class="val warn">${fmtBRL(saldo)}</span>
+      ${breakdown}
+      <span class="lbl">Já recebido</span><span class="val ok">${fmtBRL(pago)}</span>
+      <span class="lbl">Saldo em aberto</span><span class="val warn">${fmtBRL(saldoTotal)}</span>
+    </div>
+    <div style="margin-top:.7rem;padding:.55rem .8rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:5px;font-size:.78rem">
+      <b>Próxima parcela:</b> <span style="font-family:'IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-size:.7rem">${parcelaLabel}</span>
+      <span style="float:right;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#f59e0b;letter-spacing:1px">${fmtBRL(proximaParcela)}</span>
     </div>`;
-  document.getElementById('ftBaixaValor').value = saldo.toFixed(2);
+  document.getElementById('ftBaixaValor').value = proximaParcela.toFixed(2);
   document.getElementById('ftBaixaData').value  = dateISO();
   document.getElementById('ftBaixaObs').value   = '';
   document.getElementById('ftBaixaModal').classList.add('open');
