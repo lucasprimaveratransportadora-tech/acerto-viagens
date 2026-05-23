@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/css/forms.css">
 <link rel="stylesheet" href="/css/responsive.css">
 <link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/hub.css">
 <script>
   // Aplica tema antes do paint para evitar flash
   (function() {
@@ -48,48 +49,242 @@
 <!-- APP CONTAINER -->
 <div id="appContainer" style="display:none">
 
-  <header>
-    <div class="logo">
-      <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima Transportadora">
-      <div class="logo-sub">Acerto de Viagem</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <span id="userInfo" style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
-      <div class="header-actions">
-        <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
-        <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
-        <button class="btn btn-ghost btn-sm" id="adminBtn" onclick="toggleAdmin()" style="display:none">⚙️ Admin</button>
-        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()" title="Alternar tema">🌙</button>
-        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger);margin-left:8px">Sair</button>
-      </div>
-    </div>
-  </header>
+  <!-- ============================================================
+       HUB — landing page (default após login)
+       ============================================================ -->
+  <div id="hubView" style="display:none">
 
-  <div class="container" id="frotaContainer">
-    <aside class="sidebar">
-      <div class="sidebar-hdr"><span class="sidebar-title">Frota / Placas</span></div>
-      <div class="sidebar-list" id="truckList"></div>
-    </aside>
-    <main class="main" id="mainContent">
-      <div class="empty-state">
-        <div class="empty-icon">🚛</div>
-        <h3>Nenhum Caminhão</h3>
-        <p>Cadastre seu primeiro caminhão para iniciar os acertos de viagem.</p><br>
-        <button class="btn btn-accent" onclick="openTruckModal()">+ Cadastrar Caminhão</button>
+    <header class="hub-hdr">
+      <div class="logo-wrap">
+        <div class="logo-bar"></div>
+        <div>
+          <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima Transportadora">
+          <div class="logo-sub">Acompanhamento Frota</div>
+        </div>
       </div>
-    </main>
+
+      <div class="hub-status">
+        <span class="pulse">SISTEMA ONLINE</span>
+        <span class="divider"></span>
+        <span>HORA</span>
+        <span id="hubTime">--:--:--</span>
+      </div>
+
+      <div class="hub-hdr-actions">
+        <span class="hub-hdr-user" id="hubUserInfo"></span>
+        <button class="btn btn-ghost btn-sm" id="hubAdminBtn" onclick="goToFrota().then(()=>toggleAdmin())" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="hub-hero">
+      <div class="hub-hero-bg"></div>
+      <div class="hub-stripe"></div>
+      <div class="hub-stripe thin"></div>
+
+      <div class="hub-tac tl">FLEET HQ // RIO VERDE — GO</div>
+      <div class="hub-tac tr">RNTRC 07243419</div>
+      <div class="hub-tac bl">CENTRAL DE OPERAÇÕES // V2.0</div>
+      <div class="hub-tac br"><span id="hubDateLabel">--.--.----</span></div>
+
+      <div class="hub-hero-content">
+        <div class="hub-eyebrow">Central de Operações // Frota</div>
+        <h1 class="hub-title">
+          Acompanhamento<br>
+          <span class="red">Frota</span><span class="slash">/</span><span>Prima</span>
+        </h1>
+        <div class="hub-subtitle">
+          <span class="badge">PRIMA TRANSPORTADORA</span>
+          <span>Gestão integrada · Acerto de viagem · Frete terceiro</span>
+        </div>
+      </div>
+
+      <div class="hub-scroll">
+        <span>Selecionar módulo</span>
+        <span class="line"></span>
+      </div>
+    </section>
+
+    <!-- ACCESS GRID -->
+    <section class="hub-access">
+      <div class="hub-access-inner">
+        <div class="hub-access-hdr">
+          <div>
+            <div class="hub-access-label">Selecione um módulo</div>
+            <div class="hub-access-title">Acessos disponíveis</div>
+          </div>
+          <div class="hub-access-meta">02 módulos · Acesso restrito</div>
+        </div>
+
+        <div class="hub-cards">
+
+          <!-- CARD 01 — Acerto de Frota -->
+          <a class="hub-card" onclick="goToFrota()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')goToFrota()">
+            <span class="tick tl"></span>
+            <span class="tick tr"></span>
+            <span class="tick bl"></span>
+            <span class="tick br"></span>
+
+            <div class="hub-card-index">01</div>
+            <div class="hub-card-icon" aria-hidden="true">
+              <!-- truck icon -->
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 8h16v13H2z"/>
+                <path d="M18 13h7l4 4v4h-11z"/>
+                <circle cx="8" cy="23" r="2.5"/>
+                <circle cx="23" cy="23" r="2.5"/>
+                <path d="M2 19h16M18 17h7"/>
+              </svg>
+            </div>
+            <div class="hub-card-label">Módulo operacional</div>
+            <h2 class="hub-card-title">Acerto de Frota</h2>
+            <p class="hub-card-desc">
+              Lançamento de viagens, CTEs, abastecimentos, despesas e
+              fechamento de acerto por caminhão da frota Prima.
+            </p>
+            <div class="hub-card-cta">
+              <span>Entrar no módulo</span>
+              <span class="arrow"></span>
+            </div>
+            <div class="hub-card-bar"></div>
+          </a>
+
+          <!-- CARD 02 — Controle Frete Terceiro -->
+          <a class="hub-card" onclick="goToFreteTerceiro()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')goToFreteTerceiro()">
+            <span class="tick tl"></span>
+            <span class="tick tr"></span>
+            <span class="tick bl"></span>
+            <span class="tick br"></span>
+
+            <div class="hub-card-index">02</div>
+            <div class="hub-card-icon" aria-hidden="true">
+              <!-- exchange / handshake icon -->
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 11h18l-4-4M29 21H11l4 4"/>
+                <circle cx="6" cy="22" r="3"/>
+                <circle cx="26" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div class="hub-card-label">Financeiro / Retorno</div>
+            <h2 class="hub-card-title">Controle Frete Terceiro</h2>
+            <p class="hub-card-desc">
+              Fretes captados de outras transportadoras. Lançamento pelo
+              gerente de frota, acompanhamento e baixa de pagamento.
+            </p>
+            <div class="hub-card-cta">
+              <span>Entrar no módulo</span>
+              <span class="arrow"></span>
+            </div>
+            <div class="hub-card-bar"></div>
+          </a>
+
+        </div>
+      </div>
+    </section>
+
+    <footer class="hub-footer">
+      <div class="hub-footer-left">
+        <span class="dot"></span>
+        <span>PRIMA TRANSPORTADORA LOG LTDA</span>
+      </div>
+      <div class="hub-footer-right">
+        <span>ACOMPANHAMENTO V2.0</span>
+        <span class="dot"></span>
+        <span>OPERAÇÃO 24/7</span>
+      </div>
+    </footer>
+
   </div>
 
-  <div id="adminView" style="display:none">
-    <div class="admin-header">
-      <button class="btn btn-ghost btn-sm" onclick="toggleAdmin()">&larr; Voltar à Frota</button>
-      <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="users" onclick="switchAdminTab('users')">Usuários</button>
-        <button class="admin-tab" data-tab="audit" onclick="switchAdminTab('audit')">Auditoria</button>
-        <button class="admin-tab" data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>
+  <!-- ============================================================
+       MODULE: Acerto de Frota (estrutura legada) + Admin
+       ============================================================ -->
+  <div id="moduleContainer" style="display:none">
+
+    <header>
+      <div class="logo">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima Transportadora">
+        <div class="logo-sub">Acerto de Viagem</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="userInfo" style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
+        <div class="header-actions">
+          <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
+          <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
+          <button class="btn btn-ghost btn-sm" id="adminBtn" onclick="toggleAdmin()" style="display:none">⚙️ Admin</button>
+          <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+          <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger);margin-left:8px">Sair</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="container" id="frotaContainer">
+      <aside class="sidebar">
+        <div class="sidebar-hdr"><span class="sidebar-title">Frota / Placas</span></div>
+        <div class="sidebar-list" id="truckList"></div>
+      </aside>
+      <main class="main" id="mainContent">
+        <div class="empty-state">
+          <div class="empty-icon">🚛</div>
+          <h3>Nenhum Caminhão</h3>
+          <p>Cadastre seu primeiro caminhão para iniciar os acertos de viagem.</p><br>
+          <button class="btn btn-accent" onclick="openTruckModal()">+ Cadastrar Caminhão</button>
+        </div>
+      </main>
+    </div>
+
+    <div id="adminView" style="display:none">
+      <div class="admin-header">
+        <button class="btn btn-ghost btn-sm" onclick="toggleAdmin()">&larr; Voltar à Frota</button>
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-tab="users" onclick="switchAdminTab('users')">Usuários</button>
+          <button class="admin-tab" data-tab="audit" onclick="switchAdminTab('audit')">Auditoria</button>
+          <button class="admin-tab" data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>
+        </div>
+      </div>
+      <div id="adminContent"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       FRETE TERCEIRO (placeholder — será implementado a seguir)
+       ============================================================ -->
+  <div id="freteTerceiroView" style="display:none">
+    <header class="ft-header">
+      <div class="logo" style="display:flex;align-items:center;gap:12px">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
+        <div>
+          <div class="ft-title">Controle Frete Terceiro</div>
+          <div class="ft-sub">Fretes captados · Pagamento · Baixa</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+    <div class="ft-placeholder">
+      <div class="box">
+        <h2>Módulo Frete Terceiro</h2>
+        <p>
+          Aqui o Wescley (gerente de frota) vai lançar fretes captados de outras
+          transportadoras: valor, empresa, veículo, motorista, forma de pagamento
+          (integral ou adiantamento + saldo). O lançamento fica aberto até a baixa
+          do pagamento, feita por você ou pelo seu pai com a data efetiva.
+        </p>
       </div>
     </div>
-    <div id="adminContent"></div>
   </div>
 
 </div>

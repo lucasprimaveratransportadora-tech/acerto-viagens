@@ -8,6 +8,7 @@ import { checkAuth, showLoginScreen, showApp, login } from './auth.js';
 function updateThemeIcon() {
   const t = document.documentElement.getAttribute('data-theme') || 'dark';
   const icon = t === 'dark' ? '🌙' : '☀️';
+  document.querySelectorAll('[data-theme-toggle]').forEach(b => b.textContent = icon);
   const btn = document.getElementById('themeBtn');
   const btnLogin = document.getElementById('themeBtnLogin');
   if (btn) btn.textContent = icon;
@@ -59,30 +60,11 @@ window.doLogout = async function () {
 
 async function loadAppModules() {
   try {
-    const [sidebarMod, dashMod, stateMod, adminMod] = await Promise.all([
-      import('./sidebar.js'),
-      import('./dashboard.js'),
-      import('./state.js'),
-      import('./admin/index.js'),
-    ]);
-    // Load UI modules (they register window functions)
-    await Promise.all([
-      import('./modals.js'),
-      import('./trucks.modal.js'),
-      import('./trips.modal.js'),
-      import('./trips.js'),
-    ]);
-
-    adminMod.initAdmin();
-
-    await sidebarMod.loadTrucks();
-    if (stateMod.state.trucks.length) {
-      stateMod.setSelectedTruck(stateMod.state.trucks[0].id);
-      sidebarMod.renderSidebar();
-      await dashMod.renderMain();
-    }
+    // Carrega o hub primeiro — os módulos de frota só carregam ao entrar no card.
+    const hubMod = await import('./hub.js');
+    hubMod.showHub();
   } catch (e) {
-    console.error('Erro ao carregar módulos:', e);
+    console.error('Erro ao carregar hub:', e);
   }
 }
 
