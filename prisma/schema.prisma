@@ -55,6 +55,19 @@ enum AuditEntity {
   EXPENSE
   USER
   TRUCK
+  FRETE_TERCEIRO
+}
+
+enum FreteTerceiroStatus {
+  ABERTO
+  PAGO_PARCIAL
+  PAGO
+  CANCELADO
+}
+
+enum FreteTerceiroPagamento {
+  INTEGRAL
+  ADIANTAMENTO_SALDO
 }
 
 enum AuditAction {
@@ -83,6 +96,7 @@ model Empresa {
   attachments Attachment[]
   audit_logs   AuditLog[]
   login_events LoginEvent[]
+  fretes_terceiros FreteTerceiro[]
   @@map("empresas")
 }
 
@@ -100,6 +114,8 @@ model User {
   refresh_tokens RefreshToken[]
   audit_logs     AuditLog[]
   login_events   LoginEvent[]
+  fretes_lancados   FreteTerceiro[] @relation("FreteTerceiroCreated")
+  fretes_pagos      FreteTerceiro[] @relation("FreteTerceiroPaid")
   @@index([empresa_id])
   @@map("users")
 }
@@ -127,6 +143,7 @@ model Truck {
   deleted_at DateTime?
   trips      Trip[]
   attachments Attachment[]
+  fretes_terceiros FreteTerceiro[]
   @@index([empresa_id])
   @@map("trucks")
 }
@@ -153,6 +170,7 @@ model Trip {
   fuels        Fuel[]
   expenses     Expense[]
   attachments  Attachment[]
+  fretes_terceiros FreteTerceiro[]
   @@index([truck_id])
   @@index([data_inicio])
   @@map("trips")
@@ -247,6 +265,49 @@ model AuditLog {
   @@index([entity_type, entity_id])
   @@index([actor_id, created_at(sort: Desc)])
   @@map("audit_logs")
+}
+
+model FreteTerceiro {
+  id                  String                 @id @default(uuid())
+  empresa_id          String
+  empresa             Empresa                @relation(fields: [empresa_id], references: [id])
+
+  empresa_pagadora    String
+  data                DateTime
+  motorista           String
+  veiculo             String
+  truck_id            String?
+  truck               Truck?                 @relation(fields: [truck_id], references: [id])
+
+  valor_total         Decimal                @default(0) @db.Decimal(12, 2)
+  valor_adiantamento  Decimal                @default(0) @db.Decimal(12, 2)
+  valor_pago          Decimal                @default(0) @db.Decimal(12, 2)
+
+  forma_pagamento     FreteTerceiroPagamento @default(INTEGRAL)
+  status              FreteTerceiroStatus    @default(ABERTO)
+
+  data_adiantamento   DateTime?
+  data_pagamento      DateTime?
+
+  trip_id             String?
+  trip                Trip?                  @relation(fields: [trip_id], references: [id])
+
+  observacoes         String?
+
+  created_by_id       String?
+  created_by          User?                  @relation("FreteTerceiroCreated", fields: [created_by_id], references: [id])
+  paid_by_id          String?
+  paid_by             User?                  @relation("FreteTerceiroPaid",   fields: [paid_by_id],   references: [id])
+
+  created_at          DateTime               @default(now())
+  updated_at          DateTime               @updatedAt
+  deleted_at          DateTime?
+
+  @@index([empresa_id, created_at(sort: Desc)])
+  @@index([truck_id])
+  @@index([trip_id])
+  @@index([status])
+  @@map("fretes_terceiros")
 }
 
 model LoginEvent {

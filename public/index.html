@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/css/responsive.css">
 <link rel="stylesheet" href="/css/admin.css">
 <link rel="stylesheet" href="/css/hub.css">
+<link rel="stylesheet" href="/css/frete-terceiro.css">
 <script>
   // Aplica tema antes do paint para evitar flash
   (function() {
@@ -255,9 +256,10 @@
   </div>
 
   <!-- ============================================================
-       FRETE TERCEIRO (placeholder — será implementado a seguir)
+       FRETE TERCEIRO — Lista + KPIs + Modais
        ============================================================ -->
   <div id="freteTerceiroView" style="display:none">
+
     <header class="ft-header">
       <div class="logo" style="display:flex;align-items:center;gap:12px">
         <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
@@ -269,24 +271,213 @@
           <div class="ft-sub">Fretes captados · Pagamento · Baixa</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-accent" onclick="ft.openNew()">+ Novo Frete</button>
         <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
       </div>
     </header>
-    <div class="ft-placeholder">
-      <div class="box">
-        <h2>Módulo Frete Terceiro</h2>
-        <p>
-          Aqui o Wescley (gerente de frota) vai lançar fretes captados de outras
-          transportadoras: valor, empresa, veículo, motorista, forma de pagamento
-          (integral ou adiantamento + saldo). O lançamento fica aberto até a baixa
-          do pagamento, feita por você ou pelo seu pai com a data efetiva.
-        </p>
+
+    <div class="ft-main">
+      <div class="ft-inner">
+
+        <!-- KPIs -->
+        <div class="ft-kpis">
+          <div class="ft-kpi amber">
+            <div class="ft-kpi-label">Saldo em aberto</div>
+            <div class="ft-kpi-value" id="kpiAberto">R$ 0,00</div>
+            <div class="ft-kpi-hint">Fretes ainda não liquidados</div>
+          </div>
+          <div class="ft-kpi blue">
+            <div class="ft-kpi-label">Total adiantado</div>
+            <div class="ft-kpi-value" id="kpiAdiantado">R$ 0,00</div>
+            <div class="ft-kpi-hint">Já recebido como adiantamento</div>
+          </div>
+          <div class="ft-kpi green">
+            <div class="ft-kpi-label">Recebido no mês</div>
+            <div class="ft-kpi-value" id="kpiPagoMes">R$ 0,00</div>
+            <div class="ft-kpi-hint">Pagamentos + adiantamentos</div>
+          </div>
+          <div class="ft-kpi">
+            <div class="ft-kpi-label">Fretes no mês</div>
+            <div class="ft-kpi-value" id="kpiQtdMes">0</div>
+            <div class="ft-kpi-hint">Quantidade lançada</div>
+          </div>
+        </div>
+
+        <!-- TOOLBAR / FILTROS -->
+        <div class="ft-toolbar">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="ftFilterStatus" onchange="ft.applyFilters()">
+              <option value="">Todos</option>
+              <option value="ABERTO">Aberto</option>
+              <option value="PAGO_PARCIAL">Parcial</option>
+              <option value="PAGO">Pago</option>
+              <option value="CANCELADO">Cancelado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Caminhão</label>
+            <select id="ftFilterTruck" onchange="ft.applyFilters()"></select>
+          </div>
+          <div class="form-group" style="flex:1;min-width:160px">
+            <label>Buscar</label>
+            <input type="text" id="ftFilterQ" placeholder="empresa, motorista, placa…" onkeydown="if(event.key==='Enter')ft.applyFilters()">
+          </div>
+          <div class="form-group">
+            <label>De</label>
+            <input type="date" id="ftFilterFrom" onchange="ft.applyFilters()">
+          </div>
+          <div class="form-group">
+            <label>Até</label>
+            <input type="date" id="ftFilterTo" onchange="ft.applyFilters()">
+          </div>
+          <div class="right">
+            <button class="btn btn-ghost btn-sm" onclick="ft.applyFilters()">Filtrar</button>
+            <button class="btn btn-ghost btn-sm" onclick="ft.clearFilters()">Limpar</button>
+          </div>
+        </div>
+
+        <!-- TABELA -->
+        <div class="ft-table-wrap">
+          <table class="ft-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Empresa pagadora</th>
+                <th>Motorista</th>
+                <th>Veículo</th>
+                <th>Pagto</th>
+                <th class="right">Valor</th>
+                <th class="right">Saldo</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ftTbody">
+              <tr><td colspan="9" class="ft-empty">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
+
   </div>
 
+</div>
+
+<!-- =============================================================
+     MODAL: Novo / Editar Frete Terceiro
+     ============================================================= -->
+<div class="modal-overlay" id="ftFreteModal">
+  <div class="modal" style="width:640px;max-width:96vw">
+    <div class="modal-title" id="ftModalTitle">+ Novo Frete Terceiro</div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Empresa pagadora *</label>
+        <input type="text" id="ftEmpresa" placeholder="ex: ASJ Logística, JBS, Cargill…">
+      </div>
+      <div class="form-group">
+        <label>Data do frete *</label>
+        <input type="date" id="ftData">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Motorista *</label>
+        <input type="text" id="ftMotorista" placeholder="Nome do motorista">
+      </div>
+      <div class="form-group">
+        <label>Veículo / Placa *</label>
+        <input type="text" id="ftVeiculo" placeholder="ex: ABC-1234" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label>Vincular caminhão da frota</label>
+        <select id="ftTruck"></select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Valor total (R$) *</label>
+        <input type="number" id="ftValor" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Forma de pagamento *</label>
+        <div class="ft-radio-row">
+          <label class="ft-radio active" data-ft-pag="INTEGRAL">
+            <input type="radio" name="ftPag" value="INTEGRAL" checked>
+            <div>
+              <div>Integral</div>
+              <small>Recebimento único após a viagem</small>
+            </div>
+          </label>
+          <label class="ft-radio" data-ft-pag="ADIANTAMENTO_SALDO">
+            <input type="radio" name="ftPag" value="ADIANTAMENTO_SALDO">
+            <div>
+              <div>Adiantamento + Saldo</div>
+              <small>Parte na saída e parte no final</small>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row" id="ftAdiRow" style="display:none">
+      <div class="form-group">
+        <label>Valor adiantamento (R$)</label>
+        <input type="number" id="ftAdi" placeholder="0,00" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observações</label>
+        <input type="text" id="ftObs" placeholder="Notas sobre o frete…">
+      </div>
+    </div>
+
+    <div id="ftSaldoPreview" class="ft-saldo-bar"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ftFreteModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="ft.save()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Baixa de Pagamento
+     ============================================================= -->
+<div class="modal-overlay" id="ftBaixaModal">
+  <div class="modal" style="width:520px;max-width:96vw">
+    <div class="modal-title">✓ Baixa de Pagamento</div>
+    <div id="ftBaixaInfo"></div>
+    <div class="form-row" style="margin-top:1rem">
+      <div class="form-group">
+        <label>Valor a baixar (R$) *</label>
+        <input type="number" id="ftBaixaValor" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Data efetiva do pagamento *</label>
+        <input type="date" id="ftBaixaData">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="ftBaixaObs" placeholder="ex: TED, pix, banco…">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ftBaixaModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="ft.confirmBaixa()">Confirmar Baixa</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL CAMINHÃO -->
@@ -382,6 +573,17 @@
           <input type="text" id="trpObs" placeholder="Notas adicionais...">
         </div>
       </div>
+
+      <!-- Frete Terceiro (retorno) -->
+      <div class="trip-frete-section">
+        <h4>🔁 Frete Retorno (Terceiro)</h4>
+        <div id="tripFreteLinked" style="font-size:.78rem;color:var(--muted)">
+          Nenhum frete terceiro vinculado. Use o botão para puxar um frete de retorno já lançado.
+        </div>
+        <div style="margin-top:.6rem">
+          <button type="button" class="btn btn-blue btn-sm" onclick="openPullFreteModal()">+ Puxar Frete Retorno</button>
+        </div>
+      </div>
     </div>
 
     <!-- TAB CTEs -->
@@ -438,6 +640,28 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeTripModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveTrip()">Salvar Viagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Puxar Frete Retorno (vincular FreteTerceiro à Viagem)
+     ============================================================= -->
+<div class="modal-overlay" id="tripPullFreteModal">
+  <div class="modal" style="width:580px;max-width:96vw">
+    <div class="modal-title">🔁 Puxar Frete Retorno</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      Fretes terceiros em aberto disponíveis para vincular a esta viagem. A lista
+      prioriza fretes do mesmo caminhão / placa.
+    </p>
+    <div id="tripPullFreteList" class="ft-pull-list">
+      <div class="ft-loading">Carregando…</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('tripPullFreteModal')">Fechar</button>
+      <button class="btn btn-ghost btn-sm" onclick="goToFreteTerceiro()" style="margin-left:auto">
+        Ir para Controle Frete Terceiro →
+      </button>
     </div>
   </div>
 </div>

@@ -48,6 +48,7 @@ export async function goToFrota() {
         import('./trucks.modal.js'),
         import('./trips.modal.js'),
         import('./trips.js'),
+        import('./trip-frete-link.js'),
       ]);
       adminMod.initAdmin();
       await sidebarMod.loadTrucks();
@@ -63,11 +64,19 @@ export async function goToFrota() {
   }
 }
 
-export function goToFreteTerceiro() {
+let freteTerceiroLoaded = false;
+export async function goToFreteTerceiro() {
   hideAll();
   const ft = document.getElementById('freteTerceiroView');
   if (ft) ft.style.display = '';
   document.body.dataset.view = 'frete-terceiro';
+  try {
+    const mod = await import('./frete-terceiro.js');
+    await mod.initFreteTerceiro();
+    freteTerceiroLoaded = true;
+  } catch (e) {
+    console.error('Erro ao carregar módulo Frete Terceiro:', e);
+  }
 }
 
 /* ---------- HEADER UI ---------- */

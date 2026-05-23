@@ -12,5 +12,6 @@ router.use('/expenses', require('./expenses.routes'));
 router.use('/dashboard', require('./dashboard.routes'));
 router.use('/audit', require('./audit.routes'));
 router.use('/login-events', require('./loginEvents.routes'));
+router.use('/fretes-terceiros', require('./fretesTerceiros.routes'));
 
 module.exports = router;
