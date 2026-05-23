@@ -21,20 +21,25 @@ function sanitize(obj) {
 }
 
 async function log({ req, empresaId, entity, action, entityId, before, after }) {
-  await prisma.auditLog.create({
-    data: {
-      empresa_id: empresaId,
-      actor_id: req.user?.id || null,
-      actor_email: req.user?.email || 'system',
-      entity_type: entity,
-      entity_id: entityId,
-      action,
-      before: before ? sanitize(before) : null,
-      after: after ? sanitize(after) : null,
-      ip: req.ip || null,
-      user_agent: (req.headers?.['user-agent'] || '').slice(0, 500) || null,
-    },
-  });
+  // Audit log é diagnóstico secundário: nunca deve derrubar a operação principal.
+  try {
+    await prisma.auditLog.create({
+      data: {
+        empresa_id: empresaId,
+        actor_id: req.user?.id || null,
+        actor_email: req.user?.email || 'system',
+        entity_type: entity,
+        entity_id: entityId,
+        action,
+        before: before ? sanitize(before) : null,
+        after: after ? sanitize(after) : null,
+        ip: req.ip || null,
+        user_agent: (req.headers?.['user-agent'] || '').slice(0, 500) || null,
+      },
+    });
+  } catch (err) {
+    console.error('[audit.log] falha ao gravar:', { entity, action, entityId, error: err?.message });
+  }
 }
 
 async function list(empresaId, filters = {}) {
