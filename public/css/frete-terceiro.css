@@ -81,6 +81,11 @@
 }
 .ft-table tbody tr:hover td { background: var(--surface2); }
 .ft-table tbody tr.linked td { background: rgba(56,189,248,.04); }
+.ft-row-meta {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.68rem; color:var(--muted); margin-top:2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
 .ft-table .mono { font-family:'IBM Plex Mono',monospace; font-size:.78rem; }
 .ft-table .right { text-align: right; }
 .ft-table .actions {

@@ -276,6 +276,8 @@ model FreteTerceiro {
   data                DateTime
   motorista           String
   veiculo             String
+  origem              String?
+  destino             String?
   truck_id            String?
   truck               Truck?                 @relation(fields: [truck_id], references: [id])
 

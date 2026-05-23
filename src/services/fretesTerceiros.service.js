@@ -81,10 +81,14 @@ async function summary(empresaId) {
 }
 
 async function create(empresaId, req, data) {
+  let placa = data.veiculo || '';
   if (data.truck_id) {
     const truck = await prisma.truck.findFirst({ where: { id: data.truck_id, empresa_id: empresaId, deleted_at: null } });
     if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
+    placa = truck.placa;
   }
+  if (!placa) throw ApiError.badRequest('Selecione o caminhão.');
+
   const total = Number(data.valor_total || 0);
   const adi   = Number(data.valor_adiantamento || 0);
   const status = computeStatus({ valor_total: total, valor_adiantamento: adi, valor_pago: 0, forma_pagamento: data.forma_pagamento });
@@ -95,7 +99,9 @@ async function create(empresaId, req, data) {
       empresa_pagadora:   data.empresa_pagadora,
       data:               new Date(data.data),
       motorista:          data.motorista,
-      veiculo:            data.veiculo,
+      veiculo:            placa,
+      origem:             data.origem || null,
+      destino:            data.destino || null,
       truck_id:           data.truck_id || null,
       valor_total:        total,
       valor_adiantamento: adi,
@@ -126,8 +132,18 @@ async function update(id, empresaId, req, data) {
   if (data.empresa_pagadora != null) patch.empresa_pagadora = data.empresa_pagadora;
   if (data.data != null)             patch.data = new Date(data.data);
   if (data.motorista != null)        patch.motorista = data.motorista;
-  if (data.veiculo != null)          patch.veiculo = data.veiculo;
-  if (data.truck_id !== undefined)   patch.truck_id = data.truck_id || null;
+  if (data.origem !== undefined)     patch.origem = data.origem || null;
+  if (data.destino !== undefined)    patch.destino = data.destino || null;
+  if (data.truck_id !== undefined) {
+    patch.truck_id = data.truck_id || null;
+    if (data.truck_id) {
+      const truck = await prisma.truck.findFirst({ where: { id: data.truck_id, empresa_id: empresaId, deleted_at: null } });
+      if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
+      patch.veiculo = truck.placa;
+    }
+  } else if (data.veiculo != null) {
+    patch.veiculo = data.veiculo;
+  }
   if (data.valor_total != null)      patch.valor_total = total;
   if (data.valor_adiantamento != null) patch.valor_adiantamento = adi;
   if (data.forma_pagamento != null)  patch.forma_pagamento = data.forma_pagamento;

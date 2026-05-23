@@ -80,9 +80,10 @@ function renderTable() {
     const saldo = total - adi - pago;
     const linked = f.trip_id ? `<span class="ft-trip-badge">VIAGEM</span>` : '';
     const canBaixar = f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL';
+    const rota = (f.origem || f.destino) ? `<div class="ft-row-meta">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div>` : '';
     return `<tr class="${f.trip_id ? 'linked' : ''}">
       <td class="mono">${fmtDate(f.data)}</td>
-      <td>${esc(f.empresa_pagadora)}</td>
+      <td><div>${esc(f.empresa_pagadora)}</div>${rota}</td>
       <td>${esc(f.motorista)}</td>
       <td class="mono">${esc(f.veiculo)} ${linked}</td>
       <td class="mono">${pagamentoLabel(f.forma_pagamento)}</td>
@@ -101,8 +102,8 @@ function renderTable() {
 }
 
 function renderTruckSelects() {
-  const opts = `<option value="">— Sem caminhão vinculado —</option>` +
-    state.trucks.map(t => `<option value="${esc(t.id)}">${esc(t.placa)} ${t.modelo ? '· '+esc(t.modelo) : ''} ${t.motorista ? '· '+esc(t.motorista) : ''}</option>`).join('');
+  const optsFrete = `<option value="">— Selecione o caminhão —</option>` +
+    state.trucks.map(t => `<option value="${esc(t.id)}" data-placa="${esc(t.placa)}" data-motorista="${esc(t.motorista || '')}">${esc(t.placa)}${t.modelo ? ' · '+esc(t.modelo) : ''}${t.motorista ? ' · '+esc(t.motorista) : ''}</option>`).join('');
   ['ftTruck','ftFilterTruck'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -110,10 +111,20 @@ function renderTruckSelects() {
     if (id === 'ftFilterTruck') {
       el.innerHTML = `<option value="">Todos caminhões</option>` + state.trucks.map(t => `<option value="${esc(t.id)}">${esc(t.placa)}</option>`).join('');
     } else {
-      el.innerHTML = opts;
+      el.innerHTML = optsFrete;
     }
     el.value = cur;
   });
+}
+
+function onTruckChange() {
+  const sel = document.getElementById('ftTruck');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  const motoristaSugerido = opt.getAttribute('data-motorista') || '';
+  const inp = document.getElementById('ftMotorista');
+  if (inp && !inp.value.trim() && motoristaSugerido) inp.value = motoristaSugerido;
 }
 
 /* ---------- FILTERS ---------- */
@@ -140,8 +151,9 @@ function openNew() {
   document.getElementById('ftEmpresa').value   = '';
   document.getElementById('ftData').value      = dateISO();
   document.getElementById('ftMotorista').value = '';
-  document.getElementById('ftVeiculo').value   = '';
   document.getElementById('ftTruck').value     = '';
+  document.getElementById('ftOrigem').value    = '';
+  document.getElementById('ftDestino').value   = '';
   document.getElementById('ftValor').value     = '';
   document.getElementById('ftAdi').value       = '';
   document.getElementById('ftObs').value       = '';
@@ -156,8 +168,9 @@ async function openEdit(id) {
   document.getElementById('ftEmpresa').value   = f.empresa_pagadora || '';
   document.getElementById('ftData').value      = dateISO(f.data);
   document.getElementById('ftMotorista').value = f.motorista || '';
-  document.getElementById('ftVeiculo').value   = f.veiculo || '';
   document.getElementById('ftTruck').value     = f.truck_id || '';
+  document.getElementById('ftOrigem').value    = f.origem  || '';
+  document.getElementById('ftDestino').value   = f.destino || '';
   document.getElementById('ftValor').value     = Number(f.valor_total) || '';
   document.getElementById('ftAdi').value       = Number(f.valor_adiantamento) || '';
   document.getElementById('ftObs').value       = f.observacoes || '';
@@ -192,19 +205,21 @@ function updateSaldoPreview() {
 
 async function save() {
   const forma = document.querySelector('[data-ft-pag].active')?.dataset.ftPag || 'INTEGRAL';
+  const truckId = document.getElementById('ftTruck').value || null;
   const body = {
     empresa_pagadora: document.getElementById('ftEmpresa').value.trim(),
     data:             document.getElementById('ftData').value,
     motorista:        document.getElementById('ftMotorista').value.trim(),
-    veiculo:          document.getElementById('ftVeiculo').value.trim(),
-    truck_id:         document.getElementById('ftTruck').value || null,
+    truck_id:         truckId,
+    origem:           document.getElementById('ftOrigem').value.trim()  || null,
+    destino:          document.getElementById('ftDestino').value.trim() || null,
     valor_total:      Number(document.getElementById('ftValor').value || 0),
     valor_adiantamento: forma === 'ADIANTAMENTO_SALDO' ? Number(document.getElementById('ftAdi').value || 0) : 0,
     forma_pagamento:  forma,
     observacoes:      document.getElementById('ftObs').value || null,
   };
-  if (!body.empresa_pagadora || !body.motorista || !body.veiculo || !body.valor_total) {
-    alert('Preencha empresa, motorista, veículo e valor.');
+  if (!body.empresa_pagadora || !body.motorista || !body.truck_id || !body.valor_total) {
+    alert('Preencha empresa, caminhão, motorista e valor.');
     return;
   }
   try {
@@ -280,6 +295,8 @@ export async function initFreteTerceiro() {
   document.querySelectorAll('[data-ft-pag]').forEach(el => {
     el.addEventListener('click', () => setPagamento(el.dataset.ftPag));
   });
+  const truckSel = document.getElementById('ftTruck');
+  if (truckSel) truckSel.addEventListener('change', onTruckChange);
   await loadAll();
 }
 
