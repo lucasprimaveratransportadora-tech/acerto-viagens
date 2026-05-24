@@ -64,6 +64,23 @@ function handler(ev) {
     return;
   }
 
+  // Enter dentro de modal aberto: dispara o botão de confirmação principal
+  if (key === 'Enter') {
+    const m = getOpenModal();
+    if (!m) return;
+    // não interfere em textarea (quebra linha) nem em botões (já têm handler nativo)
+    const tag = ev.target?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'BUTTON') return;
+    // não interfere se algum modifier estiver pressionado
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey) return;
+    const btn = m.querySelector('.modal-actions .btn-accent, .modal-actions .btn-primary');
+    if (btn && !btn.disabled) {
+      ev.preventDefault();
+      btn.click();
+    }
+    return;
+  }
+
   // Demais atalhos: pula se estiver digitando ou se há modal aberto (exceto ajuda)
   if (isTyping(ev.target)) return;
   const openM = getOpenModal();
