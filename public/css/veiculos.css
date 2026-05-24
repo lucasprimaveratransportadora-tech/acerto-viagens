@@ -1,0 +1,109 @@
+/* ============================================================
+   Módulo Veículos — fichário de caminhões com carreta, motorista
+   e anexos de documentação.
+   ============================================================ */
+#veiculosView { min-height: 100vh; display:flex; flex-direction:column; background: var(--bg); }
+
+.vc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.4rem; background: var(--surface);
+  border-bottom: 2px solid var(--accent); gap: 1rem;
+}
+.vc-header .vc-title  { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; letter-spacing:3px; }
+.vc-header .vc-sub    { font-family:'IBM Plex Mono',monospace; font-size:.58rem; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-top:2px; }
+
+.vc-main  { flex:1; padding: 1.5rem 1.5rem 3rem; }
+.vc-inner { max-width: 1400px; margin: 0 auto; }
+
+/* Toolbar de busca */
+.vc-toolbar {
+  display: flex; gap: 10px; align-items: flex-end;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: .8rem 1rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.vc-toolbar label {
+  font-family:'IBM Plex Mono',monospace; font-size:.6rem;
+  letter-spacing:2px; text-transform:uppercase; color: var(--muted);
+}
+.vc-toolbar input {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); padding: 6px 8px; border-radius: 4px;
+  font-size:.82rem; min-width: 200px;
+}
+
+/* Grid de cards de caminhões */
+.vc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.vc-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem 1rem 1.1rem;
+  cursor: pointer; transition: border-color .15s, transform .15s;
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+}
+.vc-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.vc-plate {
+  font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600;
+  color: var(--accent); background: rgba(227,6,19,.10);
+  padding: 3px 10px; border-radius: 5px;
+  border: 1px solid rgba(227,6,19,.35); letter-spacing:1.5px;
+  display: inline-block; align-self: flex-start;
+}
+.vc-card .model { font-size: .85rem; color: var(--text); margin-top: 2px; }
+.vc-card .row {
+  font-family:'IBM Plex Mono',monospace; font-size:.72rem;
+  color: var(--muted); display: flex; gap: 6px; align-items: center;
+}
+.vc-card .row .lbl {
+  text-transform: uppercase; letter-spacing: 2px; font-size: .6rem; color: var(--muted);
+  min-width: 78px;
+}
+.vc-card .row .val { color: var(--text); }
+.vc-card .row .val.muted { color: var(--muted); font-style: italic; }
+
+.vc-card-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-family:'IBM Plex Mono',monospace; font-size:.62rem;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+}
+.vc-badge {
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 3px; color: var(--text);
+}
+.vc-badge.docs { color: var(--info); border-color: rgba(56,189,248,.35); background: rgba(56,189,248,.08); }
+.vc-badge.no-docs { color: var(--muted); }
+
+.vc-empty {
+  padding: 3rem 2rem; text-align: center; color: var(--muted);
+  font-family:'IBM Plex Mono',monospace; font-size:.78rem; letter-spacing:2px;
+  border: 1px dashed var(--border); border-radius: 6px;
+}
+
+/* Detalhes modal */
+.vc-det-header {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .9rem 1rem;
+  margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem 1.2rem;
+  font-size: .85rem;
+}
+.vc-det-header .lbl {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.58rem; letter-spacing:2px; text-transform:uppercase;
+  color: var(--muted); margin-bottom: 2px;
+}
+.vc-det-header .val { color: var(--text); font-weight: 500; }
+.vc-det-header .val.plate {
+  font-family:'IBM Plex Mono',monospace; font-size: 1.4rem;
+  font-weight: 600; color: var(--accent); letter-spacing: 1.5px;
+}
+.vc-det-header .full { grid-column: 1 / -1; }

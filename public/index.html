@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/css/admin.css">
 <link rel="stylesheet" href="/css/hub.css">
 <link rel="stylesheet" href="/css/frete-terceiro.css">
+<link rel="stylesheet" href="/css/veiculos.css">
 <script>
   // Aplica tema antes do paint para evitar flash
   (function() {
@@ -116,7 +117,7 @@
             <div class="hub-access-label">Selecione um módulo</div>
             <div class="hub-access-title">Acessos disponíveis</div>
           </div>
-          <div class="hub-access-meta">02 módulos · Acesso restrito</div>
+          <div class="hub-access-meta">03 módulos · Acesso restrito</div>
         </div>
 
         <div class="hub-cards">
@@ -183,6 +184,36 @@
             <div class="hub-card-bar"></div>
           </a>
 
+          <!-- CARD 03 — Veículos / Fichário -->
+          <a class="hub-card" onclick="goToVeiculos()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')goToVeiculos()">
+            <span class="tick tl"></span>
+            <span class="tick tr"></span>
+            <span class="tick bl"></span>
+            <span class="tick br"></span>
+
+            <div class="hub-card-index">03</div>
+            <div class="hub-card-icon" aria-hidden="true">
+              <!-- shield / docs icon -->
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 3l11 4v10c0 7-5 11-11 12-6-1-11-5-11-12V7l11-4z"/>
+                <path d="M12 16l3 3 6-7"/>
+              </svg>
+            </div>
+            <div class="hub-card-label">Cadastro · Fichário</div>
+            <h2 class="hub-card-title">Veículos &amp; Documentos</h2>
+            <p class="hub-card-desc">
+              Relação de caminhões da frota com carreta acoplada,
+              motorista vinculado e fichário de documentos: GR
+              aprovado, CRLV, CNH, contratos.
+            </p>
+            <div class="hub-card-cta">
+              <span>Entrar no módulo</span>
+              <span class="arrow"></span>
+            </div>
+            <div class="hub-card-bar"></div>
+          </a>
+
         </div>
       </div>
     </section>
@@ -215,6 +246,7 @@
         <div class="module-tabs">
           <button class="module-tab active" data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+          <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
@@ -242,6 +274,50 @@
           <button class="btn btn-accent" onclick="openTruckModal()">+ Cadastrar Caminhão</button>
         </div>
       </main>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       VEÍCULOS — fichário de caminhões + carreta + motorista + docs
+       ============================================================ -->
+  <div id="veiculosView" style="display:none">
+
+    <header class="vc-header">
+      <div class="logo" style="display:flex;align-items:center;gap:12px">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
+        <div class="module-tabs">
+          <button class="module-tab"        data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
+          <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+          <button class="module-tab active" data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-accent" onclick="vc.openNew()">+ Novo Caminhão</button>
+        <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+
+    <div class="vc-main">
+      <div class="vc-inner">
+
+        <div class="vc-toolbar">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Buscar</label>
+            <input type="text" id="vcSearch" placeholder="placa, modelo, motorista, carreta…">
+          </div>
+        </div>
+
+        <div id="vcGrid" class="vc-grid">
+          <div class="vc-empty">Carregando…</div>
+        </div>
+
+      </div>
     </div>
 
   </div>
@@ -594,6 +670,156 @@
 </div>
 
 <!-- =============================================================
+     MODAL: Cadastro / Edição de Caminhão (com carreta + motorista)
+     ============================================================= -->
+<div class="modal-overlay" id="vcCaminhaoModal">
+  <div class="modal" style="width:640px;max-width:96vw">
+    <div class="modal-title" id="vcModalTitle">+ Novo Caminhão</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      O motorista informado aqui é puxado automaticamente nos lançamentos
+      de Acerto de Viagem e Frete Terceiro deste caminhão.
+    </p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Placa do cavalo *</label>
+        <input type="text" id="vcPlaca" placeholder="ABC-1D23" style="text-transform:uppercase" maxlength="8">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Modelo do cavalo</label>
+        <input type="text" id="vcModelo" placeholder="ex: Volvo FH 460 6x2">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Motorista vinculado</label>
+        <input type="text" id="vcMotorista" placeholder="Nome completo">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Placa da carreta</label>
+        <input type="text" id="vcCarPlaca" placeholder="DEF-2E34 (opcional)" style="text-transform:uppercase" maxlength="8">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Modelo da carreta</label>
+        <input type="text" id="vcCarModelo" placeholder="ex: Randon SR-CS Graneleira (opcional)">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observações</label>
+        <input type="text" id="vcObs" placeholder="Notas internas, restrições, etc.">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('vcCaminhaoModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="vc.save()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Detalhes do Caminhão (fichário de documentos)
+     ============================================================= -->
+<div class="modal-overlay" id="vcDetalhesModal">
+  <div class="modal" style="width:760px;max-width:96vw;max-height:90vh;overflow-y:auto">
+    <div class="modal-title" id="vcDetTitle">Veículo</div>
+    <div id="vcDetHeader" class="vc-det-header"></div>
+
+    <div class="ft-det-section">
+      <div class="ft-det-section-title">
+        <span>📎 Documentos do Veículo</span>
+        <button class="btn btn-blue btn-sm" onclick="vc.openAddAnexo()">+ Adicionar Documento</button>
+      </div>
+      <div id="vcDetAnexos"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('vcDetalhesModal')">Fechar</button>
+      <button class="btn btn-ghost" onclick="vc.openEditFromDetails()">Editar dados</button>
+      <button class="btn btn-ghost" onclick="vc.confirmRemoveFromDetails()" style="color:var(--danger)">Remover veículo</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Adicionar Anexo do Veículo
+     ============================================================= -->
+<div class="modal-overlay" id="vcAnexoModal">
+  <div class="modal" style="width:560px;max-width:96vw">
+    <div class="modal-title">📎 Adicionar Documento</div>
+
+    <div class="ft-anexo-tabs">
+      <button type="button" class="ft-anexo-tab active" data-vc-anexo-mode="file" onclick="vc.switchAnexoMode('file')">📤 Enviar arquivo</button>
+      <button type="button" class="ft-anexo-tab"        data-vc-anexo-mode="url"  onclick="vc.switchAnexoMode('url')">🔗 Colar link</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo *</label>
+        <select id="vcAnexoTipo">
+          <option value="GR_APROVADO">Gerenciamento de Risco aprovado</option>
+          <option value="CRLV_VEICULO">CRLV do veículo</option>
+          <option value="CRLV_CARRETA">CRLV da carreta</option>
+          <option value="CNH_MOTORISTA">CNH do motorista</option>
+          <option value="CONTRATO">Contrato</option>
+          <option value="ANTT">ANTT / RNTRC</option>
+          <option value="OUTRO">Outro documento</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Nome / Descrição curta</label>
+        <input type="text" id="vcAnexoNome" placeholder="ex: GR 2026 aprovado">
+        <small style="color:var(--muted);font-size:.66rem">Se vazio, usa o nome do arquivo.</small>
+      </div>
+    </div>
+
+    <div id="vcAnexoFileSection" class="form-row">
+      <div class="form-group">
+        <label>Arquivo *</label>
+        <div id="vcAnexoDropzone" class="ft-anexo-dropzone">
+          <input type="file" id="vcAnexoFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
+          <div class="ft-anexo-dropzone-content" id="vcAnexoDropzoneContent">
+            <div style="font-size:2rem;line-height:1">📂</div>
+            <div><b>Clique para selecionar</b> ou arraste o arquivo aqui</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">PDF, JPG, PNG ou WEBP até 10 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="vcAnexoUrlSection" class="form-row" style="display:none">
+      <div class="form-group">
+        <label>URL do arquivo *</label>
+        <input type="url" id="vcAnexoUrl" placeholder="https://drive.google.com/file/d/...">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="vcAnexoDesc" placeholder="ex: validade 12/2027">
+      </div>
+    </div>
+
+    <div id="vcAnexoProgress" class="ft-anexo-progress" style="display:none">
+      <div class="bar"><div class="fill" id="vcAnexoProgressFill"></div></div>
+      <div class="lbl" id="vcAnexoProgressLbl">Enviando…</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('vcAnexoModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="vc.saveAnexo()">Salvar Documento</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
      MODAL: Preview de Anexo (imagem inline / PDF iframe)
      ============================================================= -->
 <div class="modal-overlay" id="ftAnexoPreviewModal">
@@ -623,6 +849,7 @@
         <tr><td><kbd>H</kbd></td><td>Voltar ao Hub</td></tr>
         <tr><td><kbd>1</kbd></td><td>Acerto de Viagem</td></tr>
         <tr><td><kbd>2</kbd></td><td>Frete Terceiro</td></tr>
+        <tr><td><kbd>3</kbd></td><td>Veículos</td></tr>
         <tr><td><kbd>A</kbd></td><td>Admin <small style="color:var(--muted)">(somente admins)</small></td></tr>
         <tr><td><kbd>?</kbd></td><td>Mostrar este painel</td></tr>
       </tbody>

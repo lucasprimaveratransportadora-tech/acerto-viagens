@@ -84,6 +84,16 @@ enum FreteTerceiroAnexoTipo {
   OUTRO
 }
 
+enum TruckAnexoTipo {
+  GR_APROVADO
+  CRLV_VEICULO
+  CRLV_CARRETA
+  CNH_MOTORISTA
+  CONTRATO
+  ANTT
+  OUTRO
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -146,18 +156,23 @@ model RefreshToken {
 }
 
 model Truck {
-  id         String      @id @default(uuid())
-  empresa_id String
-  empresa    Empresa     @relation(fields: [empresa_id], references: [id])
-  placa      String      @unique
-  modelo     String?
-  motorista  String?
-  created_at DateTime    @default(now())
-  updated_at DateTime    @updatedAt
-  deleted_at DateTime?
-  trips      Trip[]
-  attachments Attachment[]
+  id              String      @id @default(uuid())
+  empresa_id      String
+  empresa         Empresa     @relation(fields: [empresa_id], references: [id])
+  placa           String      @unique
+  modelo          String?
+  motorista       String?
+  // Carreta acoplada (placa + modelo) — opcional, alguns são truck simples
+  carreta_placa   String?
+  carreta_modelo  String?
+  observacoes     String?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+  deleted_at      DateTime?
+  trips           Trip[]
+  attachments     Attachment[]
   fretes_terceiros FreteTerceiro[]
+  truck_anexos    TruckAnexo[]
   @@index([empresa_id])
   @@map("trucks")
 }
@@ -364,6 +379,27 @@ model FreteTerceiroAnexo {
 
   @@index([frete_id, created_at(sort: Desc)])
   @@map("frete_terceiro_anexos")
+}
+
+model TruckAnexo {
+  id              String          @id @default(uuid())
+  truck_id        String
+  truck           Truck           @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  tipo            TruckAnexoTipo  @default(OUTRO)
+  nome            String
+  // url externo (Drive, Dropbox) — usado quando o usuário cola um link
+  url             String?
+  // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
+  dados           Bytes?
+  mime_type       String?
+  tamanho         Int?
+  descricao       String?
+  created_by_id   String?
+  created_at      DateTime        @default(now())
+  deleted_at      DateTime?
+
+  @@index([truck_id, created_at(sort: Desc)])
+  @@map("truck_anexos")
 }
 
 model LoginEvent {

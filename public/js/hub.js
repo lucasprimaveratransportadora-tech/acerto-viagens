@@ -7,12 +7,13 @@ import { getCurrentUser } from './auth.js';
 
 let frotaModulesLoaded = false;
 let freteTerceiroLoaded = false;
+let veiculosLoaded = false;
 let adminLoaded = false;
 
 /* ---------- VIEWS ---------- */
 
 function hideAll() {
-  ['hubView','moduleContainer','freteTerceiroView','adminView'].forEach(id => {
+  ['hubView','moduleContainer','freteTerceiroView','veiculosView','adminView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -92,6 +93,23 @@ export async function goToFreteTerceiro() {
   }
 }
 
+export async function goToVeiculos() {
+  hideAll();
+  const v = document.getElementById('veiculosView');
+  if (v) v.style.display = '';
+  document.body.dataset.view = 'veiculos';
+  setActiveTab('veiculos');
+  saveLastTab('veiculos');
+  refreshAdminVisibility();
+  try {
+    const mod = await import('./veiculos.js');
+    await mod.initVeiculos();
+    veiculosLoaded = true;
+  } catch (e) {
+    console.error('Erro ao carregar módulo Veículos:', e);
+  }
+}
+
 export async function goToAdmin() {
   // Lazy-carrega o módulo admin se for a primeira vez
   if (!adminLoaded) {
@@ -168,6 +186,7 @@ export async function routeAfterLogin() {
   refreshAdminVisibility();
   if (last === 'frota')          return goToFrota();
   if (last === 'frete-terceiro') return goToFreteTerceiro();
+  if (last === 'veiculos')       return goToVeiculos();
   return showHub();
 }
 
@@ -175,5 +194,6 @@ export async function routeAfterLogin() {
 
 window.goToFrota          = goToFrota;
 window.goToFreteTerceiro  = goToFreteTerceiro;
+window.goToVeiculos       = goToVeiculos;
 window.goToHub            = showHub;
 window.goToAdmin          = goToAdmin;
