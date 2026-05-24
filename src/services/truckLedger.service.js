@@ -448,11 +448,40 @@ async function importXlsx(empresaId, req, file, options = {}) {
     });
     const existingKeys = new Set(existing.map(e => `${e.data.toISOString().slice(0,10)}|${Number(e.valor).toFixed(2)}|${e.historico.trim().slice(0,80)}`));
 
+    // Detecta linha de SALDO INICIAL imediatamente após o header.
+    // Padrão da planilha: data/histórico/débito/crédito vazios e SALDO
+    // (col E) preenchido — fórmula da próxima linha é =Eanterior-C+D.
+    let saldoInicialDetectado = null;
+    let saldoInicialRow = -1;
+    for (let k = headerRow + 1; k < Math.min(aoa.length, headerRow + 5); k++) {
+      const r = aoa[k] || [];
+      const [dt, hist, deb, cred, saldo] = r;
+      const semData = dt == null || dt === '';
+      const semHist = !hist || String(hist).trim() === '';
+      const debZero  = !deb  || Number(deb)  === 0;
+      const credZero = !cred || Number(cred) === 0;
+      const saldoNum = Number(saldo);
+      if (semData && semHist && debZero && credZero && !isNaN(saldoNum) && saldo !== null && saldo !== '') {
+        saldoInicialDetectado = saldoNum;
+        saldoInicialRow = k;
+        break;
+      }
+      // Se já achou uma linha com data válida, para de procurar
+      if (!semData) break;
+    }
+    if (saldoInicialDetectado !== null) {
+      await prisma.truck.update({
+        where: { id: truck.id },
+        data:  { saldo_inicial: saldoInicialDetectado },
+      });
+    }
+
     const toCreate = [];
     let ignorados = 0;
     let datasInvalidas = 0;
     const MIN_YEAR = 2010, MAX_YEAR = 2030;
     for (let i = headerRow + 1; i < aoa.length; i++) {
+      if (i === saldoInicialRow) continue;  // pula a linha do saldo inicial
       const row = aoa[i] || [];
       const [data, historico, debito, credito] = row;
       if (data == null && !historico) continue;
@@ -494,7 +523,11 @@ async function importXlsx(empresaId, req, file, options = {}) {
       const r = await prisma.truckLedgerEntry.createMany({ data: toCreate, skipDuplicates: true });
       criados = r.count;
     }
-    results.push({ sheet: sheetName, truck_id: truck.id, placa: truck.placa, criados, ignorados, datas_invalidas: datasInvalidas });
+    results.push({
+      sheet: sheetName, truck_id: truck.id, placa: truck.placa,
+      criados, ignorados, datas_invalidas: datasInvalidas,
+      saldo_inicial_detectado: saldoInicialDetectado,
+    });
   }
 
   await audit.log({

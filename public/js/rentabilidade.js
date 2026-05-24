@@ -623,10 +623,15 @@ function renderImportResults(data) {
   const total = `<div style="margin-bottom:.7rem;font-family:'IBM Plex Mono',monospace;font-size:.78rem"><b style="color:var(--success)">${data.total_criados}</b> criados · <b style="color:var(--muted)">${data.total_ignorados}</b> ignorados (duplicados)</div>`;
   const rows = (data.results || []).map(r => {
     const isSkipped = !r.criados && r.status;
+    const saldoIni = r.saldo_inicial_detectado;
+    const saldoIniLbl = (saldoIni != null && saldoIni !== 0)
+      ? `<span style="color:var(--info);font-family:'IBM Plex Mono',monospace;font-size:.65rem" title="Saldo inicial detectado e gravado">📌 ${fmtBRLShort(saldoIni)}</span>`
+      : '';
     return `
       <div class="rt-import-row ${isSkipped ? 'skipped' : ''}">
         <span class="placa">${esc(r.placa || r.sheet)}</span>
         <span style="flex:1;color:var(--muted);font-size:.72rem">${esc(r.status || '')}</span>
+        ${saldoIniLbl}
         <span class="count">+${r.criados || 0}</span>
         <span class="ign">·${r.ignorados || 0}</span>
       </div>`;
