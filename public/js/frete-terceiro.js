@@ -472,7 +472,7 @@ function renderAnexos(f) {
       ? `/api/fretes-terceiros/${state.detailsId}/anexos/${a.id}/download`
       : (a.url || '#');
     const sizeLbl = a.tamanho ? ` · ${fmtSize(a.tamanho)}` : '';
-    const openLabel = isUpload ? 'Baixar' : 'Abrir';
+    const openLabel = isUpload ? 'Visualizar' : 'Abrir';
     const dlAttr = isUpload ? `onclick="ft.openAnexoFile(event, '${esc(a.id)}')"` : '';
     return `
     <div class="ft-anexo-item">
