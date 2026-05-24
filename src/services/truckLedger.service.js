@@ -287,19 +287,58 @@ async function overview(empresaId) {
    IMPORT XLSX
    ============================================================ */
 
-// Regras de classificação por regex sobre o histórico
+// Regras de classificação por regex sobre o histórico.
+// Refinadas após análise das 21 abas da planilha do pai do usuário
+// (7.1k lançamentos) — cobertura ~88% após as adições abaixo.
 const REGEX_CATEGORIA = [
-  { re: /\bACERTO\s+CTE\b|\bACERTO\s+.*ATACAD/i,  cat: 'ACERTO_CTE',           tipoForce: 'CREDITO' },
-  { re: /\bCARGILL\b|\bATACAD/i,                   cat: 'ACERTO_CTE',           tipoForce: 'CREDITO' },
+  // Créditos / receitas (vêm primeiro)
+  { re: /\bACERTO\s+CTE\b|\bACERTO\s+.*ATACAD/i,   cat: 'ACERTO_CTE',           tipoForce: 'CREDITO' },
+  { re: /\bCARGILL\b|\bATACAD/i,                    cat: 'ACERTO_CTE',           tipoForce: 'CREDITO' },
+  { re: /\bACERTO\s+\d|\bCT[-\s]*E\s*\d|\bCTE\s*\d/i, cat: 'ACERTO_CTE',         tipoForce: 'CREDITO' },
+
+  // Aquisição (compra + financiamento + acessórios estruturais)
+  { re: /\bFINANCIAMENTO|\bFIANCIAMENTO|\bPARCELA\b|\bITAU\b.*\d+\/\d+|\bSICOOB\b.*\d+\/\d+|\bCONS[ÓO]RCIO/i, cat: 'AQUISICAO' },
+  { re: /\bPAGTO\s+CAV|\bPAGTO\s+CAVELO|\bCOMPRA\s+CAVAL|\bCAVALO\s+ITAU/i, cat: 'AQUISICAO' },
+  { re: /\bBA[ÚU]\b|\bFACCHINI|\bRANDON|\bPAGTO.*BA[ÚU]|\b%\s+DO\s+BA[ÚU]|\bNF\s+TANQUE|\bTANQUE\s+ADICIONAL|\bTANQUE\s+COMBUS/i, cat: 'AQUISICAO' },
+  { re: /\bCOMPRA\s+CAMINH|\bCOMPRA\s+TANQUE|\bCOMPRA\s+CARRETA|\bEMPLACAMENTO|\bINMETRO|\bAEROF[ÓO]LIO|\bADESIVOS|\bPELICULA|\bP[ÉE]LICULA/i, cat: 'AQUISICAO' },
+  { re: /\bPAINTURA|\bPINTURA\s+RODAS|\bPINTURA\s+CAB|\bPINTURA\s+BA[ÚU]/i, cat: 'AQUISICAO' },
+
+  // Impostos / taxas / despachante
   { re: /\bIPVA\b/i,                                cat: 'IPVA' },
-  { re: /\bSEGURO\b|\bHDI\b|\bASTRACO\b/i,         cat: 'SEGURO' },
-  { re: /\bPNEU|\bMICHELIN|\bMICHILAN|\bCARAJAS|\bBORRACHARIA|\bMASTER\s+PNEUS/i, cat: 'PNEU' },
-  { re: /\bRASTREADOR|\bAUTOTRAC|\bONIX\b/i,       cat: 'RASTREADOR' },
-  { re: /\bPED[ÁA]GIO|\bREPOM\b/i,                  cat: 'PEDAGIO_AVULSO' },
-  { re: /\bABASTECIMENTO|\bPOSTO\b/i,               cat: 'ABASTECIMENTO_AVULSO' },
+  { re: /\bDESPACHANTE|\bTAXA\s+ADES[ÃA]O|\bTAXA\s+ADMINIST|\bSICOOB\s+TAXA|\bMEGATRANZ|\bINCLUS[ÃA]O\s+ANTT|\bRENOVA[ÇC][ÃA]O\s+ANTT|\bGRAVAME|\bALIENA[ÇC][ÃA]O|\bTAXA\s+RASTREADOR/i, cat: 'DESPACHANTE_TAXAS' },
+
+  // Seguro
+  { re: /\bSEGURO\b|\bHDI\b|\bASTRACO\b|\bAKAD\b|\bTOKIA\s+MARINE/i, cat: 'SEGURO' },
+
+  // Pneu / borracharia
+  { re: /\bPNEU|\bMICHELIN|\bMICHILAN|\bCARAJAS|\bBORRACHARIA|\bMASTER\s+PNEUS|\bRESSOLAGEM|\bRECAUCHU/i, cat: 'PNEU' },
+
+  // Rastreador
+  { re: /\bRASTREADOR|\bAUTOTRAC|\bONIX\b|\bLOCALIZADOR|\bMENSALIDADE\s+RASTR/i, cat: 'RASTREADOR' },
+
+  // Pedágio
+  { re: /\bPED[ÁA]GIO|\bREPOM\b|\bSEM\s*PARAR|\bCONECTCAR/i, cat: 'PEDAGIO_AVULSO' },
+
+  // Abastecimento avulso
+  { re: /\bABASTECIMENTO|\bPOSTO\b|\bDIESEL\b|\bCOMBUST[IÍ]VEL/i, cat: 'ABASTECIMENTO_AVULSO' },
+
+  // Manutenção (oficinas + serviços + peças)
   { re: /\bMANUTEN|\bDACARI|\bSOMAFERTIL|\bCASTRILLON|\b[ÓO]LEO|\bFILTRO/i, cat: 'MANUTENCAO' },
-  { re: /\bCOMPRA|\bBA[ÚU]\b|\bFACCHINI|\bPAINTURA|\bEMPLACAMENTO|\bINMETRO|\bTANQUE\s+ADICIONAL|\bAEROF[ÓO]LIO/i, cat: 'AQUISICAO' },
-  { re: /\bDESPACHANTE|\bTAXA\s+ADES[ÃA]O|\bTAXA\s+ADMINIST|\bSICOOB\s+TAXA/i,    cat: 'DESPACHANTE_TAXAS' },
+  { re: /\bMR\s+AUTO\s+EL[ÉE]TRICA|\bAUTO\s*EL[ÉE]TRICA|\bAUTOEL[ÉE]TRICA/i, cat: 'MANUTENCAO' },
+  { re: /\bBRASIL\s+MANGUEIRAS|\bLG\s+MANGUEIRAS|\bMANGUEIR/i, cat: 'MANUTENCAO' },
+  { re: /\bTORNEADORA|\bHORIZONTE\b|\bEUROEX|\bGAIOLATA|\bRODOPONTA|\bCATARINA/i, cat: 'MANUTENCAO' },
+  { re: /\bALINHAR|\bCASTER|\bRETROVISOR|\bPARA[\s-]*BRISA|\bLAVAGEM|\bLAVADA|\bGRAXA|\bSOLDA|\bCHAVE\s+TIC\s*TAC|\bL[ÂA]MPADA|\bFUS[IÍ]VEL/i, cat: 'MANUTENCAO' },
+  { re: /\bSUSPENSAO|\bLONA\s+FREIO|\bARREBITE|\bDISCO\s+FREIO|\bPASTILHA|\bROLAMENTO|\bENGATE|\bV[ÁA]LVULA|\bBOMBA\b|\bC[ÂA]MBIO|\bEMBREAG/i, cat: 'MANUTENCAO' },
+  { re: /\bAFERI[ÇC][ÃA]O\s+TAC[ÓO]GRAFO|\bTAC[ÓO]GRAFO/i, cat: 'MANUTENCAO' },
+  { re: /\bFREIO|\bFRENAGEM|\bFLEX[ÍI]VEL/i, cat: 'MANUTENCAO' },
+  { re: /\bSTRAD[ÃA]O|\bBATER\s+AUTO|\bDR\s+FREIOS|\bMR\s+AUITO/i, cat: 'MANUTENCAO' }, // oficinas locais (typo AUITO incluso)
+  { re: /\bVULCANIZ/i, cat: 'PNEU' },
+  { re: /\bLAVA[\s-]?JATO|\bLAVA\s+JATO/i, cat: 'MANUTENCAO' },
+  { re: /\bBATERIA|\bELETRIC|\bEL[ÉE]TRIC/i, cat: 'MANUTENCAO' },
+  { re: /\bPARALAMA|\bREFIL\s+PALHA|\bCLIMATIZADOR|\bVAR[ÃA]O|\bLANTERNA|\bCABO\s+ESPIRAL/i, cat: 'MANUTENCAO' },
+  { re: /\bBA[ÚU]S\b|\bCONSERTO\s+BA|\bBAUS\s+RIO\s+VERDE|\bCASA\s+DO\s+DECK|\bMADERIT|\bPORTA\s+LATERAL/i, cat: 'MANUTENCAO' },
+  { re: /\bCONSERTO|\bREPARO|\bSERVI[ÇC]O\s+EL[ÉE]TR|\bWASHINGTON/i, cat: 'MANUTENCAO' },
+  { re: /\bPACHECO\s+FOTOS|\bFOTOS\s+TANQUE/i, cat: 'AQUISICAO' },
 ];
 
 function classify(historico, hasCredito) {
@@ -385,12 +424,20 @@ async function importXlsx(empresaId, req, file, options = {}) {
 
     const toCreate = [];
     let ignorados = 0;
+    let datasInvalidas = 0;
+    const MIN_YEAR = 2010, MAX_YEAR = 2030;
     for (let i = headerRow + 1; i < aoa.length; i++) {
       const row = aoa[i] || [];
       const [data, historico, debito, credito] = row;
       if (data == null && !historico) continue;
       const d = excelSerialToDate(data);
       if (!d) continue;
+      const ano = d.getUTCFullYear();
+      if (ano < MIN_YEAR || ano > MAX_YEAR) {
+        // Célula com data corrompida do Excel — ignora silenciosamente
+        datasInvalidas++;
+        continue;
+      }
       const hist = String(historico || '').trim();
       if (!hist) continue;
       const debitoN  = Number(debito  || 0);
@@ -421,7 +468,7 @@ async function importXlsx(empresaId, req, file, options = {}) {
       const r = await prisma.truckLedgerEntry.createMany({ data: toCreate, skipDuplicates: true });
       criados = r.count;
     }
-    results.push({ sheet: sheetName, truck_id: truck.id, placa: truck.placa, criados, ignorados });
+    results.push({ sheet: sheetName, truck_id: truck.id, placa: truck.placa, criados, ignorados, datas_invalidas: datasInvalidas });
   }
 
   await audit.log({
