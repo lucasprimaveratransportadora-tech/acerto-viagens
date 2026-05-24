@@ -347,6 +347,8 @@ async function saveAnexo() {
   const nome = document.getElementById('vcAnexoNome').value.trim();
   const desc = document.getElementById('vcAnexoDesc').value.trim();
   const mode = state.anexoMode || 'file';
+  const btn  = document.querySelector('#vcAnexoModal .modal-actions .btn-accent');
+  if (btn) btn.disabled = true;
   try {
     if (mode === 'file') {
       const file = state.anexoFile;
@@ -381,6 +383,7 @@ async function saveAnexo() {
     alert('Erro: ' + e.message);
   } finally {
     document.getElementById('vcAnexoProgress').style.display = 'none';
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -444,6 +447,15 @@ export async function initVeiculos() {
   const search = document.getElementById('vcSearch');
   if (search) search.addEventListener('input', applyFilter);
   wireAnexoModal();
+  // Registra cleanup global para revogar blob URL deste módulo
+  // quando o modal de preview compartilhado for fechado.
+  window.__previewCleanupHooks = window.__previewCleanupHooks || [];
+  window.__previewCleanupHooks.push(() => {
+    if (state.previewUrl) {
+      URL.revokeObjectURL(state.previewUrl);
+      state.previewUrl = null;
+    }
+  });
   await loadAll();
 }
 

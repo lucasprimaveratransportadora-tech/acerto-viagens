@@ -71,10 +71,10 @@ function handler(ev) {
   if (key === 'Enter') {
     const m = getOpenModal();
     if (!m) return;
-    // não interfere em textarea (quebra linha) nem em botões (já têm handler nativo)
     const tag = ev.target?.tagName;
+    // não interfere em textarea (quebra linha), botão (handler nativo) ou input file
     if (tag === 'TEXTAREA' || tag === 'BUTTON') return;
-    // não interfere se algum modifier estiver pressionado
+    if (tag === 'INPUT' && ev.target.type === 'file') return;
     if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey) return;
     const btn = m.querySelector('.modal-actions .btn-accent, .modal-actions .btn-primary');
     if (btn && !btn.disabled) {

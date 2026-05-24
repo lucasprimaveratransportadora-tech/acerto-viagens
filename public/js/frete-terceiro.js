@@ -336,6 +336,8 @@ async function confirmBaixa() {
     observacoes: document.getElementById('ftBaixaObs').value || null,
   };
   if (!body.valor || body.valor <= 0) { alert('Valor inválido.'); return; }
+  const btn = document.querySelector('#ftBaixaModal .modal-actions .btn-accent');
+  if (btn) btn.disabled = true;
   try {
     await api.post(`/api/fretes-terceiros/${id}/baixar`, body);
     document.getElementById('ftBaixaModal').classList.remove('open');
@@ -350,6 +352,8 @@ async function confirmBaixa() {
     }
   } catch (e) {
     alert('Erro: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -490,13 +494,40 @@ function renderAnexos(f) {
 // Estado do preview atual (pra revogar blob URL ao fechar)
 state.previewUrl = null;
 
-function closeAnexoPreview() {
-  document.getElementById('ftAnexoPreviewModal').classList.remove('open');
+function cleanupPreview() {
   if (state.previewUrl) {
     URL.revokeObjectURL(state.previewUrl);
     state.previewUrl = null;
   }
-  document.getElementById('ftPrevBody').innerHTML = '';
+  // Outros módulos podem ter publicado uma blob URL no mesmo modal
+  // (ex.: veiculos.js). Revoga via hook global.
+  if (window.__previewCleanupHooks) {
+    for (const fn of window.__previewCleanupHooks) {
+      try { fn(); } catch { /* */ }
+    }
+  }
+  const body = document.getElementById('ftPrevBody');
+  if (body) body.innerHTML = '';
+}
+
+function closeAnexoPreview() {
+  document.getElementById('ftAnexoPreviewModal').classList.remove('open');
+  cleanupPreview();
+}
+
+// Observa o modal de preview pra revogar a blob URL quando fechar por
+// qualquer caminho (Esc, click no overlay, ou closeModal global)
+function wirePreviewCleanup() {
+  const modal = document.getElementById('ftAnexoPreviewModal');
+  if (!modal || modal.__cleanupWired) return;
+  modal.__cleanupWired = true;
+  let wasOpen = modal.classList.contains('open');
+  const obs = new MutationObserver(() => {
+    const isOpen = modal.classList.contains('open');
+    if (wasOpen && !isOpen) cleanupPreview();
+    wasOpen = isOpen;
+  });
+  obs.observe(modal, { attributes: true, attributeFilter: ['class'] });
 }
 
 async function openAnexoFile(ev, anexoId) {
@@ -670,6 +701,8 @@ async function saveAnexo() {
   const nome = document.getElementById('ftAnexoNome').value.trim();
   const desc = document.getElementById('ftAnexoDesc').value.trim();
   const mode = state.anexoMode || 'file';
+  const btn  = document.querySelector('#ftAnexoModal .modal-actions .btn-accent');
+  if (btn) btn.disabled = true;
 
   try {
     if (mode === 'file') {
@@ -709,6 +742,7 @@ async function saveAnexo() {
     alert('Erro: ' + e.message);
   } finally {
     document.getElementById('ftAnexoProgress').style.display = 'none';
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -761,6 +795,7 @@ export async function initFreteTerceiro() {
   const truckSel = document.getElementById('ftTruck');
   if (truckSel) truckSel.addEventListener('change', onTruckChange);
   wireAnexoModal();
+  wirePreviewCleanup();
   await loadAll();
 }
 

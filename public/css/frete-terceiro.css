@@ -389,11 +389,13 @@
   letter-spacing: 2px;
 }
 
-/* Module tabs (Acerto vs Frete Terceiro) */
+/* Module tabs (Acerto vs Frete Terceiro vs Veículos) */
 .module-tabs {
   display: flex; gap: 4px;
   margin-left: 12px;
+  flex-wrap: wrap;
 }
+.module-tab { flex-shrink: 0; }
 .module-tab {
   background: transparent;
   border: 1px solid var(--border);

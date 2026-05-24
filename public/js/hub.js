@@ -184,9 +184,14 @@ export async function routeAfterLogin() {
   let last = null;
   try { last = localStorage.getItem('lastTab'); } catch { /* */ }
   refreshAdminVisibility();
-  if (last === 'frota')          return goToFrota();
-  if (last === 'frete-terceiro') return goToFreteTerceiro();
-  if (last === 'veiculos')       return goToVeiculos();
+  try {
+    if (last === 'frota')          return await goToFrota();
+    if (last === 'frete-terceiro') return await goToFreteTerceiro();
+    if (last === 'veiculos')       return await goToVeiculos();
+  } catch (e) {
+    console.error('Falha ao restaurar última aba; voltando ao hub:', e);
+    try { localStorage.removeItem('lastTab'); } catch { /* */ }
+  }
   return showHub();
 }
 
