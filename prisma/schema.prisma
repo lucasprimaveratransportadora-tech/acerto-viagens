@@ -186,6 +186,10 @@ model Truck {
   // Carreta acoplada (placa + modelo) — opcional, alguns são truck simples
   carreta_placa   String?
   carreta_modelo  String?
+  // Saldo histórico anterior ao primeiro lançamento do livro (positivo
+  // pra caminhões antigos que já se pagaram fora do sistema; negativo
+  // pra caminhões adquiridos com dívida residual).
+  saldo_inicial   Decimal     @default(0) @db.Decimal(12, 2)
   observacoes     String?
   created_at      DateTime    @default(now())
   updated_at      DateTime    @updatedAt

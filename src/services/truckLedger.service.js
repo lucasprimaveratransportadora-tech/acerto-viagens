@@ -172,7 +172,8 @@ async function removeAnexo(truckId, entryId, empresaId, req) {
    ============================================================ */
 
 async function summary(truckId, empresaId) {
-  await ensureTruck(truckId, empresaId);
+  const truck = await ensureTruck(truckId, empresaId);
+  const saldoInicial = Number(truck.saldo_inicial || 0);
   const rows = await prisma.truckLedgerEntry.findMany({
     where: { truck_id: truckId, deleted_at: null },
     orderBy: { data: 'asc' },
@@ -185,10 +186,16 @@ async function summary(truckId, empresaId) {
     if (r.tipo === 'CREDITO') totalCredito += v;
     else                       totalDebito  += v;
   }
-  const saldo = totalCredito - totalDebito;
-  const pctPago = totalDebito > 0 ? Math.min(100, (totalCredito / totalDebito) * 100) : 0;
+  // Saldo total considera o histórico anterior ao livro.
+  const saldo = saldoInicial + totalCredito - totalDebito;
+  // Percentual pago: quanto do total investido já foi coberto pelo (saldo
+  // inicial + créditos). Limitado a 100%.
+  const pctPago = totalDebito > 0
+    ? Math.min(100, ((saldoInicial + totalCredito) / totalDebito) * 100)
+    : (saldoInicial >= 0 ? 100 : 0);
 
-  // byMonth: agrupa por YYYY-MM, calcula débito/crédito mensal + saldo acumulado
+  // byMonth: agrupa por YYYY-MM. O saldo acumulado parte do saldo_inicial,
+  // então uma série que começa positiva permanece positiva.
   const monthMap = new Map();
   for (const r of rows) {
     const d = new Date(r.data);
@@ -200,19 +207,35 @@ async function summary(truckId, empresaId) {
     else                       m.debito  += v;
   }
   const byMonth = Array.from(monthMap.values()).sort((a, b) => a.mes.localeCompare(b.mes));
-  let acc = 0;
+  let acc = saldoInicial;
   for (const m of byMonth) {
     acc += m.credito - m.debito;
     m.saldo_acumulado = acc;
   }
 
-  // paid_at: primeira data (data do lançamento) em que saldo acumulado >= 0
+  // paid_at: se já começa positivo (saldoInicial >= 0 e houver débitos),
+  // considera pago desde a primeira data; senão, primeira data em que
+  // saldo acumulado cruza zero.
   let paid_at = null;
-  let accSerial = 0;
-  for (const r of rows) {
-    const v = Number(r.valor);
-    accSerial += r.tipo === 'CREDITO' ? v : -v;
-    if (accSerial >= 0 && totalDebito > 0) { paid_at = r.data; break; }
+  let accSerial = saldoInicial;
+  if (saldoInicial >= 0 && totalDebito > 0 && rows.length) {
+    // Caminhão já trazia saldo positivo e há débitos no livro: paid_at é
+    // a primeira data se o acumulado nunca ficar negativo.
+    let nuncaNeg = true;
+    let probe = saldoInicial;
+    for (const r of rows) {
+      probe += r.tipo === 'CREDITO' ? Number(r.valor) : -Number(r.valor);
+      if (probe < 0) { nuncaNeg = false; break; }
+    }
+    if (nuncaNeg) paid_at = rows[0].data;
+  }
+  if (!paid_at) {
+    accSerial = saldoInicial;
+    for (const r of rows) {
+      const v = Number(r.valor);
+      accSerial += r.tipo === 'CREDITO' ? v : -v;
+      if (accSerial >= 0 && totalDebito > 0) { paid_at = r.data; break; }
+    }
   }
 
   // payback_estimado: se não pago, média positiva dos últimos 6 meses
@@ -231,7 +254,7 @@ async function summary(truckId, empresaId) {
     }
   }
 
-  return { totalDebito, totalCredito, saldo, pctPago, paid_at, payback_estimado, byMonth };
+  return { saldoInicial, totalDebito, totalCredito, saldo, pctPago, paid_at, payback_estimado, byMonth };
 }
 
 /* ============================================================
@@ -242,9 +265,8 @@ async function overview(empresaId) {
   const trucks = await prisma.truck.findMany({
     where: { empresa_id: empresaId, deleted_at: null },
     orderBy: { placa: 'asc' },
-    select: { id: true, placa: true, modelo: true, motorista: true, carreta_placa: true },
+    select: { id: true, placa: true, modelo: true, motorista: true, carreta_placa: true, saldo_inicial: true },
   });
-  // Agregação por caminhão
   const grouped = await prisma.truckLedgerEntry.groupBy({
     by: ['truck_id', 'tipo'],
     where: {
@@ -262,10 +284,13 @@ async function overview(empresaId) {
   }
   return trucks.map(t => {
     const agg = byTruck[t.id] || { debito: 0, credito: 0 };
-    const saldo = agg.credito - agg.debito;
-    const pctPago = agg.debito > 0 ? Math.min(100, (agg.credito / agg.debito) * 100) : 0;
+    const saldoInicial = Number(t.saldo_inicial || 0);
+    const saldo = saldoInicial + agg.credito - agg.debito;
+    const pctPago = agg.debito > 0
+      ? Math.min(100, ((saldoInicial + agg.credito) / agg.debito) * 100)
+      : (saldoInicial >= 0 ? 100 : 0);
     let status = 'SEM_DADOS';
-    if (agg.debito > 0 || agg.credito > 0) {
+    if (agg.debito > 0 || agg.credito > 0 || saldoInicial !== 0) {
       status = saldo >= 0 ? 'PAGO' : 'EM_PAYBACK';
     }
     return {
@@ -274,6 +299,7 @@ async function overview(empresaId) {
       modelo: t.modelo,
       motorista: t.motorista,
       carreta_placa: t.carreta_placa,
+      saldoInicial,
       totalDebito:  agg.debito,
       totalCredito: agg.credito,
       saldo,

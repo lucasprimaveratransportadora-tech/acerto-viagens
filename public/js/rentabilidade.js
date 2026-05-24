@@ -111,13 +111,17 @@ function renderGrid() {
     const saldoCls = t.saldo >= 0 ? 'ok' : 'warn';
     const pct = Math.round(t.pctPago || 0);
     const noData = t.status === 'SEM_DADOS';
+    const saldoIni = Number(t.saldoInicial || 0);
+    const saldoIniBadge = saldoIni !== 0
+      ? `<span title="Saldo histórico anterior ao livro" style="margin-left:6px;padding:1px 6px;border-radius:3px;background:rgba(56,189,248,.10);border:1px solid rgba(56,189,248,.35);color:var(--info);font-family:'IBM Plex Mono',monospace;font-size:.55rem;letter-spacing:1px">+${fmtBRLShort(saldoIni)} inicial</span>`
+      : '';
     return `
       <div class="rt-card ${noData ? 'no-data' : ''}" onclick="rtb.openDetails('${esc(t.truck_id)}')">
         <div class="rt-card-head">
           <span class="rt-plate">${esc(t.placa)}</span>
           <span class="rt-status ${statusCls}">${statusLbl}${t.status === 'EM_PAYBACK' ? ' · ' + pct + '%' : ''}</span>
         </div>
-        <div class="model">${esc(t.modelo || '—')}${t.motorista ? ' · ' + esc(t.motorista) : ' · <span class="muted">sem motorista</span>'}</div>
+        <div class="model">${esc(t.modelo || '—')}${t.motorista ? ' · ' + esc(t.motorista) : ' · <span class="muted">sem motorista</span>'}${saldoIniBadge}</div>
         ${t.carreta_placa ? `<div class="model" style="font-size:.7rem;color:var(--muted)">Carreta ${esc(t.carreta_placa)}</div>` : ''}
         <div class="rt-num-row">
           <div><div class="lbl">Investido</div><div class="val deb">${fmtBRLShort(t.totalDebito)}</div></div>
@@ -168,11 +172,15 @@ async function openDetails(truckId) {
 function renderKpis(sum, truck) {
   const grid = document.getElementById('rtKpiGrid');
   const saldoCls = sum.saldo >= 0 ? 'saldo-pos' : 'saldo-neg';
+  const saldoIni = Number(sum.saldoInicial || 0);
   const statusHtml = sum.paid_at
     ? `<div class="rt-kpi-value">PAGO</div><div class="rt-kpi-hint">Desde ${fmtDate(sum.paid_at)}</div>`
     : sum.payback_estimado
     ? `<div class="rt-kpi-value">${Math.round(sum.pctPago)}%</div><div class="rt-kpi-hint">Previsão ${fmtDate(sum.payback_estimado)}</div>`
     : `<div class="rt-kpi-value">${Math.round(sum.pctPago)}%</div><div class="rt-kpi-hint">Sem previsão</div>`;
+  const saldoHintExtra = saldoIni !== 0
+    ? `<div class="rt-kpi-hint" style="color:var(--info)">Inclui saldo inicial ${fmtBRL(saldoIni)}</div>`
+    : '';
 
   grid.innerHTML = `
     <div class="rt-kpi deb">
@@ -189,6 +197,7 @@ function renderKpis(sum, truck) {
       <div class="rt-kpi-label">Saldo acumulado</div>
       <div class="rt-kpi-value">${fmtBRL(sum.saldo)}</div>
       <div class="rt-kpi-hint">${sum.saldo >= 0 ? 'Caminhão se pagou' : 'Falta cobrir'}</div>
+      ${saldoHintExtra}
     </div>
     <div class="rt-kpi ${sum.paid_at ? 'saldo-pos' : 'deb'}">
       <div class="rt-kpi-label">Status</div>
@@ -267,8 +276,9 @@ function renderTimeline() {
     return;
   }
 
-  // Calcula saldo acumulado considerando ordem cronológica ASC (rows já vêm assim do backend)
-  let acc = 0;
+  // Saldo acumulado: parte do saldo inicial (caminhões antigos podem ter
+  // valor pré-existente) e percorre os lançamentos em ordem cronológica.
+  let acc = Number(state.detailsSummary?.saldoInicial || 0);
   const trId = state.detailsTruck?.truck_id;
   tbody.innerHTML = rows.map(e => {
     const valor = Number(e.valor);

@@ -14,6 +14,7 @@ const createTruck = [
     .customSanitizer(v => v ? v.toUpperCase().trim() : v)
     .matches(PLATE_REGEX).withMessage('Placa da carreta inválida.'),
   body('carreta_modelo').optional(),
+  body('saldo_inicial').optional().isFloat().withMessage('Saldo inicial deve ser numérico.'),
   body('observacoes').optional(),
 ];
 
@@ -28,6 +29,7 @@ const updateTruck = [
     .customSanitizer(v => v ? v.toUpperCase().trim() : v)
     .matches(PLATE_REGEX).withMessage('Placa da carreta inválida.'),
   body('carreta_modelo').optional(),
+  body('saldo_inicial').optional().isFloat().withMessage('Saldo inicial deve ser numérico.'),
   body('observacoes').optional(),
 ];
 

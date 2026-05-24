@@ -48,7 +48,7 @@ async function getById(id, empresaId, options = {}) {
 }
 
 async function create(empresaId, req, data) {
-  const { placa, modelo, motorista, carreta_placa, carreta_modelo, observacoes } = data;
+  const { placa, modelo, motorista, carreta_placa, carreta_modelo, saldo_inicial, observacoes } = data;
   const existing = await prisma.truck.findUnique({ where: { placa } });
   if (existing && existing.deleted_at === null) {
     throw ApiError.conflict('Placa já cadastrada.');
@@ -61,6 +61,7 @@ async function create(empresaId, req, data) {
       motorista:       motorista || null,
       carreta_placa:   carreta_placa || null,
       carreta_modelo:  carreta_modelo || null,
+      saldo_inicial:   Number(saldo_inicial) || 0,
       observacoes:     observacoes || null,
     },
   });
@@ -86,6 +87,7 @@ async function update(id, empresaId, req, data) {
   ['placa','modelo','motorista','carreta_placa','carreta_modelo','observacoes'].forEach(k => {
     if (data[k] !== undefined) patch[k] = data[k] || null;
   });
+  if (data.saldo_inicial !== undefined) patch.saldo_inicial = Number(data.saldo_inicial) || 0;
 
   const after = await prisma.truck.update({ where: { id }, data: patch });
   await audit.log({ req, empresaId, entity: 'TRUCK', action: 'UPDATE', entityId: id, before, after });

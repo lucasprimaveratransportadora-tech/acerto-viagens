@@ -108,7 +108,7 @@ function applyFilter() {
 function openNew() {
   state.editingId = null;
   document.getElementById('vcModalTitle').textContent = '+ Novo Caminhão';
-  ['vcPlaca','vcModelo','vcMotorista','vcCarPlaca','vcCarModelo','vcObs'].forEach(id => {
+  ['vcPlaca','vcModelo','vcMotorista','vcCarPlaca','vcCarModelo','vcSaldoInicial','vcObs'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('vcCaminhaoModal').classList.add('open');
@@ -122,22 +122,25 @@ async function openEdit(id) {
     catch (e) { alert('Falha ao carregar caminhão: ' + e.message); return; }
   }
   document.getElementById('vcModalTitle').textContent = 'Editar Caminhão';
-  document.getElementById('vcPlaca').value      = t.placa || '';
-  document.getElementById('vcModelo').value     = t.modelo || '';
-  document.getElementById('vcMotorista').value  = t.motorista || '';
-  document.getElementById('vcCarPlaca').value   = t.carreta_placa || '';
-  document.getElementById('vcCarModelo').value  = t.carreta_modelo || '';
-  document.getElementById('vcObs').value        = t.observacoes || '';
+  document.getElementById('vcPlaca').value         = t.placa || '';
+  document.getElementById('vcModelo').value        = t.modelo || '';
+  document.getElementById('vcMotorista').value     = t.motorista || '';
+  document.getElementById('vcCarPlaca').value      = t.carreta_placa || '';
+  document.getElementById('vcCarModelo').value     = t.carreta_modelo || '';
+  document.getElementById('vcSaldoInicial').value  = (t.saldo_inicial != null && Number(t.saldo_inicial) !== 0) ? Number(t.saldo_inicial) : '';
+  document.getElementById('vcObs').value           = t.observacoes || '';
   document.getElementById('vcCaminhaoModal').classList.add('open');
 }
 
 async function save() {
+  const saldoRaw = document.getElementById('vcSaldoInicial').value.trim();
   const body = {
     placa:          document.getElementById('vcPlaca').value.trim(),
     modelo:         document.getElementById('vcModelo').value.trim() || null,
     motorista:      document.getElementById('vcMotorista').value.trim() || null,
     carreta_placa:  document.getElementById('vcCarPlaca').value.trim() || null,
     carreta_modelo: document.getElementById('vcCarModelo').value.trim() || null,
+    saldo_inicial:  saldoRaw === '' ? 0 : Number(saldoRaw),
     observacoes:    document.getElementById('vcObs').value.trim() || null,
   };
   if (!body.placa) { alert('Informe a placa do caminhão.'); return; }
