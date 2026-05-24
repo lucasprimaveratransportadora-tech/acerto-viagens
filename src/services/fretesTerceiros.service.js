@@ -26,6 +26,11 @@ async function getById(id, empresaId, options = {}) {
     include.anexos = {
       where: { deleted_at: null },
       orderBy: { created_at: 'desc' },
+      select: {
+        id: true, frete_id: true, tipo: true, nome: true, url: true,
+        mime_type: true, tamanho: true, descricao: true,
+        created_by_id: true, created_at: true,
+      },
     };
   }
   const frete = await prisma.freteTerceiro.findFirst({
@@ -261,8 +266,16 @@ async function baixar(id, empresaId, req, data) {
 }
 
 /* ============================================================
-   ANEXOS — URLs externas (Drive, Dropbox, etc.) ou data URIs.
+   ANEXOS — URL externa ou upload nativo (bytea).
    ============================================================ */
+
+// Campos pesados (Bytes) que NÃO devem voltar em listagens
+const ANEXO_LIST_SELECT = {
+  id: true, frete_id: true, tipo: true, nome: true, url: true,
+  mime_type: true, tamanho: true, descricao: true, created_by_id: true,
+  created_at: true, deleted_at: true,
+};
+
 async function addAnexo(freteId, empresaId, req, data) {
   await getById(freteId, empresaId); // garante ownership multi-tenant
   if (!data.url) throw ApiError.badRequest('URL do anexo obrigatória.');
@@ -276,8 +289,41 @@ async function addAnexo(freteId, empresaId, req, data) {
       descricao:      data.descricao || null,
       created_by_id:  req.user.id,
     },
+    select: ANEXO_LIST_SELECT,
   });
   await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: freteId, before: null, after: { anexo } });
+  return anexo;
+}
+
+async function addAnexoFile(freteId, empresaId, req, file, meta) {
+  await getById(freteId, empresaId);
+  if (!file || !file.buffer) throw ApiError.badRequest('Arquivo obrigatório.');
+  const nome = (meta?.nome && meta.nome.trim()) || file.originalname || 'anexo';
+  const anexo = await prisma.freteTerceiroAnexo.create({
+    data: {
+      frete_id:       freteId,
+      tipo:           meta?.tipo || 'OUTRO',
+      nome,
+      url:            null,
+      dados:          file.buffer,
+      mime_type:      file.mimetype || 'application/octet-stream',
+      tamanho:        file.size || file.buffer.length,
+      descricao:      meta?.descricao || null,
+      created_by_id:  req.user.id,
+    },
+    select: ANEXO_LIST_SELECT,
+  });
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: freteId, before: null, after: { anexo } });
+  return anexo;
+}
+
+async function getAnexoFile(freteId, anexoId, empresaId) {
+  await getById(freteId, empresaId);
+  const anexo = await prisma.freteTerceiroAnexo.findFirst({
+    where: { id: anexoId, frete_id: freteId, deleted_at: null },
+  });
+  if (!anexo) throw ApiError.notFound('Anexo não encontrado.');
+  if (!anexo.dados) throw ApiError.notFound('Este anexo é um link externo, abra pela URL.');
   return anexo;
 }
 
@@ -374,4 +420,9 @@ async function remove(id, empresaId, req) {
   return after;
 }
 
-module.exports = { list, summary, getById, create, update, baixar, linkTrip, unlinkTrip, remove };
+module.exports = {
+  list, summary, getById, create, update,
+  baixar, removeBaixa,
+  addAnexo, addAnexoFile, getAnexoFile, removeAnexo,
+  linkTrip, unlinkTrip, remove,
+};

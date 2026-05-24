@@ -351,7 +351,12 @@ model FreteTerceiroAnexo {
   frete           FreteTerceiro           @relation(fields: [frete_id], references: [id], onDelete: Cascade)
   tipo            FreteTerceiroAnexoTipo  @default(OUTRO)
   nome            String
-  url             String
+  // url externo (Drive, Dropbox, etc.) — usado quando o usuário cola um link
+  url             String?
+  // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
+  dados           Bytes?
+  mime_type       String?
+  tamanho         Int?
   descricao       String?
   created_by_id   String?
   created_at      DateTime                @default(now())

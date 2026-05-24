@@ -496,16 +496,17 @@
 </div>
 
 <!-- =============================================================
-     MODAL: Adicionar Anexo (link externo)
+     MODAL: Adicionar Anexo (upload de arquivo ou link)
      ============================================================= -->
 <div class="modal-overlay" id="ftAnexoModal">
-  <div class="modal" style="width:520px;max-width:96vw">
+  <div class="modal" style="width:560px;max-width:96vw">
     <div class="modal-title">📎 Adicionar Anexo</div>
-    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
-      Cole o link do arquivo (Google Drive, Dropbox, foto compartilhada por
-      WhatsApp Web, etc). O anexo fica registrado no frete e pode ser aberto
-      por qualquer usuário com acesso.
-    </p>
+
+    <div class="ft-anexo-tabs">
+      <button type="button" class="ft-anexo-tab active" data-anexo-mode="file" onclick="ft.switchAnexoMode('file')">📤 Enviar arquivo</button>
+      <button type="button" class="ft-anexo-tab"        data-anexo-mode="url"  onclick="ft.switchAnexoMode('url')">🔗 Colar link</button>
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label>Tipo *</label>
@@ -517,22 +518,48 @@
         </select>
       </div>
       <div class="form-group" style="flex:2">
-        <label>Nome / Descrição curta *</label>
+        <label>Nome / Descrição curta</label>
         <input type="text" id="ftAnexoNome" placeholder="ex: Comprovante pix adiantamento">
+        <small style="color:var(--muted);font-size:.66rem">Se vazio, usa o nome do arquivo enviado.</small>
       </div>
     </div>
-    <div class="form-row">
+
+    <!-- Modo Arquivo -->
+    <div id="ftAnexoFileSection" class="form-row">
+      <div class="form-group">
+        <label>Arquivo *</label>
+        <div id="ftAnexoDropzone" class="ft-anexo-dropzone">
+          <input type="file" id="ftAnexoFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
+          <div class="ft-anexo-dropzone-content" id="ftAnexoDropzoneContent">
+            <div style="font-size:2rem;line-height:1">📂</div>
+            <div><b>Clique para selecionar</b> ou arraste o arquivo aqui</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">PDF, JPG, PNG ou WEBP até 10 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modo URL -->
+    <div id="ftAnexoUrlSection" class="form-row" style="display:none">
       <div class="form-group">
         <label>URL do arquivo *</label>
         <input type="url" id="ftAnexoUrl" placeholder="https://drive.google.com/file/d/...">
+        <small style="color:var(--muted);font-size:.66rem">Cole link do Google Drive, Dropbox ou foto compartilhada.</small>
       </div>
     </div>
+
     <div class="form-row">
       <div class="form-group">
         <label>Observação (opcional)</label>
         <input type="text" id="ftAnexoDesc" placeholder="ex: pago via banco Itaú">
       </div>
     </div>
+
+    <div id="ftAnexoProgress" class="ft-anexo-progress" style="display:none">
+      <div class="bar"><div class="fill" id="ftAnexoProgressFill"></div></div>
+      <div class="lbl" id="ftAnexoProgressLbl">Enviando…</div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('ftAnexoModal')">Cancelar</button>
       <button class="btn btn-accent" onclick="ft.saveAnexo()">Salvar Anexo</button>

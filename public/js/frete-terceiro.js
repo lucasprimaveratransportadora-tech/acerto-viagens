@@ -451,23 +451,59 @@ function renderBaixas(f) {
   `).join('') + '</div>';
 }
 
+function fmtSize(n) {
+  if (!n && n !== 0) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
 function renderAnexos(f) {
   const wrap = document.getElementById('ftDetAnexos');
   if (!f.anexos || !f.anexos.length) {
-    wrap.innerHTML = '<div class="ft-empty-mini">Nenhum anexo. Cole um link de comprovante de pagamento, CT-e ou recibo.</div>';
+    wrap.innerHTML = '<div class="ft-empty-mini">Nenhum anexo. Envie o comprovante de pagamento, CT-e ou recibo.</div>';
     return;
   }
-  wrap.innerHTML = '<div class="ft-anexo-list">' + f.anexos.map(a => `
+  wrap.innerHTML = '<div class="ft-anexo-list">' + f.anexos.map(a => {
+    // Se foi upload (tem mime_type/tamanho), aponta pro endpoint de download.
+    // Senão, é URL externa.
+    const isUpload = !!(a.mime_type || a.tamanho) || (!a.url && !!a.id);
+    const href = isUpload
+      ? `/api/fretes-terceiros/${state.detailsId}/anexos/${a.id}/download`
+      : (a.url || '#');
+    const sizeLbl = a.tamanho ? ` · ${fmtSize(a.tamanho)}` : '';
+    const openLabel = isUpload ? 'Baixar' : 'Abrir';
+    const dlAttr = isUpload ? `onclick="ft.openAnexoFile(event, '${esc(a.id)}')"` : '';
+    return `
     <div class="ft-anexo-item">
       <span class="ico">${anexoIcon(a.tipo)}</span>
       <div class="info">
         <div class="nome">${esc(a.nome)} <span style="font-size:.65rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-left:4px">${anexoTipoLabel(a.tipo)}</span></div>
-        <div class="desc">${esc(a.descricao || '')}${a.created_by ? (a.descricao ? ' · ' : '') + 'por ' + esc(a.created_by.nome) : ''}</div>
+        <div class="desc">${esc(a.descricao || '')}${sizeLbl}${a.created_by ? ((a.descricao || sizeLbl) ? ' · ' : '') + 'por ' + esc(a.created_by.nome) : ''}</div>
       </div>
-      <a href="${esc(a.url)}" target="_blank" rel="noopener">Abrir</a>
+      <a href="${esc(href)}" target="_blank" rel="noopener" ${dlAttr}>${openLabel}</a>
       <div class="actions"><button onclick="ft.removeAnexo('${esc(a.id)}')">Excluir</button></div>
-    </div>
-  `).join('') + '</div>';
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// Abre arquivo upload (fetch com token, blob URL — evita 401)
+async function openAnexoFile(ev, anexoId) {
+  ev.preventDefault();
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    const res = await fetch(`/api/fretes-terceiros/${state.detailsId}/anexos/${anexoId}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+    if (!res.ok) { alert('Erro ao baixar anexo (HTTP ' + res.status + ')'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    alert('Erro ao abrir anexo: ' + e.message);
+  }
 }
 
 function openBaixaFromDetails() {
@@ -482,32 +518,156 @@ function openEditFromDetails() {
   openEdit(state.detailsId);
 }
 
+function switchAnexoMode(mode) {
+  state.anexoMode = mode;
+  document.querySelectorAll('[data-anexo-mode]').forEach(b => {
+    b.classList.toggle('active', b.dataset.anexoMode === mode);
+  });
+  document.getElementById('ftAnexoFileSection').style.display = mode === 'file' ? '' : 'none';
+  document.getElementById('ftAnexoUrlSection').style.display  = mode === 'url'  ? '' : 'none';
+}
+
+function setSelectedFile(file) {
+  state.anexoFile = file || null;
+  const dz = document.getElementById('ftAnexoDropzone');
+  const content = document.getElementById('ftAnexoDropzoneContent');
+  if (!dz || !content) return;
+  if (file) {
+    dz.classList.add('has-file');
+    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+    content.innerHTML = `
+      <div style="font-size:2rem;line-height:1">✅</div>
+      <div><b>${esc(file.name)}</b></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:4px">${sizeMB} MB · ${esc(file.type || 'arquivo')}</div>
+      <div style="font-size:.66rem;color:var(--muted);margin-top:4px">Clique pra trocar</div>
+    `;
+    // Sugere nome do arquivo se o campo nome estiver vazio
+    const nomeEl = document.getElementById('ftAnexoNome');
+    if (nomeEl && !nomeEl.value.trim()) nomeEl.value = file.name.replace(/\.[^.]+$/, '');
+  } else {
+    dz.classList.remove('has-file');
+    content.innerHTML = `
+      <div style="font-size:2rem;line-height:1">📂</div>
+      <div><b>Clique para selecionar</b> ou arraste o arquivo aqui</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:4px">PDF, JPG, PNG ou WEBP até 10 MB</div>
+    `;
+  }
+}
+
+function wireAnexoModal() {
+  const dz   = document.getElementById('ftAnexoDropzone');
+  const inp  = document.getElementById('ftAnexoFile');
+  if (!dz || !inp) return;
+  dz.addEventListener('click', () => inp.click());
+  inp.addEventListener('change', () => {
+    const f = inp.files && inp.files[0];
+    if (f) setSelectedFile(f);
+  });
+  ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, e => {
+    e.preventDefault(); e.stopPropagation();
+    dz.classList.add('dragover');
+  }));
+  ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, e => {
+    e.preventDefault(); e.stopPropagation();
+    dz.classList.remove('dragover');
+  }));
+  dz.addEventListener('drop', e => {
+    const f = e.dataTransfer?.files?.[0];
+    if (f) {
+      // sincroniza no input pra ser consistente
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      inp.files = dt.files;
+      setSelectedFile(f);
+    }
+  });
+}
+
 function openAddAnexo() {
   if (!state.detailsId) { alert('Abra o frete pelo detalhe primeiro.'); return; }
   document.getElementById('ftAnexoTipo').value = 'COMPROVANTE_PAGAMENTO';
   document.getElementById('ftAnexoNome').value = '';
   document.getElementById('ftAnexoUrl').value  = '';
   document.getElementById('ftAnexoDesc').value = '';
+  const inp = document.getElementById('ftAnexoFile');
+  if (inp) inp.value = '';
+  setSelectedFile(null);
+  switchAnexoMode('file');
+  document.getElementById('ftAnexoProgress').style.display = 'none';
+  document.getElementById('ftAnexoProgressFill').style.width = '0%';
   document.getElementById('ftAnexoModal').classList.add('open');
 }
 
+function uploadXHR(url, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    const token = sessionStorage.getItem('accessToken');
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) onProgress(Math.round(ev.loaded / ev.total * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch { resolve(xhr.responseText); }
+      } else {
+        let msg = `HTTP ${xhr.status}`;
+        try { const j = JSON.parse(xhr.responseText); msg = j.error || msg; } catch { /* */ }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Falha de rede no upload.'));
+    xhr.send(formData);
+  });
+}
+
 async function saveAnexo() {
-  const body = {
-    tipo:      document.getElementById('ftAnexoTipo').value,
-    nome:      document.getElementById('ftAnexoNome').value.trim(),
-    url:       document.getElementById('ftAnexoUrl').value.trim(),
-    descricao: document.getElementById('ftAnexoDesc').value.trim() || null,
-  };
-  if (!body.nome || !body.url) { alert('Preencha nome e URL.'); return; }
+  if (!state.detailsId) return;
+  const tipo = document.getElementById('ftAnexoTipo').value;
+  const nome = document.getElementById('ftAnexoNome').value.trim();
+  const desc = document.getElementById('ftAnexoDesc').value.trim();
+  const mode = state.anexoMode || 'file';
+
   try {
-    await api.post(`/api/fretes-terceiros/${state.detailsId}/anexos`, body);
+    if (mode === 'file') {
+      const file = state.anexoFile;
+      if (!file) { alert('Selecione um arquivo.'); return; }
+      if (file.size > 10 * 1024 * 1024) { alert('Arquivo maior que 10 MB.'); return; }
+      const fd = new FormData();
+      fd.append('arquivo', file);
+      fd.append('tipo', tipo);
+      if (nome) fd.append('nome', nome);
+      if (desc) fd.append('descricao', desc);
+
+      const prog = document.getElementById('ftAnexoProgress');
+      const fill = document.getElementById('ftAnexoProgressFill');
+      const lbl  = document.getElementById('ftAnexoProgressLbl');
+      prog.style.display = '';
+      fill.style.width = '0%';
+      lbl.textContent = 'Enviando 0%';
+
+      await uploadXHR(`/api/fretes-terceiros/${state.detailsId}/anexos/upload`, fd, p => {
+        fill.style.width = p + '%';
+        lbl.textContent = p < 100 ? `Enviando ${p}%` : 'Processando…';
+      });
+    } else {
+      const url = document.getElementById('ftAnexoUrl').value.trim();
+      if (!nome || !url) { alert('Preencha nome e URL.'); return; }
+      await api.post(`/api/fretes-terceiros/${state.detailsId}/anexos`, {
+        tipo, nome, url, descricao: desc || null,
+      });
+    }
+
     document.getElementById('ftAnexoModal').classList.remove('open');
-    // Recarrega detalhes
     const f = await api.get(`/api/fretes-terceiros/${state.detailsId}?details=1`);
     state.detailsItem = f;
     renderAnexos(f);
   } catch (e) {
     alert('Erro: ' + e.message);
+  } finally {
+    document.getElementById('ftAnexoProgress').style.display = 'none';
   }
 }
 
@@ -559,6 +719,7 @@ export async function initFreteTerceiro() {
   });
   const truckSel = document.getElementById('ftTruck');
   if (truckSel) truckSel.addEventListener('change', onTruckChange);
+  wireAnexoModal();
   await loadAll();
 }
 
@@ -568,4 +729,5 @@ window.ft = {
   applyFilters, clearFilters, setPagamento,
   openDetails, openBaixaFromDetails, openEditFromDetails,
   openAddAnexo, saveAnexo, removeAnexo, removeBaixa,
+  switchAnexoMode, openAnexoFile,
 };
