@@ -41,9 +41,10 @@ function focusFirstSearch() {
 
 function dispatchNew() {
   const view = currentView();
-  if (view === 'frete-terceiro' && window.ft?.openNew) { window.ft.openNew(); return true; }
-  if (view === 'veiculos'       && window.vc?.openNew) { window.vc.openNew(); return true; }
-  if (view === 'frota' && window.openTripModal)        { window.openTripModal();   return true; }
+  if (view === 'frete-terceiro' && window.ft?.openNew)        { window.ft.openNew();        return true; }
+  if (view === 'veiculos'       && window.vc?.openNew)        { window.vc.openNew();        return true; }
+  if (view === 'rentabilidade'  && window.rtb?.openNewEntry)  { window.rtb.openNewEntry();  return true; }
+  if (view === 'frota' && window.openTripModal)               { window.openTripModal();     return true; }
   return false;
 }
 
@@ -52,6 +53,7 @@ function goHub()      { if (window.goToHub)            window.goToHub();        
 function goFrota()    { if (window.goToFrota)          window.goToFrota();          }
 function goFretes()   { if (window.goToFreteTerceiro)  window.goToFreteTerceiro();  }
 function goVeiculos() { if (window.goToVeiculos)       window.goToVeiculos();       }
+function goRentabilidade() { if (window.goToRentabilidade) window.goToRentabilidade(); }
 function goAdmin()    { if (window.goToAdmin)          window.goToAdmin();          }
 
 function handler(ev) {
@@ -113,6 +115,10 @@ function handler(ev) {
       break;
     case '3':
       goVeiculos();
+      ev.preventDefault();
+      break;
+    case '4':
+      goRentabilidade();
       ev.preventDefault();
       break;
     case 'a': case 'A':

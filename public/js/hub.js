@@ -8,12 +8,13 @@ import { getCurrentUser } from './auth.js';
 let frotaModulesLoaded = false;
 let freteTerceiroLoaded = false;
 let veiculosLoaded = false;
+let rentabilidadeLoaded = false;
 let adminLoaded = false;
 
 /* ---------- VIEWS ---------- */
 
 function hideAll() {
-  ['hubView','moduleContainer','freteTerceiroView','veiculosView','adminView'].forEach(id => {
+  ['hubView','moduleContainer','freteTerceiroView','veiculosView','rentabilidadeView','adminView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -110,6 +111,23 @@ export async function goToVeiculos() {
   }
 }
 
+export async function goToRentabilidade() {
+  hideAll();
+  const v = document.getElementById('rentabilidadeView');
+  if (v) v.style.display = '';
+  document.body.dataset.view = 'rentabilidade';
+  setActiveTab('rentabilidade');
+  saveLastTab('rentabilidade');
+  refreshAdminVisibility();
+  try {
+    const mod = await import('./rentabilidade.js');
+    await mod.initRentabilidade();
+    rentabilidadeLoaded = true;
+  } catch (e) {
+    console.error('Erro ao carregar módulo Rentabilidade:', e);
+  }
+}
+
 export async function goToAdmin() {
   // Lazy-carrega o módulo admin se for a primeira vez
   if (!adminLoaded) {
@@ -188,6 +206,7 @@ export async function routeAfterLogin() {
     if (last === 'frota')          return await goToFrota();
     if (last === 'frete-terceiro') return await goToFreteTerceiro();
     if (last === 'veiculos')       return await goToVeiculos();
+    if (last === 'rentabilidade')  return await goToRentabilidade();
   } catch (e) {
     console.error('Falha ao restaurar última aba; voltando ao hub:', e);
     try { localStorage.removeItem('lastTab'); } catch { /* */ }
@@ -200,5 +219,6 @@ export async function routeAfterLogin() {
 window.goToFrota          = goToFrota;
 window.goToFreteTerceiro  = goToFreteTerceiro;
 window.goToVeiculos       = goToVeiculos;
+window.goToRentabilidade  = goToRentabilidade;
 window.goToHub            = showHub;
 window.goToAdmin          = goToAdmin;

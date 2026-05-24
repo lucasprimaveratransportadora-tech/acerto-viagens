@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/css/hub.css">
 <link rel="stylesheet" href="/css/frete-terceiro.css">
 <link rel="stylesheet" href="/css/veiculos.css">
+<link rel="stylesheet" href="/css/rentabilidade.css">
 <script>
   // Aplica tema antes do paint para evitar flash
   (function() {
@@ -117,7 +118,7 @@
             <div class="hub-access-label">Selecione um módulo</div>
             <div class="hub-access-title">Acessos disponíveis</div>
           </div>
-          <div class="hub-access-meta">03 módulos · Acesso restrito</div>
+          <div class="hub-access-meta">04 módulos · Acesso restrito</div>
         </div>
 
         <div class="hub-cards">
@@ -214,6 +215,36 @@
             <div class="hub-card-bar"></div>
           </a>
 
+          <!-- CARD 04 — Rentabilidade / Payback -->
+          <a class="hub-card" onclick="goToRentabilidade()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')goToRentabilidade()">
+            <span class="tick tl"></span>
+            <span class="tick tr"></span>
+            <span class="tick bl"></span>
+            <span class="tick br"></span>
+
+            <div class="hub-card-index">04</div>
+            <div class="hub-card-icon" aria-hidden="true">
+              <!-- chart-up icon -->
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 26h24M6 22l6-7 5 5 8-11"/>
+                <path d="M22 9h5v5"/>
+              </svg>
+            </div>
+            <div class="hub-card-label">Financeiro · Payback</div>
+            <h2 class="hub-card-title">Rentabilidade</h2>
+            <p class="hub-card-desc">
+              Livro-caixa por caminhão. Débitos e créditos lançados à
+              mão; saldo acumulado mostra quanto cada veículo já se
+              pagou e quando previsto chegar ao ponto de equilíbrio.
+            </p>
+            <div class="hub-card-cta">
+              <span>Entrar no módulo</span>
+              <span class="arrow"></span>
+            </div>
+            <div class="hub-card-bar"></div>
+          </a>
+
         </div>
       </div>
     </section>
@@ -247,6 +278,7 @@
           <button class="module-tab active" data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
+          <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
@@ -293,6 +325,7 @@
           <button class="module-tab"        data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab active" data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
+          <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -315,6 +348,60 @@
 
         <div id="vcGrid" class="vc-grid">
           <div class="vc-empty">Carregando…</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       RENTABILIDADE — livro-caixa por caminhão
+       ============================================================ -->
+  <div id="rentabilidadeView" style="display:none">
+
+    <header class="rt-header">
+      <div class="logo" style="display:flex;align-items:center;gap:12px">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
+        <div class="module-tabs">
+          <button class="module-tab"        data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
+          <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+          <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
+          <button class="module-tab active" data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-blue admin-trigger" onclick="rtb.openImport()" style="display:none">📥 Importar Planilha</button>
+        <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+
+    <div class="rt-main">
+      <div class="rt-inner">
+
+        <div class="rt-toolbar">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Buscar</label>
+            <input type="text" id="rtSearch" placeholder="placa, modelo, motorista…">
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="rtStatusFilter">
+              <option value="">Todos</option>
+              <option value="EM_PAYBACK">Em payback</option>
+              <option value="PAGO">Pago</option>
+              <option value="SEM_DADOS">Sem dados</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="rtGrid" class="rt-grid">
+          <div class="rt-empty">Carregando…</div>
         </div>
 
       </div>
@@ -371,6 +458,7 @@
           <button class="module-tab"        data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
           <button class="module-tab active" data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
+          <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -821,6 +909,245 @@
 </div>
 
 <!-- =============================================================
+     MODAL: Detalhes da Rentabilidade do Caminhão
+     ============================================================= -->
+<div class="modal-overlay" id="rtDetModal">
+  <div class="modal rt-det-modal">
+    <div class="modal-title">💰 Rentabilidade · <span id="rtDetTitle">—</span></div>
+
+    <div id="rtKpiGrid" class="rt-kpi-grid"></div>
+
+    <div class="rt-chart-wrap">
+      <div id="rtChart"></div>
+    </div>
+
+    <div class="rt-timeline-toolbar">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="rtFilterTipo">
+          <option value="">Todos</option>
+          <option value="DEBITO">Débito</option>
+          <option value="CREDITO">Crédito</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="rtFilterCategoria">
+          <option value="">Todas</option>
+          <option value="AQUISICAO">Aquisição</option>
+          <option value="IPVA">IPVA</option>
+          <option value="SEGURO">Seguro</option>
+          <option value="MANUTENCAO">Manutenção</option>
+          <option value="PNEU">Pneu</option>
+          <option value="RASTREADOR">Rastreador</option>
+          <option value="DESPACHANTE_TAXAS">Despachante / Taxas</option>
+          <option value="PEDAGIO_AVULSO">Pedágio avulso</option>
+          <option value="ABASTECIMENTO_AVULSO">Abastecimento avulso</option>
+          <option value="ACERTO_CTE">Acerto CT-e</option>
+          <option value="OUTRO_CUSTO">Outro custo</option>
+          <option value="OUTRA_RECEITA">Outra receita</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>De</label>
+        <input type="date" id="rtFilterFrom">
+      </div>
+      <div class="form-group">
+        <label>Até</label>
+        <input type="date" id="rtFilterTo">
+      </div>
+      <div class="form-group" style="flex:1;min-width:140px">
+        <label>Buscar histórico</label>
+        <input type="text" id="rtFilterQ" placeholder="ex: pneu, ipva…">
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn btn-accent btn-sm" onclick="rtb.openNewEntry()">+ Lançar entrada</button>
+      </div>
+    </div>
+
+    <div class="rt-timeline">
+      <table>
+        <thead><tr>
+          <th>Data</th><th>Categoria</th><th>Histórico</th>
+          <th class="right">Débito</th><th class="right">Crédito</th>
+          <th class="right">Saldo</th>
+          <th>Anexo</th><th></th>
+        </tr></thead>
+        <tbody id="rtTimelineBody"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rtDetModal')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Lançar / Editar entrada
+     ============================================================= -->
+<div class="modal-overlay" id="rtEntryModal">
+  <div class="modal" style="width:600px;max-width:96vw">
+    <div class="modal-title" id="rtEntryTitle">+ Lançar entrada</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo *</label>
+        <div class="ft-radio-row">
+          <label class="ft-radio active" data-rt-tipo="DEBITO">
+            <input type="radio" name="rtTipo" value="DEBITO" checked>
+            <div>
+              <div>Débito</div>
+              <small>Custo / pagamento (sai)</small>
+            </div>
+          </label>
+          <label class="ft-radio" data-rt-tipo="CREDITO">
+            <input type="radio" name="rtTipo" value="CREDITO">
+            <div>
+              <div>Crédito</div>
+              <small>Receita / acerto (entra)</small>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data *</label>
+        <input type="date" id="rtEntData">
+      </div>
+      <div class="form-group">
+        <label>Categoria *</label>
+        <select id="rtEntCategoria">
+          <option value="AQUISICAO">Aquisição</option>
+          <option value="IPVA">IPVA</option>
+          <option value="SEGURO">Seguro</option>
+          <option value="MANUTENCAO">Manutenção</option>
+          <option value="PNEU">Pneu</option>
+          <option value="RASTREADOR">Rastreador</option>
+          <option value="DESPACHANTE_TAXAS">Despachante / Taxas</option>
+          <option value="PEDAGIO_AVULSO">Pedágio avulso</option>
+          <option value="ABASTECIMENTO_AVULSO">Abastecimento avulso</option>
+          <option value="ACERTO_CTE">Acerto CT-e</option>
+          <option value="OUTRO_CUSTO" selected>Outro custo</option>
+          <option value="OUTRA_RECEITA">Outra receita</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Valor (R$) *</label>
+        <input type="number" id="rtEntValor" placeholder="0,00" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Histórico *</label>
+        <input type="text" id="rtEntHistorico" placeholder="ex: COMPRA COM JUROS — 12 PARCELAS R$34.868,21">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="rtEntObs" placeholder="Notas internas...">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rtEntryModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="rtb.saveEntry()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Anexo do entry (mesmo padrão do vcAnexoModal)
+     ============================================================= -->
+<div class="modal-overlay" id="rtAnexoModal">
+  <div class="modal" style="width:560px;max-width:96vw">
+    <div class="modal-title">📎 Anexar arquivo</div>
+
+    <div class="ft-anexo-tabs">
+      <button type="button" class="ft-anexo-tab active" data-rt-anexo-mode="file" onclick="rtb.switchAnexoMode('file')">📤 Enviar arquivo</button>
+      <button type="button" class="ft-anexo-tab"        data-rt-anexo-mode="url"  onclick="rtb.switchAnexoMode('url')">🔗 Colar link</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Nome / Descrição curta</label>
+        <input type="text" id="rtAnexoNome" placeholder="ex: Nota fiscal compra cavalo">
+        <small style="color:var(--muted);font-size:.66rem">Se vazio, usa o nome do arquivo.</small>
+      </div>
+    </div>
+
+    <div id="rtAnexoFileSection" class="form-row">
+      <div class="form-group">
+        <label>Arquivo *</label>
+        <div id="rtAnexoDropzone" class="ft-anexo-dropzone">
+          <input type="file" id="rtAnexoFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
+          <div class="ft-anexo-dropzone-content" id="rtAnexoDropzoneContent">
+            <div style="font-size:2rem;line-height:1">📂</div>
+            <div><b>Clique para selecionar</b> ou arraste aqui</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">PDF, JPG, PNG ou WEBP até 10 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rtAnexoUrlSection" class="form-row" style="display:none">
+      <div class="form-group">
+        <label>URL do arquivo *</label>
+        <input type="url" id="rtAnexoUrl" placeholder="https://drive.google.com/file/d/...">
+      </div>
+    </div>
+
+    <div id="rtAnexoProgress" class="ft-anexo-progress" style="display:none">
+      <div class="bar"><div class="fill" id="rtAnexoProgressFill"></div></div>
+      <div class="lbl" id="rtAnexoProgressLbl">Enviando…</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rtAnexoModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="rtb.saveAnexo()">Salvar Anexo</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Importar XLSX da planilha do pai
+     ============================================================= -->
+<div class="modal-overlay" id="rtImportModal">
+  <div class="modal" style="width:680px;max-width:96vw">
+    <div class="modal-title">📥 Importar Planilha de Rentabilidade</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      Selecione o XLSX do livro-caixa. O sistema lê <b>todas as abas</b> e
+      casa o nome da aba com a placa dos caminhões cadastrados em
+      <b>Veículos</b>. Linhas com mesma data + valor + histórico são
+      ignoradas (idempotente). Classificação automática por categoria via
+      regex sobre o histórico. <b>Você pode desfazer</b> esta importação
+      depois caso algo dê errado.
+    </p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Arquivo XLSX *</label>
+        <input type="file" id="rtImportFile" accept=".xlsx" style="font-size:.85rem">
+        <small id="rtImportFileLabel" style="color:var(--muted);font-size:.7rem;display:block;margin-top:4px">Nenhum arquivo selecionado</small>
+      </div>
+    </div>
+
+    <div id="rtImportResults"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rtImportModal')">Fechar</button>
+      <button class="btn btn-ghost" id="rtImportUndoBtn" onclick="rtb.undoImport()" style="display:none;color:var(--danger)">Desfazer Última</button>
+      <button class="btn btn-accent" id="rtImportRunBtn" onclick="rtb.runImport()" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
      MODAL: Preview de Anexo (imagem inline / PDF iframe)
      ============================================================= -->
 <div class="modal-overlay" id="ftAnexoPreviewModal">
@@ -851,6 +1178,7 @@
         <tr><td><kbd>1</kbd></td><td>Acerto de Viagem</td></tr>
         <tr><td><kbd>2</kbd></td><td>Frete Terceiro</td></tr>
         <tr><td><kbd>3</kbd></td><td>Veículos</td></tr>
+        <tr><td><kbd>4</kbd></td><td>Rentabilidade</td></tr>
         <tr><td><kbd>A</kbd></td><td>Admin <small style="color:var(--muted)">(somente admins)</small></td></tr>
         <tr><td><kbd>?</kbd></td><td>Mostrar este painel</td></tr>
       </tbody>
