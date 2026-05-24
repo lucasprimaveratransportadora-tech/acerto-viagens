@@ -70,6 +70,20 @@ enum FreteTerceiroPagamento {
   ADIANTAMENTO_SALDO
 }
 
+enum FreteTerceiroParcela {
+  ADIANTAMENTO
+  SALDO
+  INTEGRAL
+  AVULSO
+}
+
+enum FreteTerceiroAnexoTipo {
+  COMPROVANTE_PAGAMENTO
+  CTE
+  RECIBO
+  OUTRO
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -281,6 +295,9 @@ model FreteTerceiro {
   truck_id            String?
   truck               Truck?                 @relation(fields: [truck_id], references: [id])
 
+  baixas              FreteTerceiroBaixa[]
+  anexos              FreteTerceiroAnexo[]
+
   valor_total         Decimal                @default(0) @db.Decimal(12, 2)
   valor_adiantamento  Decimal                @default(0) @db.Decimal(12, 2)
   valor_pago          Decimal                @default(0) @db.Decimal(12, 2)
@@ -310,6 +327,38 @@ model FreteTerceiro {
   @@index([trip_id])
   @@index([status])
   @@map("fretes_terceiros")
+}
+
+model FreteTerceiroBaixa {
+  id                String                @id @default(uuid())
+  frete_id          String
+  frete             FreteTerceiro         @relation(fields: [frete_id], references: [id], onDelete: Cascade)
+  valor             Decimal               @db.Decimal(12, 2)
+  data_pagamento    DateTime
+  parcela           FreteTerceiroParcela  @default(AVULSO)
+  observacoes       String?
+  baixou_por_id     String?
+  created_at        DateTime              @default(now())
+  deleted_at        DateTime?
+
+  @@index([frete_id, data_pagamento(sort: Desc)])
+  @@map("frete_terceiro_baixas")
+}
+
+model FreteTerceiroAnexo {
+  id              String                  @id @default(uuid())
+  frete_id        String
+  frete           FreteTerceiro           @relation(fields: [frete_id], references: [id], onDelete: Cascade)
+  tipo            FreteTerceiroAnexoTipo  @default(OUTRO)
+  nome            String
+  url             String
+  descricao       String?
+  created_by_id   String?
+  created_at      DateTime                @default(now())
+  deleted_at      DateTime?
+
+  @@index([frete_id, created_at(sort: Desc)])
+  @@map("frete_terceiro_anexos")
 }
 
 model LoginEvent {

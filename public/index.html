@@ -462,6 +462,108 @@
 </div>
 
 <!-- =============================================================
+     MODAL: Detalhes do Frete (pagamentos + anexos)
+     ============================================================= -->
+<div class="modal-overlay" id="ftDetalhesModal">
+  <div class="modal" style="width:780px;max-width:96vw;max-height:90vh;overflow-y:auto">
+    <div class="modal-title" id="ftDetTitle">Detalhes do Frete</div>
+
+    <div id="ftDetHeader" class="ft-det-header"></div>
+
+    <!-- Pagamentos -->
+    <div class="ft-det-section">
+      <div class="ft-det-section-title">
+        <span>💵 Pagamentos</span>
+        <button class="btn btn-accent btn-sm" id="ftDetBaixarBtn" onclick="ft.openBaixaFromDetails()">+ Adicionar Baixa</button>
+      </div>
+      <div id="ftDetBaixas"></div>
+    </div>
+
+    <!-- Anexos -->
+    <div class="ft-det-section">
+      <div class="ft-det-section-title">
+        <span>📎 Anexos</span>
+        <button class="btn btn-blue btn-sm" onclick="ft.openAddAnexo()">+ Adicionar Anexo</button>
+      </div>
+      <div id="ftDetAnexos"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ftDetalhesModal')">Fechar</button>
+      <button class="btn btn-ghost" onclick="ft.openEditFromDetails()">Editar dados</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Adicionar Anexo (link externo)
+     ============================================================= -->
+<div class="modal-overlay" id="ftAnexoModal">
+  <div class="modal" style="width:520px;max-width:96vw">
+    <div class="modal-title">📎 Adicionar Anexo</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      Cole o link do arquivo (Google Drive, Dropbox, foto compartilhada por
+      WhatsApp Web, etc). O anexo fica registrado no frete e pode ser aberto
+      por qualquer usuário com acesso.
+    </p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo *</label>
+        <select id="ftAnexoTipo">
+          <option value="COMPROVANTE_PAGAMENTO">Comprovante de pagamento</option>
+          <option value="CTE">CT-e da viagem</option>
+          <option value="RECIBO">Recibo</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Nome / Descrição curta *</label>
+        <input type="text" id="ftAnexoNome" placeholder="ex: Comprovante pix adiantamento">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>URL do arquivo *</label>
+        <input type="url" id="ftAnexoUrl" placeholder="https://drive.google.com/file/d/...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="ftAnexoDesc" placeholder="ex: pago via banco Itaú">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ftAnexoModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="ft.saveAnexo()">Salvar Anexo</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Ajuda de atalhos
+     ============================================================= -->
+<div class="modal-overlay" id="kbHelpModal">
+  <div class="modal" style="width:460px;max-width:96vw">
+    <div class="modal-title">⌨️ Atalhos de teclado</div>
+    <table class="kb-help-table">
+      <tbody>
+        <tr><td><kbd>N</kbd></td><td>Novo (frete / viagem, conforme aba)</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Focar campo de busca</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Fechar modal aberto</td></tr>
+        <tr><td><kbd>H</kbd></td><td>Voltar ao Hub</td></tr>
+        <tr><td><kbd>1</kbd></td><td>Ir para Acerto de Frota</td></tr>
+        <tr><td><kbd>2</kbd></td><td>Ir para Frete Terceiro</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Mostrar este painel</td></tr>
+      </tbody>
+    </table>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="closeModal('kbHelpModal')">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
      MODAL: Baixa de Pagamento
      ============================================================= -->
 <div class="modal-overlay" id="ftBaixaModal">

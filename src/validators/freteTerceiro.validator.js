@@ -40,4 +40,11 @@ const linkTrip = [
   body('trip_id').notEmpty().withMessage('trip_id obrigatório.'),
 ];
 
-module.exports = { createFreteTerceiro, updateFreteTerceiro, baixar, linkTrip };
+const addAnexo = [
+  body('nome').notEmpty().withMessage('Nome obrigatório.'),
+  body('url').notEmpty().withMessage('URL obrigatória.').isLength({ max: 4000 }),
+  body('tipo').optional().isIn(['COMPROVANTE_PAGAMENTO', 'CTE', 'RECIBO', 'OUTRO']).withMessage('Tipo inválido.'),
+  body('descricao').optional(),
+];
+
+module.exports = { createFreteTerceiro, updateFreteTerceiro, baixar, linkTrip, addAnexo };

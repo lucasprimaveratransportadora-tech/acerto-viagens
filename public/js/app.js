@@ -61,7 +61,11 @@ window.doLogout = async function () {
 async function loadAppModules() {
   try {
     // Carrega o hub primeiro — os módulos de frota só carregam ao entrar no card.
-    const hubMod = await import('./hub.js');
+    const [hubMod] = await Promise.all([
+      import('./hub.js'),
+      import('./keyboard-shortcuts.js'), // atalhos globais
+      import('./modals.js'),             // closeModal global pros novos modais
+    ]);
     hubMod.showHub();
   } catch (e) {
     console.error('Erro ao carregar hub:', e);

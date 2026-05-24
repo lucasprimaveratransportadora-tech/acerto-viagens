@@ -11,17 +11,41 @@ function computeStatus({ valor_total, valor_pago }) {
   return 'ABERTO';
 }
 
-async function getById(id, empresaId) {
+async function getById(id, empresaId, options = {}) {
+  const include = {
+    truck: { select: { id: true, placa: true, modelo: true, motorista: true } },
+    trip:  { select: { id: true, data_inicio: true, origem: true, destino: true } },
+    created_by: { select: { id: true, nome: true, email: true } },
+    paid_by:    { select: { id: true, nome: true, email: true } },
+  };
+  if (options.withDetails) {
+    include.baixas = {
+      where: { deleted_at: null },
+      orderBy: { data_pagamento: 'asc' },
+    };
+    include.anexos = {
+      where: { deleted_at: null },
+      orderBy: { created_at: 'desc' },
+    };
+  }
   const frete = await prisma.freteTerceiro.findFirst({
     where: { id, empresa_id: empresaId, deleted_at: null },
-    include: {
-      truck: { select: { id: true, placa: true, modelo: true, motorista: true } },
-      trip:  { select: { id: true, data_inicio: true, origem: true, destino: true } },
-      created_by: { select: { id: true, nome: true, email: true } },
-      paid_by:    { select: { id: true, nome: true, email: true } },
-    },
+    include,
   });
   if (!frete) throw ApiError.notFound('Frete terceiro não encontrado.');
+
+  if (options.withDetails) {
+    // Enriquece baixas com nome do usuário que baixou
+    const userIds = [...new Set(frete.baixas.map(b => b.baixou_por_id).filter(Boolean))];
+    const anexoUserIds = [...new Set(frete.anexos.map(a => a.created_by_id).filter(Boolean))];
+    const allIds = [...new Set([...userIds, ...anexoUserIds])];
+    const users = allIds.length
+      ? await prisma.user.findMany({ where: { id: { in: allIds } }, select: { id: true, nome: true, email: true } })
+      : [];
+    const byId = Object.fromEntries(users.map(u => [u.id, u]));
+    frete.baixas = frete.baixas.map(b => ({ ...b, baixou_por: b.baixou_por_id ? byId[b.baixou_por_id] || null : null }));
+    frete.anexos = frete.anexos.map(a => ({ ...a, created_by: a.created_by_id ? byId[a.created_by_id] || null : null }));
+  }
   return frete;
 }
 
@@ -193,40 +217,132 @@ async function baixar(id, empresaId, req, data) {
   const data_pagamento = data.data_pagamento ? new Date(data.data_pagamento) : new Date();
 
   const isFirstBaixa = pagoAnterior <= 0.001;
-  const after = await prisma.freteTerceiro.update({
-    where: { id },
-    data: {
-      valor_pago: pago,
-      status,
-      data_pagamento,
-      // Na primeira baixa de fretes Adiantamento+Saldo, registra a data do adiantamento
-      data_adiantamento: (isFirstBaixa && before.forma_pagamento === 'ADIANTAMENTO_SALDO')
-        ? data_pagamento
-        : before.data_adiantamento,
-      paid_by_id: req.user.id,
-      observacoes: data.observacoes ? `${before.observacoes ? before.observacoes + '\n' : ''}[BAIXA ${data_pagamento.toISOString().slice(0,10)}] ${data.observacoes}` : before.observacoes,
-    },
-    include: {
-      truck: { select: { id: true, placa: true } },
-      trip:  { select: { id: true, data_inicio: true } },
-      created_by: { select: { id: true, nome: true } },
-      paid_by:    { select: { id: true, nome: true } },
-    },
-  });
+
+  // Determina a label da parcela
+  let parcela = 'AVULSO';
+  if (before.forma_pagamento === 'ADIANTAMENTO_SALDO') {
+    parcela = isFirstBaixa ? 'ADIANTAMENTO' : 'SALDO';
+  } else if (before.forma_pagamento === 'INTEGRAL') {
+    parcela = 'INTEGRAL';
+  }
+
+  const [, after] = await prisma.$transaction([
+    prisma.freteTerceiroBaixa.create({
+      data: {
+        frete_id:       id,
+        valor,
+        data_pagamento,
+        parcela,
+        observacoes:    data.observacoes || null,
+        baixou_por_id:  req.user.id,
+      },
+    }),
+    prisma.freteTerceiro.update({
+      where: { id },
+      data: {
+        valor_pago: pago,
+        status,
+        data_pagamento,
+        data_adiantamento: (isFirstBaixa && before.forma_pagamento === 'ADIANTAMENTO_SALDO')
+          ? data_pagamento
+          : before.data_adiantamento,
+        paid_by_id: req.user.id,
+      },
+      include: {
+        truck: { select: { id: true, placa: true } },
+        trip:  { select: { id: true, data_inicio: true } },
+        created_by: { select: { id: true, nome: true } },
+        paid_by:    { select: { id: true, nome: true } },
+      },
+    }),
+  ]);
   await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: id, before, after });
   return after;
 }
 
+/* ============================================================
+   ANEXOS — URLs externas (Drive, Dropbox, etc.) ou data URIs.
+   ============================================================ */
+async function addAnexo(freteId, empresaId, req, data) {
+  await getById(freteId, empresaId); // garante ownership multi-tenant
+  if (!data.url) throw ApiError.badRequest('URL do anexo obrigatória.');
+  if (!data.nome) throw ApiError.badRequest('Nome do anexo obrigatório.');
+  const anexo = await prisma.freteTerceiroAnexo.create({
+    data: {
+      frete_id:       freteId,
+      tipo:           data.tipo || 'OUTRO',
+      nome:           data.nome,
+      url:            data.url,
+      descricao:      data.descricao || null,
+      created_by_id:  req.user.id,
+    },
+  });
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: freteId, before: null, after: { anexo } });
+  return anexo;
+}
+
+async function removeAnexo(freteId, anexoId, empresaId, req) {
+  await getById(freteId, empresaId);
+  const anexo = await prisma.freteTerceiroAnexo.findFirst({
+    where: { id: anexoId, frete_id: freteId, deleted_at: null },
+  });
+  if (!anexo) throw ApiError.notFound('Anexo não encontrado.');
+  await prisma.freteTerceiroAnexo.update({
+    where: { id: anexoId },
+    data: { deleted_at: new Date() },
+  });
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'DELETE', entityId: freteId, before: { anexo }, after: null });
+  return { ok: true };
+}
+
+async function removeBaixa(freteId, baixaId, empresaId, req) {
+  const frete = await getById(freteId, empresaId);
+  const baixa = await prisma.freteTerceiroBaixa.findFirst({
+    where: { id: baixaId, frete_id: freteId, deleted_at: null },
+  });
+  if (!baixa) throw ApiError.notFound('Baixa não encontrada.');
+
+  const novoPago = Math.max(0, Number(frete.valor_pago) - Number(baixa.valor));
+  const novoStatus = computeStatus({ valor_total: Number(frete.valor_total), valor_pago: novoPago });
+
+  await prisma.$transaction([
+    prisma.freteTerceiroBaixa.update({
+      where: { id: baixaId },
+      data: { deleted_at: new Date() },
+    }),
+    prisma.freteTerceiro.update({
+      where: { id: freteId },
+      data: {
+        valor_pago: novoPago,
+        status: novoStatus,
+        // Se zerou pagamentos, limpa datas
+        data_pagamento: novoPago > 0 ? frete.data_pagamento : null,
+        data_adiantamento: novoPago > 0 ? frete.data_adiantamento : null,
+      },
+    }),
+  ]);
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: freteId, before: { baixa }, after: null });
+  return { ok: true };
+}
+
 async function linkTrip(id, tripId, empresaId, req) {
   const before = await getById(id, empresaId);
+  // Garante que a viagem existe E pertence à mesma empresa via truck.empresa_id
   const trip = await prisma.trip.findFirst({
     where: { id: tripId, deleted_at: null, truck: { empresa_id: empresaId, deleted_at: null } },
+    include: { truck: { select: { id: true, empresa_id: true } } },
   });
   if (!trip) throw ApiError.notFound('Viagem não encontrada.');
 
+  // Se o frete ainda não tem truck e a viagem tem, herda — mas só se for da mesma empresa
+  let truck_id_final = before.truck_id;
+  if (!truck_id_final && trip.truck_id && trip.truck?.empresa_id === empresaId) {
+    truck_id_final = trip.truck_id;
+  }
+
   const after = await prisma.freteTerceiro.update({
     where: { id },
-    data: { trip_id: tripId, truck_id: before.truck_id || trip.truck_id },
+    data: { trip_id: tripId, truck_id: truck_id_final },
     include: {
       truck: { select: { id: true, placa: true } },
       trip:  { select: { id: true, data_inicio: true, origem: true, destino: true } },

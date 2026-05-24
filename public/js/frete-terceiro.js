@@ -11,6 +11,8 @@ const state = {
   filters: { status: '', truck_id: '', q: '', from: '', to: '' },
   editingId: null,
   baixaTargetId: null,
+  detailsId: null,         // frete aberto no modal de detalhes
+  detailsItem: null,       // dados completos com baixas/anexos
   loaded: false,
 };
 
@@ -36,19 +38,44 @@ function statusPill(s) {
 }
 function pagamentoLabel(p) { return p === 'ADIANTAMENTO_SALDO' ? 'Adi+Saldo' : 'Integral'; }
 
+function showErrorBanner(msg) {
+  const inner = document.querySelector('#freteTerceiroView .ft-inner');
+  if (!inner) return;
+  let bnr = document.getElementById('ftErrorBanner');
+  if (!bnr) {
+    bnr = document.createElement('div');
+    bnr.id = 'ftErrorBanner';
+    bnr.className = 'ft-error-banner';
+    inner.insertBefore(bnr, inner.firstChild);
+  }
+  bnr.textContent = msg;
+}
+function clearErrorBanner() {
+  const bnr = document.getElementById('ftErrorBanner');
+  if (bnr) bnr.remove();
+}
+
 /* ---------- API helpers ---------- */
 async function loadAll() {
   const qs = new URLSearchParams(Object.entries(state.filters).filter(([_, v]) => v !== '' && v != null));
-  const [items, sum, trucks] = await Promise.all([
-    api.get(`/api/fretes-terceiros?${qs.toString()}`),
-    api.get('/api/fretes-terceiros/summary'),
-    api.get('/api/trucks').catch(() => []),
-  ]);
-  state.items = items;
-  state.trucks = trucks;
-  renderKpis(sum);
-  renderTable();
-  renderTruckSelects();
+  try {
+    const [items, sum, trucks] = await Promise.all([
+      api.get(`/api/fretes-terceiros?${qs.toString()}`),
+      api.get('/api/fretes-terceiros/summary'),
+      api.get('/api/trucks').catch(() => []),
+    ]);
+    state.items = items;
+    state.trucks = trucks;
+    clearErrorBanner();
+    renderKpis(sum);
+    renderTable();
+    renderTruckSelects();
+  } catch (e) {
+    showErrorBanner('Erro ao carregar fretes: ' + (e.message || 'falha desconhecida') + '. Recarregue a página ou volte ao hub.');
+    renderKpis({ aberto: 0, adiantado: 0, pagoMes: 0, qtdMes: 0 });
+    state.items = [];
+    renderTable();
+  }
 }
 
 /* ---------- KPIs ---------- */
@@ -80,7 +107,7 @@ function renderTable() {
     const linked = f.trip_id ? `<span class="ft-trip-badge">VIAGEM</span>` : '';
     const canBaixar = f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL';
     const rota = (f.origem || f.destino) ? `<div class="ft-row-meta">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div>` : '';
-    return `<tr class="${f.trip_id ? 'linked' : ''}">
+    return `<tr class="clickable ${f.trip_id ? 'linked' : ''}" onclick="ft.openDetails('${esc(f.id)}')">
       <td class="mono">${fmtDate(f.data)}</td>
       <td><div>${esc(f.empresa_pagadora)}</div>${rota}</td>
       <td>${esc(f.motorista)}</td>
@@ -89,7 +116,7 @@ function renderTable() {
       <td class="right mono">${fmtBRL(total)}</td>
       <td class="right mono" style="color:${saldo > 0 ? '#f59e0b' : 'var(--success)'}">${fmtBRL(saldo)}</td>
       <td>${statusPill(f.status)}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <div class="actions">
           ${canBaixar ? `<button class="green" onclick="ft.openBaixa('${esc(f.id)}')" title="Dar baixa de pagamento">✓ Baixar</button>` : ''}
           <button onclick="ft.openEdit('${esc(f.id)}')" title="Editar">Editar</button>
@@ -162,7 +189,11 @@ function openNew() {
 }
 async function openEdit(id) {
   state.editingId = id;
-  const f = state.items.find(x => x.id === id) || await api.get(`/api/fretes-terceiros/${id}`);
+  let f = state.items.find(x => x.id === id);
+  if (!f) {
+    try { f = await api.get(`/api/fretes-terceiros/${id}`); }
+    catch (e) { alert('Falha ao carregar frete: ' + e.message); return; }
+  }
   document.getElementById('ftModalTitle').textContent = 'Editar Frete Terceiro';
   document.getElementById('ftEmpresa').value   = f.empresa_pagadora || '';
   document.getElementById('ftData').value      = dateISO(f.data);
@@ -242,9 +273,12 @@ async function save() {
 }
 
 /* ---------- MODAL BAIXA ---------- */
-function openBaixa(id) {
-  const f = state.items.find(x => x.id === id);
-  if (!f) return;
+async function openBaixa(id) {
+  let f = state.items.find(x => x.id === id);
+  if (!f) {
+    try { f = await api.get(`/api/fretes-terceiros/${id}`); }
+    catch (e) { alert('Frete não encontrado: ' + e.message); return; }
+  }
   state.baixaTargetId = id;
   const total = Number(f.valor_total);
   const adi   = Number(f.valor_adiantamento);
@@ -258,13 +292,15 @@ function openBaixa(id) {
   let parcelaLabel = 'Saldo a receber';
   if (f.forma_pagamento === 'ADIANTAMENTO_SALDO') {
     if (pago < adi - 0.001) {
-      proximaParcela = adi - pago;
+      // Não pode sugerir mais do que ainda falta no total
+      proximaParcela = Math.min(adi - pago, saldoTotal);
       parcelaLabel = '1ª parcela — Adiantamento';
     } else {
       proximaParcela = saldoTotal;
       parcelaLabel = '2ª parcela — Saldo final';
     }
   }
+  if (proximaParcela < 0) proximaParcela = saldoTotal;
 
   const breakdown = f.forma_pagamento === 'ADIANTAMENTO_SALDO'
     ? `
@@ -304,6 +340,198 @@ async function confirmBaixa() {
     await api.post(`/api/fretes-terceiros/${id}/baixar`, body);
     document.getElementById('ftBaixaModal').classList.remove('open');
     await loadAll();
+    // Se o modal de detalhes está aberto pra este frete, atualiza
+    if (state.detailsId === id) {
+      try {
+        const f = await api.get(`/api/fretes-terceiros/${id}?details=1`);
+        state.detailsItem = f;
+        renderDetalhes(f);
+      } catch { /* ignore */ }
+    }
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+/* ============================================================
+   DETALHES — cabeçalho + pagamentos + anexos
+   ============================================================ */
+async function openDetails(id) {
+  state.detailsId = id;
+  document.getElementById('ftDetTitle').textContent = 'Detalhes do Frete';
+  document.getElementById('ftDetHeader').innerHTML = '<div class="ft-loading">Carregando…</div>';
+  document.getElementById('ftDetBaixas').innerHTML = '';
+  document.getElementById('ftDetAnexos').innerHTML = '';
+  document.getElementById('ftDetalhesModal').classList.add('open');
+  try {
+    const f = await api.get(`/api/fretes-terceiros/${id}?details=1`);
+    state.detailsItem = f;
+    renderDetalhes(f);
+  } catch (e) {
+    document.getElementById('ftDetHeader').innerHTML = `<div style="color:var(--danger)">Erro: ${esc(e.message)}</div>`;
+  }
+}
+
+function parcelaPill(p) {
+  const map = { ADIANTAMENTO: ['adi','Adiantamento'], SALDO: ['sal','Saldo final'], INTEGRAL: ['','Integral'], AVULSO: ['','Avulso'] };
+  const [cls, lbl] = map[p] || ['', p || '—'];
+  return `<span class="parc ${cls}">${lbl}</span>`;
+}
+
+function anexoIcon(tipo) {
+  return ({
+    COMPROVANTE_PAGAMENTO: '💵',
+    CTE: '📄',
+    RECIBO: '🧾',
+    OUTRO: '📎',
+  })[tipo] || '📎';
+}
+
+function anexoTipoLabel(tipo) {
+  return ({
+    COMPROVANTE_PAGAMENTO: 'Comprovante',
+    CTE: 'CT-e',
+    RECIBO: 'Recibo',
+    OUTRO: 'Anexo',
+  })[tipo] || tipo;
+}
+
+function renderDetalhes(f) {
+  const total = Number(f.valor_total);
+  const adi   = Number(f.valor_adiantamento);
+  const pago  = Number(f.valor_pago);
+  const saldo = total - pago;
+  const breakdown = f.forma_pagamento === 'ADIANTAMENTO_SALDO'
+    ? `<div><div class="lbl">1ª parcela (adiantamento)</div><div class="val">${fmtBRL(adi)}</div></div>
+       <div><div class="lbl">2ª parcela (saldo)</div><div class="val">${fmtBRL(total - adi)}</div></div>`
+    : `<div><div class="lbl">Pagamento</div><div class="val">Integral</div></div>
+       <div></div>`;
+  const rota = (f.origem || f.destino)
+    ? `<div class="full"><div class="lbl">Rota</div><div class="val">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div></div>`
+    : '';
+  const viagem = f.trip
+    ? `<div class="full"><div class="lbl">Viagem vinculada</div><div class="val">${fmtDate(f.trip.data_inicio)} · ${esc(f.trip.origem || '—')} → ${esc(f.trip.destino || '—')}</div></div>`
+    : '';
+
+  document.getElementById('ftDetHeader').innerHTML = `
+    <div><div class="lbl">Empresa pagadora</div><div class="val">${esc(f.empresa_pagadora)}</div></div>
+    <div><div class="lbl">Data do frete</div><div class="val">${fmtDate(f.data)}</div></div>
+    <div><div class="lbl">Motorista</div><div class="val">${esc(f.motorista)}</div></div>
+    <div><div class="lbl">Veículo / Placa</div><div class="val">${esc(f.veiculo)}</div></div>
+    ${rota}
+    <div><div class="lbl">Valor total</div><div class="val big">${fmtBRL(total)}</div></div>
+    <div><div class="lbl">Status / Saldo</div><div class="val big ${saldo > 0 ? 'warn' : 'ok'}">${fmtBRL(saldo)} <span style="font-size:.7rem;letter-spacing:2px;margin-left:6px">${statusPill(f.status)}</span></div></div>
+    ${breakdown}
+    ${viagem}
+  `;
+
+  // Toggle "Adicionar Baixa" se já está PAGO/CANCELADO
+  const canBaixar = f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL';
+  const baixarBtn = document.getElementById('ftDetBaixarBtn');
+  if (baixarBtn) baixarBtn.style.display = canBaixar ? '' : 'none';
+
+  renderBaixas(f);
+  renderAnexos(f);
+}
+
+function renderBaixas(f) {
+  const wrap = document.getElementById('ftDetBaixas');
+  if (!f.baixas || !f.baixas.length) {
+    wrap.innerHTML = '<div class="ft-empty-mini">Nenhuma baixa registrada. Clique em <b>+ Adicionar Baixa</b> quando o pagamento chegar.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="ft-baixa-list">' + f.baixas.map(b => `
+    <div class="ft-baixa-item">
+      ${parcelaPill(b.parcela)}
+      <span class="data">${fmtDate(b.data_pagamento)}</span>
+      <span class="valor">${fmtBRL(b.valor)}</span>
+      <span class="meta">${b.baixou_por ? 'por ' + esc(b.baixou_por.nome) : ''}${b.observacoes ? ' · ' + esc(b.observacoes) : ''}</span>
+      <div class="actions"><button onclick="ft.removeBaixa('${esc(b.id)}')">Estornar</button></div>
+    </div>
+  `).join('') + '</div>';
+}
+
+function renderAnexos(f) {
+  const wrap = document.getElementById('ftDetAnexos');
+  if (!f.anexos || !f.anexos.length) {
+    wrap.innerHTML = '<div class="ft-empty-mini">Nenhum anexo. Cole um link de comprovante de pagamento, CT-e ou recibo.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="ft-anexo-list">' + f.anexos.map(a => `
+    <div class="ft-anexo-item">
+      <span class="ico">${anexoIcon(a.tipo)}</span>
+      <div class="info">
+        <div class="nome">${esc(a.nome)} <span style="font-size:.65rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-left:4px">${anexoTipoLabel(a.tipo)}</span></div>
+        <div class="desc">${esc(a.descricao || '')}${a.created_by ? (a.descricao ? ' · ' : '') + 'por ' + esc(a.created_by.nome) : ''}</div>
+      </div>
+      <a href="${esc(a.url)}" target="_blank" rel="noopener">Abrir</a>
+      <div class="actions"><button onclick="ft.removeAnexo('${esc(a.id)}')">Excluir</button></div>
+    </div>
+  `).join('') + '</div>';
+}
+
+function openBaixaFromDetails() {
+  if (!state.detailsId) return;
+  // Fecha temporariamente o details para mostrar o modal de baixa por cima
+  openBaixa(state.detailsId);
+}
+
+function openEditFromDetails() {
+  if (!state.detailsId) return;
+  document.getElementById('ftDetalhesModal').classList.remove('open');
+  openEdit(state.detailsId);
+}
+
+function openAddAnexo() {
+  if (!state.detailsId) { alert('Abra o frete pelo detalhe primeiro.'); return; }
+  document.getElementById('ftAnexoTipo').value = 'COMPROVANTE_PAGAMENTO';
+  document.getElementById('ftAnexoNome').value = '';
+  document.getElementById('ftAnexoUrl').value  = '';
+  document.getElementById('ftAnexoDesc').value = '';
+  document.getElementById('ftAnexoModal').classList.add('open');
+}
+
+async function saveAnexo() {
+  const body = {
+    tipo:      document.getElementById('ftAnexoTipo').value,
+    nome:      document.getElementById('ftAnexoNome').value.trim(),
+    url:       document.getElementById('ftAnexoUrl').value.trim(),
+    descricao: document.getElementById('ftAnexoDesc').value.trim() || null,
+  };
+  if (!body.nome || !body.url) { alert('Preencha nome e URL.'); return; }
+  try {
+    await api.post(`/api/fretes-terceiros/${state.detailsId}/anexos`, body);
+    document.getElementById('ftAnexoModal').classList.remove('open');
+    // Recarrega detalhes
+    const f = await api.get(`/api/fretes-terceiros/${state.detailsId}?details=1`);
+    state.detailsItem = f;
+    renderAnexos(f);
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+async function removeAnexo(anexoId) {
+  if (!confirm('Excluir este anexo?')) return;
+  try {
+    await api.delete(`/api/fretes-terceiros/${state.detailsId}/anexos/${anexoId}`);
+    const f = await api.get(`/api/fretes-terceiros/${state.detailsId}?details=1`);
+    state.detailsItem = f;
+    renderAnexos(f);
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+async function removeBaixa(baixaId) {
+  if (!confirm('Estornar esta baixa? O valor será removido do total já recebido.')) return;
+  try {
+    await api.delete(`/api/fretes-terceiros/${state.detailsId}/baixas/${baixaId}`);
+    const f = await api.get(`/api/fretes-terceiros/${state.detailsId}?details=1`);
+    state.detailsItem = f;
+    renderDetalhes(f);
+    // Atualiza lista de fora também
+    loadAll();
   } catch (e) {
     alert('Erro: ' + e.message);
   }
@@ -338,4 +566,6 @@ export async function initFreteTerceiro() {
 window.ft = {
   openNew, openEdit, openBaixa, save, confirmBaixa, confirmRemove,
   applyFilters, clearFilters, setPagamento,
+  openDetails, openBaixaFromDetails, openEditFromDetails,
+  openAddAnexo, saveAnexo, removeAnexo, removeBaixa,
 };
