@@ -73,7 +73,7 @@
 
       <div class="hub-hdr-actions">
         <span class="hub-hdr-user" id="hubUserInfo"></span>
-        <button class="btn btn-ghost btn-sm" id="hubAdminBtn" onclick="goToFrota().then(()=>toggleAdmin())" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
         <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
       </div>
@@ -212,14 +212,17 @@
           <span class="arrow-l"></span>Início
         </button>
         <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima Transportadora">
-        <div class="logo-sub">Acerto de Viagem</div>
+        <div class="module-tabs">
+          <button class="module-tab active" data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
+          <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <span id="userInfo" style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
         <div class="header-actions">
           <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
           <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
-          <button class="btn btn-ghost btn-sm" id="adminBtn" onclick="toggleAdmin()" style="display:none">⚙️ Admin</button>
+          <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
           <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()" title="Alternar tema">🌙</button>
           <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger);margin-left:8px">Sair</button>
         </div>
@@ -241,18 +244,40 @@
       </main>
     </div>
 
-    <div id="adminView" style="display:none">
+  </div>
+
+  <!-- ============================================================
+       ADMIN — acessível de qualquer view
+       ============================================================ -->
+  <div id="adminView" style="display:none">
+    <header class="ft-header">
+      <div class="logo" style="display:flex;align-items:center;gap:12px">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
+        <div>
+          <div class="ft-title">Administração</div>
+          <div class="ft-sub">Usuários · Auditoria · Logins</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-ghost btn-sm" onclick="goToFrota()">🚚 Acerto de Viagem</button>
+        <button class="btn btn-ghost btn-sm" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+    <div style="padding:1rem 1.4rem 3rem">
       <div class="admin-header">
-        <button class="btn btn-ghost btn-sm" onclick="toggleAdmin()">&larr; Voltar à Frota</button>
         <div class="admin-tabs">
-          <button class="admin-tab active" data-tab="users" onclick="switchAdminTab('users')">Usuários</button>
-          <button class="admin-tab" data-tab="audit" onclick="switchAdminTab('audit')">Auditoria</button>
-          <button class="admin-tab" data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>
+          <button class="admin-tab active" data-tab="users"  onclick="switchAdminTab('users')">Usuários</button>
+          <button class="admin-tab"        data-tab="audit"  onclick="switchAdminTab('audit')">Auditoria</button>
+          <button class="admin-tab"        data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>
         </div>
       </div>
       <div id="adminContent"></div>
     </div>
-
   </div>
 
   <!-- ============================================================
@@ -266,13 +291,14 @@
           <span class="arrow-l"></span>Início
         </button>
         <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
-        <div>
-          <div class="ft-title">Controle Frete Terceiro</div>
-          <div class="ft-sub">Fretes captados · Pagamento · Baixa</div>
+        <div class="module-tabs">
+          <button class="module-tab"        data-mod-tab="frota"           onclick="goToFrota()">🚚 Acerto de Viagem</button>
+          <button class="module-tab active" data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <button class="btn btn-accent" onclick="ft.openNew()">+ Novo Frete</button>
+        <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
         <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
       </div>
@@ -568,6 +594,22 @@
 </div>
 
 <!-- =============================================================
+     MODAL: Preview de Anexo (imagem inline / PDF iframe)
+     ============================================================= -->
+<div class="modal-overlay" id="ftAnexoPreviewModal">
+  <div class="modal ft-preview-modal">
+    <div class="ft-preview-header">
+      <span class="ft-preview-title" id="ftPrevTitle">Anexo</span>
+      <span class="ft-preview-actions">
+        <a id="ftPrevDownload" class="btn btn-ghost btn-sm" download>⬇ Baixar</a>
+        <button class="btn btn-ghost btn-sm" onclick="ft.closeAnexoPreview()">✕ Fechar</button>
+      </span>
+    </div>
+    <div class="ft-preview-body" id="ftPrevBody"></div>
+  </div>
+</div>
+
+<!-- =============================================================
      MODAL: Ajuda de atalhos
      ============================================================= -->
 <div class="modal-overlay" id="kbHelpModal">
@@ -579,8 +621,9 @@
         <tr><td><kbd>/</kbd></td><td>Focar campo de busca</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Fechar modal aberto</td></tr>
         <tr><td><kbd>H</kbd></td><td>Voltar ao Hub</td></tr>
-        <tr><td><kbd>1</kbd></td><td>Ir para Acerto de Frota</td></tr>
-        <tr><td><kbd>2</kbd></td><td>Ir para Frete Terceiro</td></tr>
+        <tr><td><kbd>1</kbd></td><td>Acerto de Viagem</td></tr>
+        <tr><td><kbd>2</kbd></td><td>Frete Terceiro</td></tr>
+        <tr><td><kbd>A</kbd></td><td>Admin <small style="color:var(--muted)">(somente admins)</small></td></tr>
         <tr><td><kbd>?</kbd></td><td>Mostrar este painel</td></tr>
       </tbody>
     </table>

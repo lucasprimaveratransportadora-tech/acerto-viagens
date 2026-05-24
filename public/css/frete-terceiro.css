@@ -341,6 +341,80 @@
   transition: width .15s ease-out;
 }
 
+/* Preview modal (imagem / PDF inline) */
+.ft-preview-modal {
+  width: 96vw; max-width: 1100px;
+  height: 92vh; max-height: 92vh;
+  padding: 0; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.ft-preview-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.ft-preview-title {
+  font-family:'IBM Plex Mono', monospace; font-size:.78rem;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text);
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ft-preview-actions { display: flex; gap: 6px; align-items: center; }
+.ft-preview-body {
+  flex: 1; overflow: auto;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+  position: relative;
+}
+.ft-preview-body img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.ft-preview-body iframe {
+  width: 100%; height: 100%;
+  border: 0;
+  background: #fff;
+}
+.ft-preview-body .ft-prev-fallback {
+  color: var(--muted); padding: 2rem;
+  font-family:'IBM Plex Mono', monospace; font-size:.85rem;
+  text-align: center;
+}
+.ft-preview-body .ft-prev-loading {
+  color: var(--muted);
+  font-family:'IBM Plex Mono', monospace; font-size:.78rem;
+  letter-spacing: 2px;
+}
+
+/* Module tabs (Acerto vs Frete Terceiro) */
+.module-tabs {
+  display: flex; gap: 4px;
+  margin-left: 12px;
+}
+.module-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family:'IBM Plex Mono', monospace;
+  font-size: .68rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: border-color .15s, color .15s, background .15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.module-tab:hover { color: var(--text); border-color: var(--accent); }
+.module-tab.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* Error banner */
 .ft-error-banner {
   background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.35);

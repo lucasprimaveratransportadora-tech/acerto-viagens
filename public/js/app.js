@@ -60,15 +60,19 @@ window.doLogout = async function () {
 
 async function loadAppModules() {
   try {
-    // Carrega o hub primeiro — os módulos de frota só carregam ao entrar no card.
-    const [hubMod] = await Promise.all([
+    // Carrega navegação, atalhos, modais e o controle de visibilidade do
+    // botão Admin (presente em todos os headers).
+    const [hubMod, adminMod] = await Promise.all([
       import('./hub.js'),
-      import('./keyboard-shortcuts.js'), // atalhos globais
-      import('./modals.js'),             // closeModal global pros novos modais
+      import('./admin/index.js'),
+      import('./keyboard-shortcuts.js'),
+      import('./modals.js'),
     ]);
-    hubMod.showHub();
+    adminMod.initAdmin();
+    // Vai direto pra última aba usada (ou hub se for o primeiro login)
+    await hubMod.routeAfterLogin();
   } catch (e) {
-    console.error('Erro ao carregar hub:', e);
+    console.error('Erro ao carregar app:', e);
   }
 }
 

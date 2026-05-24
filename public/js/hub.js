@@ -1,23 +1,31 @@
-// hub.js — Navegação do HUB Acompanhamento Frota
+// hub.js — Navegação entre Hub / Acerto de Viagem / Frete Terceiro / Admin.
 //
-// Controla as 3 views pós-login:
-//   #hubView            — landing page (default após login)
-//   #moduleContainer    — Acerto de Frota + Admin (estrutura legada)
-//   #freteTerceiroView  — Controle de Frete Terceiro (placeholder)
+// Persistência: a última aba escolhida fica em localStorage('lastTab') e a
+// app abre direto nela após o login (skip hub se já houver preferência).
 
 import { getCurrentUser } from './auth.js';
 
 let frotaModulesLoaded = false;
+let freteTerceiroLoaded = false;
+let adminLoaded = false;
 
 /* ---------- VIEWS ---------- */
 
 function hideAll() {
-  const hub = document.getElementById('hubView');
-  const mod = document.getElementById('moduleContainer');
-  const ft  = document.getElementById('freteTerceiroView');
-  if (hub) hub.style.display = 'none';
-  if (mod) mod.style.display = 'none';
-  if (ft)  ft.style.display  = 'none';
+  ['hubView','moduleContainer','freteTerceiroView','adminView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function setActiveTab(name) {
+  document.querySelectorAll('[data-mod-tab]').forEach(el => {
+    el.classList.toggle('active', el.dataset.modTab === name);
+  });
+}
+
+function saveLastTab(name) {
+  try { localStorage.setItem('lastTab', name); } catch { /* */ }
 }
 
 export function showHub() {
@@ -26,7 +34,9 @@ export function showHub() {
   if (hub) hub.style.display = '';
   document.body.dataset.view = 'hub';
   renderHubUser();
+  refreshAdminVisibility();
   startHubClock();
+  // Não salva como "lastTab" — hub é landing, não aba
 }
 
 export async function goToFrota() {
@@ -34,14 +44,16 @@ export async function goToFrota() {
   const mod = document.getElementById('moduleContainer');
   if (mod) mod.style.display = '';
   document.body.dataset.view = 'frota';
+  setActiveTab('frota');
+  saveLastTab('frota');
+  refreshAdminVisibility();
 
   if (!frotaModulesLoaded) {
     try {
-      const [sidebarMod, dashMod, stateMod, adminMod] = await Promise.all([
+      const [sidebarMod, dashMod, stateMod] = await Promise.all([
         import('./sidebar.js'),
         import('./dashboard.js'),
         import('./state.js'),
-        import('./admin/index.js'),
       ]);
       await Promise.all([
         import('./modals.js'),
@@ -50,7 +62,6 @@ export async function goToFrota() {
         import('./trips.js'),
         import('./trip-frete-link.js'),
       ]);
-      adminMod.initAdmin();
       await sidebarMod.loadTrucks();
       if (stateMod.state.trucks.length) {
         stateMod.setSelectedTruck(stateMod.state.trucks[0].id);
@@ -64,12 +75,14 @@ export async function goToFrota() {
   }
 }
 
-let freteTerceiroLoaded = false;
 export async function goToFreteTerceiro() {
   hideAll();
   const ft = document.getElementById('freteTerceiroView');
   if (ft) ft.style.display = '';
   document.body.dataset.view = 'frete-terceiro';
+  setActiveTab('frete-terceiro');
+  saveLastTab('frete-terceiro');
+  refreshAdminVisibility();
   try {
     const mod = await import('./frete-terceiro.js');
     await mod.initFreteTerceiro();
@@ -77,6 +90,41 @@ export async function goToFreteTerceiro() {
   } catch (e) {
     console.error('Erro ao carregar módulo Frete Terceiro:', e);
   }
+}
+
+export async function goToAdmin() {
+  // Lazy-carrega o módulo admin se for a primeira vez
+  if (!adminLoaded) {
+    try {
+      const mod = await import('./admin/index.js');
+      mod.initAdmin();
+      adminLoaded = true;
+    } catch (e) {
+      console.error('Erro ao carregar módulo Admin:', e);
+      return;
+    }
+  }
+  hideAll();
+  const adm = document.getElementById('adminView');
+  if (adm) adm.style.display = '';
+  document.body.dataset.view = 'admin';
+  setActiveTab(''); // nenhuma tab de módulo fica ativa
+  refreshAdminVisibility();
+  // Renderiza a aba corrente do admin
+  if (window.switchAdminTab) {
+    const state = await import('./state.js');
+    window.switchAdminTab(state.state.adminTab || 'users');
+  }
+}
+
+/* ---------- ADMIN BUTTON VISIBILITY ---------- */
+
+function refreshAdminVisibility() {
+  const u = getCurrentUser();
+  const show = u && u.role === 'ADMIN';
+  document.querySelectorAll('.admin-trigger').forEach(b => {
+    b.style.display = show ? '' : 'none';
+  });
 }
 
 /* ---------- HEADER UI ---------- */
@@ -112,8 +160,20 @@ function startHubClock() {
   clockTimer = setInterval(tick, 1000);
 }
 
+/* ---------- INITIAL ROUTE ---------- */
+
+export async function routeAfterLogin() {
+  let last = null;
+  try { last = localStorage.getItem('lastTab'); } catch { /* */ }
+  refreshAdminVisibility();
+  if (last === 'frota')          return goToFrota();
+  if (last === 'frete-terceiro') return goToFreteTerceiro();
+  return showHub();
+}
+
 /* ---------- WIRE GLOBAL ---------- */
 
-window.goToFrota = goToFrota;
-window.goToFreteTerceiro = goToFreteTerceiro;
-window.goToHub = showHub;
+window.goToFrota          = goToFrota;
+window.goToFreteTerceiro  = goToFreteTerceiro;
+window.goToHub            = showHub;
+window.goToAdmin          = goToAdmin;

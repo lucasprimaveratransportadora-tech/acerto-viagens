@@ -50,6 +50,7 @@ function showHelp()   { const m = document.getElementById('kbHelpModal');   if (
 function goHub()      { if (window.goToHub)            window.goToHub();            }
 function goFrota()    { if (window.goToFrota)          window.goToFrota();          }
 function goFretes()   { if (window.goToFreteTerceiro)  window.goToFreteTerceiro();  }
+function goAdmin()    { if (window.goToAdmin)          window.goToAdmin();          }
 
 function handler(ev) {
   const key = ev.key;
@@ -107,6 +108,13 @@ function handler(ev) {
     case '2':
       goFretes();
       ev.preventDefault();
+      break;
+    case 'a': case 'A':
+      // Só dispara se o botão admin estiver visível (admin trigger visível = role ADMIN)
+      if (document.querySelector('.admin-trigger:not([style*="display: none"])')) {
+        goAdmin();
+        ev.preventDefault();
+      }
       break;
     case '?':
       showHelp();

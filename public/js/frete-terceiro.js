@@ -487,22 +487,63 @@ function renderAnexos(f) {
   }).join('') + '</div>';
 }
 
-// Abre arquivo upload (fetch com token, blob URL — evita 401)
+// Estado do preview atual (pra revogar blob URL ao fechar)
+state.previewUrl = null;
+
+function closeAnexoPreview() {
+  document.getElementById('ftAnexoPreviewModal').classList.remove('open');
+  if (state.previewUrl) {
+    URL.revokeObjectURL(state.previewUrl);
+    state.previewUrl = null;
+  }
+  document.getElementById('ftPrevBody').innerHTML = '';
+}
+
 async function openAnexoFile(ev, anexoId) {
   ev.preventDefault();
+  const anexo = (state.detailsItem?.anexos || []).find(a => a.id === anexoId);
+  const nome = anexo?.nome || 'Anexo';
+  const mime = anexo?.mime_type || '';
+  const body = document.getElementById('ftPrevBody');
+  document.getElementById('ftPrevTitle').textContent = nome;
+  body.innerHTML = '<div class="ft-prev-loading">Carregando…</div>';
+  document.getElementById('ftAnexoPreviewModal').classList.add('open');
+
   try {
     const token = sessionStorage.getItem('accessToken');
     const res = await fetch(`/api/fretes-terceiros/${state.detailsId}/anexos/${anexoId}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
-    if (!res.ok) { alert('Erro ao baixar anexo (HTTP ' + res.status + ')'); return; }
+    if (!res.ok) {
+      body.innerHTML = `<div class="ft-prev-fallback">Erro ${res.status} ao baixar anexo.</div>`;
+      return;
+    }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+    state.previewUrl = URL.createObjectURL(blob);
+
+    // Link de download alternativo
+    const dl = document.getElementById('ftPrevDownload');
+    if (dl) {
+      dl.href = state.previewUrl;
+      dl.setAttribute('download', nome);
+    }
+
+    const effectiveMime = mime || blob.type || '';
+    if (effectiveMime.startsWith('image/')) {
+      body.innerHTML = `<img alt="${esc(nome)}" src="${state.previewUrl}">`;
+    } else if (effectiveMime === 'application/pdf') {
+      body.innerHTML = `<iframe src="${state.previewUrl}#toolbar=1&navpanes=0" title="${esc(nome)}"></iframe>`;
+    } else {
+      body.innerHTML = `
+        <div class="ft-prev-fallback">
+          Tipo de arquivo (${esc(effectiveMime || 'desconhecido')}) não pode ser visualizado direto.<br>
+          Use o botão <b>Baixar</b> acima.
+        </div>`;
+    }
   } catch (e) {
-    alert('Erro ao abrir anexo: ' + e.message);
+    body.innerHTML = `<div class="ft-prev-fallback">Erro: ${esc(e.message)}</div>`;
   }
 }
 
@@ -729,5 +770,5 @@ window.ft = {
   applyFilters, clearFilters, setPagamento,
   openDetails, openBaixaFromDetails, openEditFromDetails,
   openAddAnexo, saveAnexo, removeAnexo, removeBaixa,
-  switchAnexoMode, openAnexoFile,
+  switchAnexoMode, openAnexoFile, closeAnexoPreview,
 };
