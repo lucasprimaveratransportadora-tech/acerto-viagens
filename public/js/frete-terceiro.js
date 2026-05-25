@@ -128,8 +128,9 @@ function renderTable() {
 }
 
 function renderTruckSelects() {
+  // Opção mostra só PLACA · MODELO (motorista vai pra input separado via onTruckChange)
   const optsFrete = `<option value="">— Selecione o caminhão —</option>` +
-    state.trucks.map(t => `<option value="${esc(t.id)}" data-placa="${esc(t.placa)}" data-motorista="${esc(t.motorista || '')}">${esc(t.placa)}${t.modelo ? ' · '+esc(t.modelo) : ''}${t.motorista ? ' · '+esc(t.motorista) : ''}</option>`).join('');
+    state.trucks.map(t => `<option value="${esc(t.id)}" data-placa="${esc(t.placa)}" data-motorista="${esc(t.motorista || '')}">${esc(t.placa)}${t.modelo ? ' · '+esc(t.modelo) : ''}</option>`).join('');
   ['ftTruck','ftFilterTruck'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

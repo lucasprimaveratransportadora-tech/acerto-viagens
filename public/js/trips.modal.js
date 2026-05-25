@@ -165,13 +165,13 @@ window.addFuelRow = function (d) {
   const tbody = document.getElementById('fuelTbody');
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="date" value="${d?.data || ''}"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.litros || ''}" oninput="autoCalcFuelRow(this,'litros')" style="width:75px"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.precoLitro || ''}" oninput="autoCalcFuelRow(this,'preco')" style="width:75px"></td>
-    <td><input type="text" placeholder="Nome do posto / CNPJ" value="${esc(d?.posto || '')}"></td>
+    <td><input type="date" value="${d?.data || ''}" style="width:130px"></td>
+    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.litros || ''}" oninput="autoCalcFuelRow(this,'litros')" style="width:70px"></td>
+    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.precoLitro || ''}" oninput="autoCalcFuelRow(this,'preco')" style="width:70px"></td>
+    <td><input type="text" placeholder="ex: SMIDERLE, PRIMA\u2026" value="${esc(d?.posto || '')}" style="min-width:140px"></td>
     <td><input type="text" placeholder="Nota fiscal" value="${esc(d?.nf || '')}" style="width:95px"></td>
     <td><input type="number" placeholder="KM" value="${d?.km || ''}" style="width:80px"></td>
-    <td><input type="number" placeholder="R$ 0,00" step="0.01" value="${d?.valor || ''}" oninput="autoCalcFuelRow(this,'valor')" style="width:95px"></td>
+    <td><input type="number" placeholder="R$ 0,00" step="0.01" value="${d?.valor || ''}" oninput="autoCalcFuelRow(this,'valor')" style="width:100px"></td>
     <td><button class="action-btn del" onclick="this.closest('tr').remove();updateFuelTotals()" style="font-size:.85rem">\u2715</button></td>`;
   tbody.appendChild(tr);
 };

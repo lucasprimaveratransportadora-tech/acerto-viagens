@@ -87,6 +87,7 @@
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .entry-table td {

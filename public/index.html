@@ -588,11 +588,15 @@
     </div>
 
     <div class="form-row">
-      <div class="form-group">
+      <div class="form-group" style="flex:1">
         <label>Caminhão / Placa *</label>
         <select id="ftTruck"></select>
+        <small style="color:var(--muted);font-size:.66rem">Motorista padrão será sugerido abaixo.</small>
       </div>
-      <div class="form-group">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
         <label>Motorista *</label>
         <input type="text" id="ftMotorista" placeholder="Nome do motorista">
       </div>
@@ -1267,7 +1271,7 @@
 
 <!-- MODAL VIAGEM -->
 <div class="modal-overlay" id="tripModal">
-  <div class="modal">
+  <div class="modal" style="width:880px;max-width:96vw">
     <div class="modal-title">📋 Acerto de Viagem</div>
     <div class="tabs">
       <div class="tab active" id="tab-btn-geral" onclick="switchTab('geral',this)">⚙️ Geral</div>
@@ -1396,7 +1400,7 @@
         </div>
       </div>
       <table class="entry-table" id="fuelTable">
-        <thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto / CNPJ</th><th>Nota Fiscal</th><th>KM abast.</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
+        <thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto</th><th>NF</th><th>KM</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
         <tbody id="fuelTbody"></tbody>
       </table>
       <button class="btn btn-blue btn-sm" onclick="addFuelRow()">+ Adicionar Abastecimento</button>
