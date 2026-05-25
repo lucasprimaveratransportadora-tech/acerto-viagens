@@ -48,6 +48,11 @@ window.saveTruck = async function () {
   const motorista = document.getElementById('tDriver').value.trim();
   const data = { placa, modelo, motorista };
 
+  // Trava o bot\u00E3o durante o save \u2014 evita double-submit duplicar caminh\u00E3o.
+  const saveBtn = document.querySelector('button[onclick*="saveTruck"]');
+  const originalLabel = saveBtn?.textContent;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
+
   try {
     if (truckEditId) {
       await api.patch('/api/trucks/' + truckEditId, data);
@@ -59,6 +64,8 @@ window.saveTruck = async function () {
     if (state.selectedTruckId) await renderMain();
   } catch (e) {
     alert('Erro ao salvar caminh\u00E3o: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
   }
 };
 

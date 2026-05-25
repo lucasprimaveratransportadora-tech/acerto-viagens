@@ -144,6 +144,12 @@ async function save() {
     observacoes:    document.getElementById('vcObs').value.trim() || null,
   };
   if (!body.placa) { alert('Informe a placa do caminhão.'); return; }
+
+  // Trava o botão durante o save — evita double-submit duplicar caminhão.
+  const saveBtn = document.querySelector('button[onclick*="vc.save"]');
+  const originalLabel = saveBtn?.textContent;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
+
   try {
     if (state.editingId) {
       await api.patch(`/api/trucks/${state.editingId}`, body);
@@ -158,6 +164,8 @@ async function save() {
     }
   } catch (e) {
     alert('Erro: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
   }
 }
 

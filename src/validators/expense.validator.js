@@ -21,4 +21,12 @@ const upsertExpenses = [
     }),
 ];
 
-module.exports = { upsertExpenses };
+// Validador pro PATCH /expenses/trip/:tripId/:cat — antes faltava (o body
+// `valor` era passado direto pro service e virava 500 se viesse não-numérico).
+const updateOneExpense = [
+  body('valor')
+    .notEmpty().withMessage('valor obrigatório.')
+    .isFloat().withMessage('valor deve ser numérico.'),
+];
+
+module.exports = { upsertExpenses, updateOneExpense };

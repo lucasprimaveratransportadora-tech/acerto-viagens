@@ -2,6 +2,20 @@ const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
 
+// Whitelist: trip_id NUNCA pode vir do cliente — senão move abastecimento
+// entre viagens (potencialmente cross-tenant).
+const FUEL_PATCH_FIELDS = [
+  'data', 'litros', 'preco_litro', 'posto_cnpj', 'nota_fiscal', 'km', 'valor_total',
+];
+
+function pick(src, fields) {
+  const out = {};
+  for (const f of fields) {
+    if (src && Object.prototype.hasOwnProperty.call(src, f)) out[f] = src[f];
+  }
+  return out;
+}
+
 async function verifyTripOwnership(tripId, empresaId) {
   const trip = await prisma.trip.findFirst({
     where: {
@@ -50,11 +64,12 @@ async function create(tripId, empresaId, req, { data, litros, preco_litro, posto
 async function update(id, empresaId, req, data) {
   const before = await verifyFuelOwnership(id, empresaId);
 
-  if (data.data) data.data = new Date(data.data);
+  const patch = pick(data, FUEL_PATCH_FIELDS);
+  if (patch.data) patch.data = new Date(patch.data);
 
   const after = await prisma.fuel.update({
     where: { id },
-    data,
+    data: patch,
   });
   await audit.log({ req, empresaId, entity: 'FUEL', action: 'UPDATE', entityId: id, before, after });
   return after;

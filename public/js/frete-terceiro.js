@@ -260,6 +260,12 @@ async function save() {
     alert('Preencha empresa, caminhão, motorista e valor.');
     return;
   }
+
+  // Trava o botão durante o save — evita double-submit duplicar frete.
+  const saveBtn = document.querySelector('button[onclick*="ft.save"]');
+  const originalLabel = saveBtn?.textContent;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
+
   try {
     if (state.editingId) {
       await api.patch(`/api/fretes-terceiros/${state.editingId}`, body);
@@ -270,6 +276,8 @@ async function save() {
     await loadAll();
   } catch (e) {
     alert('Erro ao salvar: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
   }
 }
 

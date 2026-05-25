@@ -2,6 +2,18 @@ const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
 
+// Whitelist: trip_id NUNCA pode vir do cliente — senão move CT-e entre viagens
+// (potencialmente cross-tenant via verifyCteOwnership da viagem antiga).
+const CTE_PATCH_FIELDS = ['data', 'numero', 'origem', 'destino', 'valor'];
+
+function pick(src, fields) {
+  const out = {};
+  for (const f of fields) {
+    if (src && Object.prototype.hasOwnProperty.call(src, f)) out[f] = src[f];
+  }
+  return out;
+}
+
 async function verifyTripOwnership(tripId, empresaId) {
   const trip = await prisma.trip.findFirst({
     where: {
@@ -48,11 +60,12 @@ async function create(tripId, empresaId, req, { data, numero, origem, destino, v
 async function update(id, empresaId, req, data) {
   const before = await verifyCteOwnership(id, empresaId);
 
-  if (data.data) data.data = new Date(data.data);
+  const patch = pick(data, CTE_PATCH_FIELDS);
+  if (patch.data) patch.data = new Date(patch.data);
 
   const after = await prisma.cte.update({
     where: { id },
-    data,
+    data: patch,
   });
   await audit.log({ req, empresaId, entity: 'CTE', action: 'UPDATE', entityId: id, before, after });
   return after;
