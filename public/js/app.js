@@ -59,20 +59,33 @@ window.doLogout = async function () {
 };
 
 async function loadAppModules() {
+  let hubMod = null;
   try {
     // Carrega navegação, atalhos, modais e o controle de visibilidade do
     // botão Admin (presente em todos os headers).
-    const [hubMod, adminMod] = await Promise.all([
+    const [h, adminMod] = await Promise.all([
       import('./hub.js'),
       import('./admin/index.js'),
       import('./keyboard-shortcuts.js'),
       import('./modals.js'),
     ]);
-    adminMod.initAdmin();
-    // Vai direto pra última aba usada (ou hub se for o primeiro login)
-    await hubMod.routeAfterLogin();
+    hubMod = h;
+    try { adminMod.initAdmin(); } catch (e) { console.error('initAdmin error:', e); }
+    try { await hubMod.routeAfterLogin(); }
+    catch (e) {
+      console.error('routeAfterLogin error:', e);
+      // Fallback explícito: mostra o hub se a rota falhar
+      try { hubMod.showHub(); } catch { /* */ }
+    }
   } catch (e) {
     console.error('Erro ao carregar app:', e);
+    // Último recurso: tenta mostrar o hub ainda que o resto falhe
+    if (hubMod && hubMod.showHub) {
+      try { hubMod.showHub(); } catch { /* */ }
+    } else {
+      const hub = document.getElementById('hubView');
+      if (hub) hub.style.display = '';
+    }
   }
 }
 

@@ -177,7 +177,11 @@ export function hasModuleAccess(moduleName) {
   const u = getCurrentUser();
   if (!u) return false;
   if (u.role === 'ADMIN') return true;
-  return Array.isArray(u.permissoes) && u.permissoes.includes(moduleName);
+  // Fallback: se permissoes não veio no payload (ex.: cache antigo, deploy
+  // em transição), assume acesso total. Só restringe se for um array
+  // explicitamente populado.
+  if (!Array.isArray(u.permissoes)) return true;
+  return u.permissoes.includes(moduleName);
 }
 
 function applyPermissions() {
