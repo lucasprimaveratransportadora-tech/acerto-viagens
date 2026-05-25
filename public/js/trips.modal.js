@@ -150,7 +150,7 @@ function getCteRows() {
   return Array.from(document.querySelectorAll('#cteTbody tr')).map(r => {
     const ins = r.querySelectorAll('input');
     return {
-      data: ins[0].value,
+      data: (ins[0].value || '').trim() || null,
       numero: ins[1].value,
       origem: ins[2].value,
       destino: ins[3].value,
@@ -165,13 +165,13 @@ window.addFuelRow = function (d) {
   const tbody = document.getElementById('fuelTbody');
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="date" value="${d?.data || ''}" style="width:130px"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.litros || ''}" oninput="autoCalcFuelRow(this,'litros')" style="width:70px"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.precoLitro || ''}" oninput="autoCalcFuelRow(this,'preco')" style="width:70px"></td>
-    <td><input type="text" placeholder="ex: SMIDERLE, PRIMA\u2026" value="${esc(d?.posto || '')}" style="min-width:140px"></td>
-    <td><input type="text" placeholder="Nota fiscal" value="${esc(d?.nf || '')}" style="width:95px"></td>
-    <td><input type="number" placeholder="KM" value="${d?.km || ''}" style="width:80px"></td>
-    <td><input type="number" placeholder="R$ 0,00" step="0.01" value="${d?.valor || ''}" oninput="autoCalcFuelRow(this,'valor')" style="width:100px"></td>
+    <td><input type="date" value="${d?.data || ''}" style="width:120px"></td>
+    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.litros || ''}" oninput="autoCalcFuelRow(this,'litros')" style="width:65px"></td>
+    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.precoLitro || ''}" oninput="autoCalcFuelRow(this,'preco')" style="width:60px"></td>
+    <td><input type="text" placeholder="ex: SMIDERLE, PRIMA" value="${esc(d?.posto || '')}" style="min-width:130px"></td>
+    <td><input type="text" placeholder="N\u00ba NF" value="${esc(d?.nf || '')}" style="width:85px"></td>
+    <td><input type="number" placeholder="KM" value="${d?.km || ''}" style="width:75px"></td>
+    <td><input type="number" placeholder="R$ 0,00" step="0.01" value="${d?.valor || ''}" oninput="autoCalcFuelRow(this,'valor')" style="width:95px"></td>
     <td><button class="action-btn del" onclick="this.closest('tr').remove();updateFuelTotals()" style="font-size:.85rem">\u2715</button></td>`;
   tbody.appendChild(tr);
 };
@@ -217,7 +217,7 @@ function getFuelRows() {
   return Array.from(document.querySelectorAll('#fuelTbody tr')).map(r => {
     const ins = r.querySelectorAll('input');
     return {
-      data: ins[0].value,
+      data: (ins[0].value || '').trim() || null,
       litros: parseFloat(ins[1].value) || 0,
       preco_litro: parseFloat(ins[2].value) || 0,
       posto_cnpj: ins[3].value,

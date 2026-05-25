@@ -103,12 +103,18 @@ export function buildDetail(tr) {
   // ---- Despesas ----
   h += `<div class="detail-section" style="grid-column:1/-1"><div class="detail-section-hdr"><span class="detail-section-title">&#x1F4B8; Despesas</span><span class="detail-section-total val neg" id="inlineDespTotal_${esc(tr.id)}">R$ ${fmt(despTotal)}</span></div><div class="desp-grid">`;
   DESP.forEach(dk => {
-    const v = despMap[dk.k] || 0;
+    // ABASTECIMENTO = soma automática dos abastecimentos lançados (readonly).
+    const isAuto = dk.k === 'ABASTECIMENTO';
+    const v = isAuto ? totFuelVal : (despMap[dk.k] || 0);
+    const labelExtra = isAuto ? ' <small style="color:var(--info);font-size:.6rem">(auto = ⛽)</small>' : '';
+    const inputAttrs = isAuto
+      ? `readonly tabindex="-1" style="opacity:.75;cursor:not-allowed;background:rgba(56,189,248,.06)" title="Somatório dos abastecimentos — edite na seção ⛽ Abastecimentos"`
+      : `onchange="inlineUpdateDesp('${esc(tr.id)}','${esc(dk.k)}',this.value)" onfocus="this.select()"`;
     h += `<div class="desp-row">
-      <span class="desp-label">${esc(dk.l)}</span>
+      <span class="desp-label">${esc(dk.l)}${labelExtra}</span>
       <input type="number" class="desp-inline-input ${v > 0 ? 'has-val' : ''}" value="${v || ''}" step="0.01" placeholder="0,00"
         data-trip="${esc(tr.id)}" data-desp="${esc(dk.k)}"
-        onchange="inlineUpdateDesp('${esc(tr.id)}','${esc(dk.k)}',this.value)" onfocus="this.select()">
+        ${inputAttrs}>
     </div>`;
   });
   h += `</div></div>`;
@@ -276,7 +282,7 @@ window.inlineUpdateDesp = async function (tripId, categoria, val) {
 // ==================== INLINE CTEs ====================
 
 window.inlineSaveCte = async function (tripId) {
-  const data = document.getElementById('inCteDate_' + tripId)?.value || '';
+  const data = (document.getElementById('inCteDate_' + tripId)?.value || '').trim();
   const num = document.getElementById('inCteNum_' + tripId)?.value || '';
   const origin = document.getElementById('inCteOri_' + tripId)?.value || '';
   const dest = document.getElementById('inCteDst_' + tripId)?.value || '';
@@ -284,7 +290,16 @@ window.inlineSaveCte = async function (tripId) {
   if (!num && !valor) { alert('Informe pelo menos o N\u00BA CTE ou valor.'); return; }
   try {
     await api.post('/api/ctes/trip/' + tripId, {
-      data, numero: num, origem: origin, destino: dest, valor: parseFloat(valor) || 0
+      data: data || null,
+      numero: num,
+      origem: origin,
+      destino: dest,
+      valor: parseFloat(valor) || 0,
+    });
+    // Limpa o input row pra pr\u00F3xima entrada
+    ['inCteDate_', 'inCteNum_', 'inCteOri_', 'inCteDst_', 'inCteVal_'].forEach(p => {
+      const el = document.getElementById(p + tripId);
+      if (el) el.value = '';
     });
     await inlineRefreshTrip(tripId);
   } catch (e) {
@@ -304,7 +319,7 @@ window.inlineRemoveCte = async function (tripId, cteId) {
 // ==================== INLINE FUELS ====================
 
 window.inlineSaveFuel = async function (tripId) {
-  const data = document.getElementById('inFuelDate_' + tripId)?.value || '';
+  const data = (document.getElementById('inFuelDate_' + tripId)?.value || '').trim();
   const litros = document.getElementById('inFuelLit_' + tripId)?.value || '';
   const precoLitro = document.getElementById('inFuelPreco_' + tripId)?.value || '';
   const posto = document.getElementById('inFuelPosto_' + tripId)?.value || '';
@@ -314,8 +329,17 @@ window.inlineSaveFuel = async function (tripId) {
   if (!litros && !valor) { alert('Informe pelo menos litros ou valor.'); return; }
   try {
     await api.post('/api/fuels/trip/' + tripId, {
-      data, litros: parseFloat(litros) || 0, preco_litro: parseFloat(precoLitro) || 0,
-      posto_cnpj: posto, nota_fiscal: nf, km: parseFloat(km) || 0, valor_total: parseFloat(valor) || 0
+      data: data || null,
+      litros: parseFloat(litros) || 0,
+      preco_litro: parseFloat(precoLitro) || 0,
+      posto_cnpj: posto,
+      nota_fiscal: nf,
+      km: parseFloat(km) || 0,
+      valor_total: parseFloat(valor) || 0,
+    });
+    ['inFuelDate_', 'inFuelLit_', 'inFuelPreco_', 'inFuelPosto_', 'inFuelNf_', 'inFuelKm_', 'inFuelVal_'].forEach(p => {
+      const el = document.getElementById(p + tripId);
+      if (el) el.value = '';
     });
     await inlineRefreshTrip(tripId);
   } catch (e) {

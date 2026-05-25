@@ -108,6 +108,7 @@ export async function renderMain() {
             </div>
             <span class="status-badge ${sc}">${sl}</span>
             <div class="trip-actions">
+              ${(tr._count?.trip_anexos > 0) ? `<button class="trip-folha-btn" data-trip-id="${esc(tr.id)}" onclick="event.stopPropagation();window.trpAnx?.openGlobalPane('${esc(tr.id)}')" title="Ver folha de acerto ao lado">&#x1F4CE; Folha</button>` : ''}
               <button class="action-btn" onclick="event.stopPropagation();editTrip('${esc(tr.id)}')" title="Editar">&#x270F;&#xFE0F;</button>
               <button class="action-btn del" onclick="event.stopPropagation();confirmDeleteTrip('${esc(tr.id)}')" title="Excluir">&#x1F5D1;&#xFE0F;</button>
             </div>

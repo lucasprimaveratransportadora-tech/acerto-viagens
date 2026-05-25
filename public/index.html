@@ -1271,7 +1271,7 @@
 
 <!-- MODAL VIAGEM -->
 <div class="modal-overlay" id="tripModal">
-  <div class="modal" style="width:880px;max-width:96vw">
+  <div class="modal" style="width:1020px;max-width:96vw">
     <div class="modal-title">📋 Acerto de Viagem</div>
     <div class="tabs">
       <div class="tab active" id="tab-btn-geral" onclick="switchTab('geral',this)">⚙️ Geral</div>
@@ -1373,10 +1373,12 @@
 
     <!-- TAB CTEs -->
     <div id="tab-ctes" style="display:none">
-      <table class="entry-table" id="cteTable">
-        <thead><tr><th>Data</th><th>Nº CTE</th><th>Origem</th><th>Destino</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
-        <tbody id="cteTbody"></tbody>
-      </table>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="entry-table" id="cteTable">
+          <thead><tr><th>Data</th><th>Nº CTE</th><th>Origem</th><th>Destino</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
+          <tbody id="cteTbody"></tbody>
+        </table>
+      </div>
       <button class="btn btn-blue btn-sm" onclick="addCteRow()">+ Adicionar CTE</button>
       <div class="total-bar total-bar-green" style="margin-top:.6rem">
         <span>TOTAL FRETES</span>
@@ -1399,10 +1401,12 @@
           KM percorridos:<br><span id="fuelKmPercLbl" style="color:var(--text);font-weight:600">—</span>
         </div>
       </div>
-      <table class="entry-table" id="fuelTable">
-        <thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto</th><th>NF</th><th>KM</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
-        <tbody id="fuelTbody"></tbody>
-      </table>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="entry-table" id="fuelTable">
+          <thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto</th><th>NF</th><th>KM</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
+          <tbody id="fuelTbody"></tbody>
+        </table>
+      </div>
       <button class="btn btn-blue btn-sm" onclick="addFuelRow()">+ Adicionar Abastecimento</button>
       <div class="total-bar total-bar-blue" style="margin-top:.6rem">
         <span>TOTAL</span>
@@ -1550,6 +1554,25 @@
     </div>
   </div>
 </div>
+
+<!-- ========================================================
+     PAINEL LATERAL GLOBAL: folha de acerto visível enquanto
+     edita inline na view de resumo. Fica fixo à direita;
+     o app empurra pra esquerda quando aberto.
+     ======================================================== -->
+<aside id="globalPdfPane" aria-hidden="true">
+  <div class="global-pdf-pane-head">
+    <span class="global-pdf-pane-title" id="globalPdfPaneTitle">📄 Folha de Acerto</span>
+    <div class="global-pdf-pane-actions">
+      <select id="globalPdfPaneSelect" class="global-pdf-pane-select" onchange="trpAnx.switchGlobalPdf(this.value)" title="Trocar anexo"></select>
+      <a id="globalPdfPaneDownload" download class="btn btn-ghost btn-sm" title="Baixar">⬇</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="trpAnx.closeGlobalPane()" title="Fechar painel">✕</button>
+    </div>
+  </div>
+  <div class="global-pdf-pane-body" id="globalPdfPaneBody">
+    <div class="global-pdf-pane-placeholder">Clique em <b>📎 Folha</b> em qualquer viagem pra ver aqui ao lado.</div>
+  </div>
+</aside>
 
 <!-- CONFIRM -->
 <div class="confirm-overlay" id="confirmOverlay">

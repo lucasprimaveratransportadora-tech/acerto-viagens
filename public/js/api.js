@@ -42,9 +42,12 @@ async function request(method, url, body = null) {
         .filter(Boolean);
       if (detailMsgs.length) msg += '\n• ' + detailMsgs.join('\n• ');
     }
+    // Endpoint pra debug rápido ("qual rota falhou?")
+    msg += `\n(${method} ${url})`;
     const e = new Error(msg);
     e.status = res.status;
     e.details = err.details || null;
+    e.endpoint = `${method} ${url}`;
     throw e;
   }
 

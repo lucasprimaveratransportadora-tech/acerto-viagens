@@ -396,6 +396,101 @@ function wireTabDrop() {
 /* ============================================================
    Exposição global
    ============================================================ */
+/* ============================================================
+   Painel GLOBAL — abre na view de resumo (fora do modal),
+   pra ver a folha enquanto edita os campos inline.
+   ============================================================ */
+const globalPaneState = { tripId: null, anexos: [], currentAnexoId: null, paneUrl: null };
+
+async function openGlobalPane(tripId, anexoIdOpt) {
+  if (!tripId) return;
+  let anexos = [];
+  try {
+    const trip = await api.get('/api/trips/' + tripId);
+    anexos = trip.trip_anexos || [];
+  } catch {
+    anexos = [];
+  }
+  if (!anexos.length) {
+    alert('Esta viagem ainda não tem folha anexada. Abra a viagem (✏️) e anexe a folha primeiro.');
+    return;
+  }
+  globalPaneState.tripId = tripId;
+  globalPaneState.anexos = anexos;
+  // Marca o botão da viagem como ativo
+  document.querySelectorAll('.trip-folha-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tripId === tripId);
+  });
+  document.body.classList.add('has-global-pdf-pane');
+  document.getElementById('globalPdfPane').setAttribute('aria-hidden', 'false');
+  // Popula dropdown se há mais de um anexo
+  const sel = document.getElementById('globalPdfPaneSelect');
+  if (sel) {
+    sel.innerHTML = anexos.map(a => `<option value="${esc(a.id)}">${esc(a.nome || 'Folha')}</option>`).join('');
+    sel.style.display = anexos.length > 1 ? '' : 'none';
+  }
+  const target = anexoIdOpt || anexos[0].id;
+  if (sel) sel.value = target;
+  await loadGlobalPdf(target);
+}
+
+async function loadGlobalPdf(anexoId) {
+  const tripId = globalPaneState.tripId;
+  if (!tripId || !anexoId) return;
+  const anexo = globalPaneState.anexos.find(a => a.id === anexoId) || globalPaneState.anexos[0];
+  globalPaneState.currentAnexoId = anexoId;
+  const nome = anexo?.nome || 'Folha';
+  const mime = anexo?.mime_type || '';
+  const body  = document.getElementById('globalPdfPaneBody');
+  const title = document.getElementById('globalPdfPaneTitle');
+  const dl    = document.getElementById('globalPdfPaneDownload');
+  if (title) title.textContent = '📄 ' + nome;
+  if (body)  body.innerHTML = '<div class="global-pdf-pane-loading">Carregando…</div>';
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    const res = await fetch(`/api/trips/${tripId}/anexos/${anexoId}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      if (body) body.innerHTML = `<div class="global-pdf-pane-placeholder">Erro ${res.status} ao carregar anexo.</div>`;
+      return;
+    }
+    const blob = await res.blob();
+    if (globalPaneState.paneUrl) URL.revokeObjectURL(globalPaneState.paneUrl);
+    globalPaneState.paneUrl = URL.createObjectURL(blob);
+    if (dl) { dl.href = globalPaneState.paneUrl; dl.setAttribute('download', nome); }
+    const effective = mime || blob.type || '';
+    if (effective.startsWith('image/')) {
+      body.innerHTML = `<img alt="${esc(nome)}" src="${globalPaneState.paneUrl}">`;
+    } else if (effective === 'application/pdf') {
+      body.innerHTML = `<iframe src="${globalPaneState.paneUrl}#toolbar=1&navpanes=0&view=FitH" title="${esc(nome)}"></iframe>`;
+    } else {
+      body.innerHTML = `<div class="global-pdf-pane-placeholder">Tipo (${esc(effective || 'desconhecido')}) não pode ser exibido aqui.<br>Use o botão <b>⬇</b> pra baixar.</div>`;
+    }
+  } catch (e) {
+    if (body) body.innerHTML = `<div class="global-pdf-pane-placeholder">Erro: ${esc(e.message)}</div>`;
+  }
+}
+
+function switchGlobalPdf(anexoId) {
+  loadGlobalPdf(anexoId);
+}
+
+function closeGlobalPane() {
+  document.body.classList.remove('has-global-pdf-pane');
+  document.getElementById('globalPdfPane')?.setAttribute('aria-hidden', 'true');
+  document.querySelectorAll('.trip-folha-btn').forEach(b => b.classList.remove('active'));
+  if (globalPaneState.paneUrl) {
+    URL.revokeObjectURL(globalPaneState.paneUrl);
+    globalPaneState.paneUrl = null;
+  }
+  globalPaneState.tripId = null;
+  globalPaneState.currentAnexoId = null;
+  const body = document.getElementById('globalPdfPaneBody');
+  if (body) body.innerHTML = `<div class="global-pdf-pane-placeholder">Clique em <b>📎 Folha</b> em qualquer viagem pra ver aqui ao lado.</div>`;
+}
+
 window.trpAnx = {
   openModal,
   switchMode,
@@ -404,6 +499,10 @@ window.trpAnx = {
   openPane,
   closePane,
   refresh,
+  // Painel global persistente da view de resumo:
+  openGlobalPane,
+  switchGlobalPdf,
+  closeGlobalPane,
 };
 
 export { refresh, renderList };
