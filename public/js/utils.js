@@ -6,7 +6,13 @@ export function fmt(v) {
 
 export function fmtD(d) {
   if (!d) return '\u2014';
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
+  // Aceita tanto "YYYY-MM-DD" (input type=date) quanto ISO completo
+  // ("2026-05-25T17:00:00.000Z" \u2014 Prisma DateTime). Sem o ajuste, somar
+  // 'T12:00:00' num ISO completo gera "Invalid Date".
+  const s = String(d);
+  const date = new Date(/T/.test(s) ? s : s + 'T12:00:00');
+  if (isNaN(date.getTime())) return '\u2014';
+  return date.toLocaleDateString('pt-BR');
 }
 
 export function esc(str) {
