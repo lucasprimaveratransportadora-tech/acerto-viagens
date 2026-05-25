@@ -1423,6 +1423,21 @@
       <button class="btn btn-accent" onclick="saveTrip()">Salvar Viagem</button>
     </div>
   </div>
+
+  <!-- Painel lateral persistente: PDF da folha aberta enquanto edita.
+       Aparece quando o usuário clica em "👁 Lado a lado" num anexo. -->
+  <aside class="trip-pdf-pane" id="trpPdfPane" aria-hidden="true">
+    <div class="trip-pdf-pane-head">
+      <span class="trip-pdf-pane-title" id="trpPdfPaneTitle">📄 Folha</span>
+      <div class="trip-pdf-pane-actions">
+        <a id="trpPdfPaneDownload" download class="btn btn-ghost btn-sm" title="Baixar">⬇</a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="trpAnx.closePane()" title="Fechar painel">✕</button>
+      </div>
+    </div>
+    <div class="trip-pdf-pane-body" id="trpPdfPaneBody">
+      <div class="trip-pdf-pane-placeholder">Clique em uma folha na aba <b>📎 Folha de Acerto</b> pra ela aparecer aqui ao lado.</div>
+    </div>
+  </aside>
 </div>
 
 <!-- =============================================================

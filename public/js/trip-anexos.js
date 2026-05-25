@@ -65,7 +65,11 @@ function renderList() {
     const dataLbl = a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '';
     const linkHandler = isUrl
       ? `target="_blank" rel="noopener" href="${esc(a.url)}"`
-      : `href="#" onclick="trpAnx.openFile(event, '${a.id}')"`;
+      : `href="#" onclick="trpAnx.openPane(event, '${a.id}')"`;
+    const sideBtn = isUrl ? '' : `
+      <button class="trp-anexo-side-btn" onclick="trpAnx.openPane(event, '${a.id}')" title="Ver lado a lado enquanto edita">
+        👁 Lado a lado
+      </button>`;
     return `
       <div class="ft-anexo-item">
         <div class="ft-anexo-info">
@@ -80,7 +84,10 @@ function renderList() {
             ${a.descricao ? `<span>${esc(a.descricao)}</span>` : ''}
           </div>
         </div>
-        <button class="action-btn del" onclick="trpAnx.remove('${a.id}')" title="Excluir">✕</button>
+        <div style="display:flex;align-items:center">
+          ${sideBtn}
+          <button class="action-btn del" onclick="trpAnx.remove('${a.id}')" title="Excluir">✕</button>
+        </div>
       </div>`;
   }).join('');
 }
@@ -262,24 +269,30 @@ async function remove(anexoId) {
   }
 }
 
-async function openFile(ev, anexoId) {
-  ev.preventDefault();
+/* ============================================================
+   Painel lateral persistente — PDF/imagem fica fixo à direita
+   do tripModal enquanto o usuário troca de aba e edita campos.
+   ============================================================ */
+async function openPane(ev, anexoId) {
+  if (ev?.preventDefault) ev.preventDefault();
   const tripId = currentTripId();
   if (!tripId) return;
   const anexo = localState.anexos.find(a => a.id === anexoId);
-  const nome = anexo?.nome || 'Anexo';
+  const nome = anexo?.nome || 'Folha';
   const mime = anexo?.mime_type || '';
-  const body  = document.getElementById('ftPrevBody');
-  if (!body) {
-    // Fallback: abre em nova aba via download
-    const token = sessionStorage.getItem('accessToken');
-    const url = `/api/trips/${tripId}/anexos/${anexoId}/download${token ? `?_t=${Date.now()}` : ''}`;
-    window.open(url, '_blank');
-    return;
-  }
-  document.getElementById('ftPrevTitle').textContent = nome;
-  body.innerHTML = '<div class="ft-prev-loading">Carregando…</div>';
-  document.getElementById('ftAnexoPreviewModal').classList.add('open');
+
+  const overlay = document.getElementById('tripModal');
+  const pane    = document.getElementById('trpPdfPane');
+  const body    = document.getElementById('trpPdfPaneBody');
+  const title   = document.getElementById('trpPdfPaneTitle');
+  const dl      = document.getElementById('trpPdfPaneDownload');
+  if (!overlay || !pane || !body) return;
+
+  overlay.classList.add('has-pdf-pane');
+  pane.setAttribute('aria-hidden', 'false');
+  if (title) title.textContent = '📄 ' + nome;
+  body.innerHTML = '<div class="trip-pdf-pane-loading">Carregando…</div>';
+
   try {
     const token = sessionStorage.getItem('accessToken');
     const res = await fetch(`/api/trips/${tripId}/anexos/${anexoId}/download`, {
@@ -287,24 +300,38 @@ async function openFile(ev, anexoId) {
       credentials: 'include',
     });
     if (!res.ok) {
-      body.innerHTML = `<div class="ft-prev-fallback">Erro ${res.status} ao baixar anexo.</div>`;
+      body.innerHTML = `<div class="trip-pdf-pane-placeholder">Erro ${res.status} ao carregar anexo.</div>`;
       return;
     }
     const blob = await res.blob();
-    if (localState.previewUrl) URL.revokeObjectURL(localState.previewUrl);
-    localState.previewUrl = URL.createObjectURL(blob);
-    const dl = document.getElementById('ftPrevDownload');
-    if (dl) { dl.href = localState.previewUrl; dl.setAttribute('download', nome); }
+    if (localState.paneUrl) URL.revokeObjectURL(localState.paneUrl);
+    localState.paneUrl = URL.createObjectURL(blob);
+    localState.paneAnexoId = anexoId;
+    if (dl) { dl.href = localState.paneUrl; dl.setAttribute('download', nome); }
     const effective = mime || blob.type || '';
     if (effective.startsWith('image/')) {
-      body.innerHTML = `<img alt="${esc(nome)}" src="${localState.previewUrl}">`;
+      body.innerHTML = `<img alt="${esc(nome)}" src="${localState.paneUrl}">`;
     } else if (effective === 'application/pdf') {
-      body.innerHTML = `<iframe src="${localState.previewUrl}#toolbar=1&navpanes=0" title="${esc(nome)}"></iframe>`;
+      body.innerHTML = `<iframe src="${localState.paneUrl}#toolbar=1&navpanes=0&view=FitH" title="${esc(nome)}"></iframe>`;
     } else {
-      body.innerHTML = `<div class="ft-prev-fallback">Tipo (${esc(effective || 'desconhecido')}) não pode ser visualizado direto.<br>Use o botão <b>Baixar</b> acima.</div>`;
+      body.innerHTML = `<div class="trip-pdf-pane-placeholder">Tipo (${esc(effective || 'desconhecido')}) não pode ser exibido aqui.<br>Use o botão <b>⬇</b> pra baixar.</div>`;
     }
   } catch (e) {
-    body.innerHTML = `<div class="ft-prev-fallback">Erro: ${esc(e.message)}</div>`;
+    body.innerHTML = `<div class="trip-pdf-pane-placeholder">Erro: ${esc(e.message)}</div>`;
+  }
+}
+
+function closePane() {
+  const overlay = document.getElementById('tripModal');
+  const pane    = document.getElementById('trpPdfPane');
+  const body    = document.getElementById('trpPdfPaneBody');
+  if (overlay) overlay.classList.remove('has-pdf-pane');
+  if (pane) pane.setAttribute('aria-hidden', 'true');
+  if (body) body.innerHTML = `<div class="trip-pdf-pane-placeholder">Clique em uma folha na aba <b>📎 Folha de Acerto</b> pra ela aparecer aqui ao lado.</div>`;
+  if (localState.paneUrl) {
+    URL.revokeObjectURL(localState.paneUrl);
+    localState.paneUrl = null;
+    localState.paneAnexoId = null;
   }
 }
 
@@ -374,7 +401,8 @@ window.trpAnx = {
   switchMode,
   save,
   remove,
-  openFile,
+  openPane,
+  closePane,
   refresh,
 };
 

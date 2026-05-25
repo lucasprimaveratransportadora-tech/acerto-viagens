@@ -60,6 +60,10 @@ window.openTripModal = function (pre) {
 
 window.closeTripModal = function () {
   document.getElementById('tripModal').classList.remove('open');
+  // Fecha o painel lateral do PDF (se aberto) — libera blob e limpa estado
+  if (window.trpAnx && typeof window.trpAnx.closePane === 'function') {
+    window.trpAnx.closePane();
+  }
 };
 
 // ==================== EDIT TRIP (load into modal) ====================
