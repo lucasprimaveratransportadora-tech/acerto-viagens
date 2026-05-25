@@ -264,6 +264,12 @@ window.saveTrip = async function () {
   const date = document.getElementById('trpDate').value;
   if (!truckId || !date) { alert('Informe o caminh\u00E3o e a data!'); return; }
 
+  // KM total derivado automaticamente do KM Inicial/Final da aba Abastecimentos
+  // (deixou de ser campo digitável separado pra evitar duplicação).
+  const kmIni = parseFloat(document.getElementById('fuelKmInicial').value) || 0;
+  const kmFim = parseFloat(document.getElementById('fuelKmFinal').value) || 0;
+  const kmTotal = (kmFim > kmIni) ? Math.round(kmFim - kmIni) : 0;
+
   const tripData = {
     data_inicio: date,
     data_fim: document.getElementById('trpDateEnd').value || null,
@@ -271,12 +277,12 @@ window.saveTrip = async function () {
     destino: document.getElementById('trpDest').value.trim(),
     carga: document.getElementById('trpCargo').value.trim(),
     motorista: (document.getElementById('trpMotorista')?.value || '').trim(),
-    km_total: parseInt(document.getElementById('trpKm').value) || 0,
+    km_total: kmTotal,
     status: document.getElementById('trpStatus').value,
     adiantamento: parseFloat(document.getElementById('trpAdto').value) || 0,
     observacoes: document.getElementById('trpObs').value.trim(),
-    km_inicial: parseFloat(document.getElementById('fuelKmInicial').value) || 0,
-    km_final: parseFloat(document.getElementById('fuelKmFinal').value) || 0,
+    km_inicial: kmIni,
+    km_final: kmFim,
   };
 
   const ctes = getCteRows();

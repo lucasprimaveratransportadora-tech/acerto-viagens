@@ -1344,11 +1344,6 @@
             <small style="color:var(--muted);font-size:.66rem">Deixe em branco enquanto a viagem está em curso.</small>
           </div>
           <div class="form-group">
-            <label>KM Total Viagem</label>
-            <input type="number" id="trpKm" placeholder="0">
-            <small style="color:var(--muted);font-size:.66rem">Mede só na chegada.</small>
-          </div>
-          <div class="form-group">
             <label>Status</label>
             <select id="trpStatus">
               <option value="PENDENTE">⏳ Em andamento</option>
@@ -1357,7 +1352,12 @@
             </select>
           </div>
         </div>
+        <small style="color:var(--muted);font-size:.66rem;display:block;margin-top:.4rem">
+          ⓘ Os <b>KM percorridos</b> são calculados automaticamente a partir do
+          <b>KM Inicial</b> e <b>KM Final</b> da aba ⛽ Abastecimentos.
+        </small>
       </div>
+      <input type="hidden" id="trpKm">
 
       <!-- Frete Terceiro (retorno) -->
       <div class="trip-frete-section">
