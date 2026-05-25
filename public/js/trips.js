@@ -33,30 +33,30 @@ export function buildDetail(tr) {
     <div class="trip-info-item">
       <span class="trip-info-lbl">📅 Início *</span>
       <input type="date" class="trip-info-input" value="${isoDate(tr.data_inicio)}"
-        onchange="inlineUpdateTrip('${tid}','data_inicio',this.value)" title="Data de início da viagem">
+        onchange="inlineUpdateTrip('${tid}','data_inicio',this.value,this)" title="Data de início da viagem">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🏁 Fim</span>
       <input type="date" class="trip-info-input" value="${isoDate(tr.data_fim)}"
-        onchange="inlineUpdateTrip('${tid}','data_fim',this.value)" title="Data de retorno (deixe vazio se em curso)">
+        onchange="inlineUpdateTrip('${tid}','data_fim',this.value,this)" title="Data de retorno (deixe vazio se em curso)">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">👤 Motorista</span>
       <input type="text" class="trip-info-input" value="${esc(tr.motorista || '')}" maxlength="120"
         placeholder="${esc(tr.truck?.motorista || 'Quem rodou')}"
-        onchange="inlineUpdateTrip('${tid}','motorista',this.value)" title="Motorista da viagem">
+        onchange="inlineUpdateTrip('${tid}','motorista',this.value,this)" title="Motorista da viagem">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">📍 KM Inicial</span>
       <input type="number" class="trip-info-input" value="${tr.km_inicial || ''}"
         placeholder="ex: 152000"
-        onchange="inlineUpdateTrip('${tid}','km_inicial',this.value)" onfocus="this.select()" title="KM do hodômetro na saída">
+        onchange="inlineUpdateTrip('${tid}','km_inicial',this.value,this)" onfocus="this.select()" title="KM do hodômetro na saída">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🏁 KM Final</span>
       <input type="number" class="trip-info-input" value="${tr.km_final || ''}"
         placeholder="ex: 154500"
-        onchange="inlineUpdateTrip('${tid}','km_final',this.value)" onfocus="this.select()" title="KM do hodômetro na chegada">
+        onchange="inlineUpdateTrip('${tid}','km_final',this.value,this)" onfocus="this.select()" title="KM do hodômetro na chegada">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🛣️ Percorridos</span>
@@ -261,11 +261,15 @@ function updateMonthStats() {
 
 // ==================== INLINE TRIP FIELDS (data, motorista, km) ====================
 
-window.inlineUpdateTrip = async function (tripId, field, value) {
-  // Data Início é obrigatória — não permite apagar via input inline
+window.inlineUpdateTrip = async function (tripId, field, value, inputEl) {
+  // Data Início é obrigatória. Durante a digitação no input type=date o
+  // browser pode reportar value="" temporariamente (entre dia/mês/ano).
+  // Em vez de alertar agressivamente, ignoramos o vazio e restauramos
+  // o valor anterior silenciosamente — o usuário continua digitando.
   if (field === 'data_inicio' && !value) {
-    alert('Data Início é obrigatória. Para cancelar a viagem use o status "Cancelada".');
-    await inlineRefreshTrip(tripId);
+    const tr = state.trips.find(t => t.id === tripId);
+    const orig = tr?.data_inicio ? String(tr.data_inicio).slice(0, 10) : '';
+    if (inputEl) inputEl.value = orig;
     return;
   }
 
