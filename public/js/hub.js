@@ -67,6 +67,7 @@ export async function goToFrota() {
         import('./trips.modal.js'),
         import('./trips.js'),
         import('./trip-frete-link.js'),
+        import('./trip-anexos.js'),
       ]);
       await sidebarMod.loadTrucks();
       if (stateMod.state.trucks.length) {

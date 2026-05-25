@@ -1274,6 +1274,7 @@
       <div class="tab" id="tab-btn-ctes" onclick="switchTab('ctes',this)">📄 CTes</div>
       <div class="tab" id="tab-btn-abast" onclick="switchTab('abast',this)">⛽ Abastecimentos</div>
       <div class="tab" id="tab-btn-desp" onclick="switchTab('desp',this)">💸 Despesas</div>
+      <div class="tab" id="tab-btn-anexo" onclick="switchTab('anexo',this)">📎 Folha de Acerto</div>
     </div>
 
     <!-- TAB GERAL -->
@@ -1322,10 +1323,17 @@
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>Motorista da viagem</label>
+          <input type="text" id="trpMotorista" placeholder="Nome de quem rodou esta viagem" maxlength="120">
+          <small style="color:var(--muted);font-size:.66rem">Pode divergir do motorista atual do caminhão (trocas ao longo do tempo).</small>
+        </div>
+        <div class="form-group">
           <label>Adiantamento ao Motorista (R$)</label>
           <input type="number" id="trpAdto" placeholder="0,00" step="0.01">
         </div>
-        <div class="form-group">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
           <label>Observações</label>
           <input type="text" id="trpObs" placeholder="Notas adicionais...">
         </div>
@@ -1393,10 +1401,95 @@
       </div>
     </div>
 
+    <!-- TAB ANEXOS (FOLHA DE ACERTO) -->
+    <div id="tab-anexo" style="display:none">
+      <div id="trpAnexoEmpty" style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
+        Salve a viagem para anexar a folha digitalizada (PDF/imagem).
+      </div>
+      <div id="trpAnexoToolbar" style="display:none;margin-bottom:.6rem">
+        <button class="btn btn-accent btn-sm" onclick="trpAnx.openModal()">📎 Adicionar folha</button>
+        <small style="color:var(--muted);font-size:.7rem;margin-left:.6rem">
+          Você também pode arrastar o PDF/imagem em qualquer lugar dessa aba.
+        </small>
+      </div>
+      <div id="trpAnexoDropZone" style="display:none">
+        <div id="trpAnexoList" class="ft-anexos-list"></div>
+      </div>
+    </div>
+
     <div id="tripEditId" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeTripModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveTrip()">Salvar Viagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================
+     MODAL: Adicionar Anexo da Viagem (Folha de Acerto / Comprovante)
+     ============================================================= -->
+<div class="modal-overlay" id="trpAnexoModal">
+  <div class="modal" style="width:560px;max-width:96vw">
+    <div class="modal-title">📎 Adicionar Folha / Comprovante</div>
+
+    <div class="ft-anexo-tabs">
+      <button type="button" class="ft-anexo-tab active" data-trp-anexo-mode="file" onclick="trpAnx.switchMode('file')">📤 Enviar arquivo</button>
+      <button type="button" class="ft-anexo-tab"        data-trp-anexo-mode="url"  onclick="trpAnx.switchMode('url')">🔗 Colar link</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo *</label>
+        <select id="trpAnexoTipo">
+          <option value="FOLHA_ACERTO">Folha de acerto digitalizada</option>
+          <option value="COMPROVANTE">Comprovante</option>
+          <option value="NOTA_FISCAL">Nota fiscal</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:2">
+        <label>Nome / Descrição curta</label>
+        <input type="text" id="trpAnexoNome" placeholder="ex: Folha de acerto — CTE 1234">
+        <small style="color:var(--muted);font-size:.66rem">Se vazio, usa o nome do arquivo.</small>
+      </div>
+    </div>
+
+    <div id="trpAnexoFileSection" class="form-row">
+      <div class="form-group">
+        <label>Arquivo *</label>
+        <div id="trpAnexoDropzone" class="ft-anexo-dropzone">
+          <input type="file" id="trpAnexoFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
+          <div class="ft-anexo-dropzone-content">
+            <div style="font-size:2rem;line-height:1">📂</div>
+            <div><b>Clique para selecionar</b> ou arraste o arquivo aqui</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">PDF, JPG, PNG ou WEBP até 20 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="trpAnexoUrlSection" class="form-row" style="display:none">
+      <div class="form-group">
+        <label>URL do arquivo *</label>
+        <input type="url" id="trpAnexoUrl" placeholder="https://drive.google.com/file/d/...">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="trpAnexoDesc" placeholder="ex: 2 páginas, frente e verso">
+      </div>
+    </div>
+
+    <div id="trpAnexoProgress" class="ft-anexo-progress" style="display:none">
+      <div class="bar"><div class="fill" id="trpAnexoProgressFill"></div></div>
+      <div class="lbl" id="trpAnexoProgressLbl">Enviando…</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('trpAnexoModal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="trpAnx.save()">Salvar</button>
     </div>
   </div>
 </div>

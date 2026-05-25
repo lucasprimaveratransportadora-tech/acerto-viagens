@@ -57,6 +57,14 @@ enum AuditEntity {
   TRUCK
   FRETE_TERCEIRO
   TRUCK_LEDGER
+  TRIP_ANEXO
+}
+
+enum TripAnexoTipo {
+  FOLHA_ACERTO
+  COMPROVANTE
+  NOTA_FISCAL
+  OUTRO
 }
 
 enum FreteTerceiroStatus {
@@ -215,12 +223,17 @@ model Trip {
   origem       String?
   destino      String?
   carga        String?
+  // Motorista que rodou esta viagem específica. Pode divergir do motorista
+  // atual cadastrado no caminhão (ex.: trocas de motorista ao longo do tempo).
+  motorista    String?
   km_total     Int         @default(0)
   status       TripStatus  @default(PENDENTE)
   adiantamento Decimal     @default(0) @db.Decimal(12, 2)
   observacoes  String?
   km_inicial   Decimal?    @db.Decimal(12, 2)
   km_final     Decimal?    @db.Decimal(12, 2)
+  // Lote de importação (ex.: scripts em massa) — permite "desfazer importação".
+  imported_batch String?
   created_at   DateTime    @default(now())
   updated_at   DateTime    @updatedAt
   deleted_at   DateTime?
@@ -228,9 +241,11 @@ model Trip {
   fuels        Fuel[]
   expenses     Expense[]
   attachments  Attachment[]
+  trip_anexos  TripAnexo[]
   fretes_terceiros FreteTerceiro[]
   @@index([truck_id])
   @@index([data_inicio])
+  @@index([imported_batch])
   @@map("trips")
 }
 
@@ -408,6 +423,27 @@ model FreteTerceiroAnexo {
 
   @@index([frete_id, created_at(sort: Desc)])
   @@map("frete_terceiro_anexos")
+}
+
+model TripAnexo {
+  id              String          @id @default(uuid())
+  trip_id         String
+  trip            Trip            @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  tipo            TripAnexoTipo   @default(FOLHA_ACERTO)
+  nome            String
+  // url externo (Drive, Dropbox) — usado quando o usuário cola um link
+  url             String?
+  // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
+  dados           Bytes?
+  mime_type       String?
+  tamanho         Int?
+  descricao       String?
+  created_by_id   String?
+  created_at      DateTime        @default(now())
+  deleted_at      DateTime?
+
+  @@index([trip_id, created_at(sort: Desc)])
+  @@map("trip_anexos")
 }
 
 model TruckAnexo {

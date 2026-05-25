@@ -1,22 +1,26 @@
-// trips.modal.js — Trip form with tabs (Geral, CTEs, Abastecimentos, Despesas)
+// trips.modal.js — Trip form with tabs (Geral, CTEs, Abastecimentos, Despesas, Folha de Acerto)
 
 import { api } from './api.js';
 import { state, setSelectedTruck, DESP } from './state.js';
 import { fmt, esc } from './utils.js';
 import { renderSidebar } from './sidebar.js';
 import { renderMain } from './dashboard.js';
+import { refresh as refreshTripAnexos } from './trip-anexos.js';
 
-const ALL_TABS = ['geral', 'ctes', 'abast', 'desp'];
+const ALL_TABS = ['geral', 'ctes', 'abast', 'desp', 'anexo'];
 
 // ==================== TAB SWITCHING ====================
 
 window.switchTab = function (name, el) {
   ALL_TABS.forEach(t => {
-    document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
-    document.getElementById('tab-btn-' + t).classList.remove('active');
+    const tab = document.getElementById('tab-' + t);
+    const btn = document.getElementById('tab-btn-' + t);
+    if (tab) tab.style.display = t === name ? '' : 'none';
+    if (btn) btn.classList.remove('active');
   });
   if (el) el.classList.add('active');
   else document.getElementById('tab-btn-' + name)?.classList.add('active');
+  if (name === 'anexo') refreshTripAnexos();
 };
 
 // ==================== OPEN TRIP MODAL ====================
@@ -31,7 +35,10 @@ window.openTripModal = function (pre) {
   else if (state.selectedTruckId) sel.value = state.selectedTruckId;
 
   document.getElementById('trpDate').value = new Date().toISOString().split('T')[0];
-  ['trpDateEnd', 'trpOrigin', 'trpDest', 'trpCargo', 'trpObs'].forEach(id => document.getElementById(id).value = '');
+  ['trpDateEnd', 'trpOrigin', 'trpDest', 'trpCargo', 'trpObs', 'trpMotorista'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   document.getElementById('trpKm').value = '';
   document.getElementById('trpAdto').value = '';
   document.getElementById('trpStatus').value = 'PENDENTE';
@@ -72,7 +79,10 @@ window.editTrip = async function (id) {
     document.getElementById('trpStatus').value = tr.status || 'PENDENTE';
     document.getElementById('trpAdto').value = tr.adiantamento || '';
     document.getElementById('trpObs').value = tr.observacoes || '';
+    const mot = document.getElementById('trpMotorista');
+    if (mot) mot.value = tr.motorista || '';
     document.getElementById('tripEditId').dataset.id = id;
+    refreshTripAnexos();
 
     // Load CTEs
     (tr.ctes || []).forEach(c => window.addCteRow({
@@ -257,6 +267,7 @@ window.saveTrip = async function () {
     origem: document.getElementById('trpOrigin').value.trim(),
     destino: document.getElementById('trpDest').value.trim(),
     carga: document.getElementById('trpCargo').value.trim(),
+    motorista: (document.getElementById('trpMotorista')?.value || '').trim(),
     km_total: parseInt(document.getElementById('trpKm').value) || 0,
     status: document.getElementById('trpStatus').value,
     adiantamento: parseFloat(document.getElementById('trpAdto').value) || 0,
