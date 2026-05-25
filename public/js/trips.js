@@ -261,6 +261,51 @@ function updateMonthStats() {
 
 // ==================== INLINE TRIP FIELDS (data, motorista, km) ====================
 
+// Update cirúrgico após PATCH de campo da faixa info: NÃO re-renderiza os
+// inputs (isso causava o "indo e voltando" — toda a faixa era destruída
+// no onchange e o foco se perdia ao tabular pro próximo campo).
+// Aqui atualizamos só os valores derivados (Percorridos, Média, header
+// numbers, KPIs, stats do mês). Os inputs já mostram o valor digitado.
+function syncInlineTripPatch(tripId, patch) {
+  const idx = state.trips.findIndex(t => t.id === tripId);
+  if (idx < 0) return;
+  Object.assign(state.trips[idx], patch);
+  const trip = state.trips[idx];
+
+  const det = document.getElementById('detail_' + tripId);
+  if (det) {
+    // Recalcula Percorridos e Média sem tocar nos inputs.
+    const fuels = trip.fuels || [];
+    const totL = fuels.reduce((s, f) => s + parseFloat(f.litros || 0), 0);
+    const kmIni = parseFloat(trip.km_inicial || 0);
+    const kmFin = parseFloat(trip.km_final || 0);
+    const kmPerc = kmFin > kmIni ? kmFin - kmIni : 0;
+    const media = (totL > 0 && kmPerc > 0) ? (kmPerc / totL).toFixed(2) + ' km/L' : '—';
+
+    // Os dois últimos .trip-info-val da faixa são Percorridos e Média (ordem do template).
+    const valSpans = det.querySelectorAll('.trip-info-bar .trip-info-val');
+    if (valSpans[0]) valSpans[0].textContent = kmPerc > 0 ? kmPerc.toLocaleString('pt-BR') + ' km' : '—';
+    if (valSpans[1]) valSpans[1].textContent = media;
+  }
+
+  // Header numbers do card (frete / despesa / líquido / km total)
+  const card = det?.closest('.trip-card');
+  if (card) {
+    const f = calcFrete(trip), d = calcDesp(trip), l = f - d;
+    const nums = card.querySelector('.trip-nums');
+    if (nums) {
+      nums.innerHTML = `
+        <span class="val pos">R$ ${fmt(f)}</span>
+        <span class="val neg">- R$ ${fmt(d)}</span>
+        <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
+        ${trip.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(trip.km_total).toLocaleString('pt-BR')}km</span>` : ''}`;
+    }
+  }
+
+  updateKPIs();
+  updateMonthStats();
+}
+
 window.inlineUpdateTrip = async function (tripId, field, value, inputEl) {
   // Data Início é obrigatória. Durante a digitação no input type=date o
   // browser pode reportar value="" temporariamente (entre dia/mês/ano).
@@ -294,10 +339,18 @@ window.inlineUpdateTrip = async function (tripId, field, value, inputEl) {
 
   try {
     await api.patch('/api/trips/' + tripId, body);
-    await inlineRefreshTrip(tripId);
+    syncInlineTripPatch(tripId, body);
   } catch (e) {
     alert('Erro ao salvar: ' + e.message);
-    await inlineRefreshTrip(tripId);
+    // Reverte o input pro valor armazenado em state (fonte da verdade local).
+    const tr = state.trips.find(t => t.id === tripId);
+    if (tr && inputEl) {
+      if (field === 'data_inicio' || field === 'data_fim') {
+        inputEl.value = tr[field] ? String(tr[field]).slice(0, 10) : '';
+      } else {
+        inputEl.value = tr[field] != null ? tr[field] : '';
+      }
+    }
   }
 };
 
