@@ -823,26 +823,74 @@ function wireDetailsDropzone() {
     dragCount--;
     if (dragCount <= 0) reset();
   });
-  modal.addEventListener('drop', e => {
+  modal.addEventListener('drop', async e => {
     if (!modal.classList.contains('open')) return;
-    const file = e.dataTransfer?.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (!files.length) return;
     e.preventDefault();
     reset();
     if (!state.detailsId) return;
-    openAddAnexo();
-    setTimeout(() => {
-      setSelectedFile(file);
-      const inp = document.getElementById('ftAnexoFile');
-      if (inp) {
-        try {
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          inp.files = dt.files;
-        } catch { /* */ }
-      }
-    }, 60);
+
+    if (files.length === 1) {
+      openAddAnexo();
+      setTimeout(() => {
+        setSelectedFile(files[0]);
+        const inp = document.getElementById('ftAnexoFile');
+        if (inp) {
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(files[0]);
+            inp.files = dt.files;
+          } catch { /* */ }
+        }
+      }, 60);
+      return;
+    }
+    await batchUploadAnexos(files, 'COMPROVANTE_PAGAMENTO');
   });
+}
+
+/* Toast pequeno fixo — feedback de batch */
+function makeToast(text) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);padding:12px 16px;border-radius:6px;font-family:\'IBM Plex Mono\',monospace;font-size:.78rem;color:var(--text);box-shadow:0 6px 20px rgba(0,0,0,.4);min-width:200px;max-width:340px';
+  el.textContent = text;
+  document.body.appendChild(el);
+  return {
+    update(t) { el.textContent = t; },
+    close(t, ms = 3500) {
+      if (t) el.textContent = t;
+      setTimeout(() => el.remove(), ms);
+    },
+  };
+}
+
+async function batchUploadAnexos(files, tipoDefault) {
+  if (!state.detailsId) return;
+  const valid = files.filter(f => f.size <= 10 * 1024 * 1024);
+  const tooBig = files.length - valid.length;
+  const toast = makeToast(`📤 Enviando ${valid.length} arquivo(s)…`);
+  let ok = 0, fail = 0;
+  await Promise.all(valid.map(async (f) => {
+    const fd = new FormData();
+    fd.append('arquivo', f);
+    fd.append('tipo', tipoDefault);
+    fd.append('nome', f.name.replace(/\.[^.]+$/, ''));
+    try {
+      await uploadXHR(`/api/fretes-terceiros/${state.detailsId}/anexos/upload`, fd, () => {});
+      ok++;
+    } catch { fail++; }
+    toast.update(`📤 ${ok + fail}/${valid.length} enviados…`);
+  }));
+  const parts = [`✅ ${ok} salvos`];
+  if (fail)   parts.push(`❌ ${fail} falharam`);
+  if (tooBig) parts.push(`⚠️ ${tooBig} maiores que 10 MB`);
+  toast.close(parts.join(' · '));
+  try {
+    const f = await api.get(`/api/fretes-terceiros/${state.detailsId}?details=1`);
+    state.detailsItem = f;
+    renderAnexos(f);
+  } catch { /* */ }
 }
 
 /* ---------- EXPORT ---------- */
