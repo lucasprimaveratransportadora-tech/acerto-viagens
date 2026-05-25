@@ -823,13 +823,25 @@ function wireDetailsDropzone() {
     dragCount--;
     if (dragCount <= 0) reset();
   });
-  modal.addEventListener('drop', async e => {
+  modal.addEventListener('drop', e => {
     if (!modal.classList.contains('open')) return;
-    const files = Array.from(e.dataTransfer?.files || []);
-    if (!files.length) return;
     e.preventDefault();
+    e.stopPropagation();
     reset();
     if (!state.detailsId) return;
+    // Captura síncrona dos arquivos (fallback p/ items API)
+    let files = [];
+    if (e.dataTransfer) {
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        files = Array.from(e.dataTransfer.files);
+      } else if (e.dataTransfer.items && e.dataTransfer.items.length) {
+        files = Array.from(e.dataTransfer.items)
+          .filter(it => it.kind === 'file')
+          .map(it => it.getAsFile())
+          .filter(Boolean);
+      }
+    }
+    if (!files.length) return;
 
     if (files.length === 1) {
       openAddAnexo();
@@ -846,7 +858,7 @@ function wireDetailsDropzone() {
       }, 60);
       return;
     }
-    await batchUploadAnexos(files, 'COMPROVANTE_PAGAMENTO');
+    batchUploadAnexos(files, 'COMPROVANTE_PAGAMENTO').catch(err => console.error('batch error', err));
   });
 }
 

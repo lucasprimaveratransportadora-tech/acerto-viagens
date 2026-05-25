@@ -468,16 +468,29 @@ function wireDetailsDropzone() {
     dragCount--;
     if (dragCount <= 0) reset();
   });
-  modal.addEventListener('drop', async e => {
+  modal.addEventListener('drop', e => {
     if (!modal.classList.contains('open')) return;
-    const files = Array.from(e.dataTransfer?.files || []);
-    if (!files.length) return;
     e.preventDefault();
+    e.stopPropagation();
     reset();
     if (!state.detailsId) return;
 
+    // CAPTURA SÍNCRONA — após o handler retornar, dataTransfer pode ser
+    // limpo. Tenta primeiro .files, depois .items como fallback.
+    let files = [];
+    if (e.dataTransfer) {
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        files = Array.from(e.dataTransfer.files);
+      } else if (e.dataTransfer.items && e.dataTransfer.items.length) {
+        files = Array.from(e.dataTransfer.items)
+          .filter(it => it.kind === 'file')
+          .map(it => it.getAsFile())
+          .filter(Boolean);
+      }
+    }
+    if (!files.length) return;
+
     if (files.length === 1) {
-      // 1 arquivo: abre o modal de anexo pra usuário escolher tipo/nome
       openAddAnexo();
       setTimeout(() => {
         setSelectedFile(files[0]);
@@ -487,13 +500,13 @@ function wireDetailsDropzone() {
             const dt = new DataTransfer();
             dt.items.add(files[0]);
             inp.files = dt.files;
-          } catch { /* alguns browsers não permitem */ }
+          } catch { /* */ }
         }
       }, 60);
       return;
     }
-    // Múltiplos: batch upload silencioso com tipo padrão OUTRO
-    await batchUploadAnexos(files, 'OUTRO');
+    // Múltiplos: dispara batch async sem await (handler precisa retornar rápido)
+    batchUploadAnexos(files, 'OUTRO').catch(err => console.error('batch error', err));
   });
 }
 
