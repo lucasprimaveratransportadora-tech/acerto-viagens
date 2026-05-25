@@ -376,18 +376,45 @@ function classify(historico, hasCredito) {
   return { categoria: hasCredito ? 'OUTRA_RECEITA' : 'OUTRO_CUSTO', tipo: hasCredito ? 'CREDITO' : 'DEBITO' };
 }
 
-// Converte número serial do Excel (1900-based) em Date
+// Converte célula do Excel em Date, tolerante a erros comuns de digitação
+// na planilha original (data sem separador, espaços extras, dia 0 ou
+// mês > 12). Retorna null se realmente não dá pra parsear.
 function excelSerialToDate(n) {
   if (n instanceof Date) return n;
-  if (typeof n === 'string') {
-    const d = new Date(n);
-    if (!isNaN(d)) return d;
-    return null;
+  if (typeof n === 'number') {
+    const ms = (n - 25569) * 86400 * 1000;
+    return new Date(ms);
   }
-  if (typeof n !== 'number') return null;
-  // Excel: 1 = 1900-01-01 (com bug do 1900-02-29 — desconta 2)
-  const ms = (n - 25569) * 86400 * 1000;
-  return new Date(ms);
+  if (typeof n !== 'string') return null;
+
+  const s = n.trim();
+  if (!s) return null;
+
+  // ISO 8601 ou format que o Date aceita direto
+  let d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+
+  // Formato BR: DD/MM/AAAA (separadores variados, podem repetir, espaços extras)
+  // Casos suportados:
+  //   01/07/2023, 01-07-2023, 01.07.2023, 1/7/23
+  //   "01/072023" (sem 2º separador), "23/082023"
+  //   "17//04/2025" (separador duplo)
+  //   "0/08/2023" (dia 0 → vira 1), "31/09/2023" (Date faz rollover natural)
+  //   "  24/07/2023  " (whitespace)
+  const m = s.match(/^(\d{1,2})[\/\-\.\s]*(\d{1,2})[\/\-\.\s]*(\d{2,4})$/);
+  if (m) {
+    let dia = parseInt(m[1], 10);
+    let mes = parseInt(m[2], 10);
+    let ano = parseInt(m[3], 10);
+    if (ano < 100) ano += 2000;
+    if (dia < 1) dia = 1;
+    if (dia > 31) dia = 31;
+    if (mes < 1) mes = 1;
+    if (mes > 12) mes = 12;
+    d = new Date(Date.UTC(ano, mes - 1, dia));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
 }
 
 function normalizePlaca(s) {
@@ -476,33 +503,88 @@ async function importXlsx(empresaId, req, file, options = {}) {
       });
     }
 
+    // Pré-scan: primeira data válida da aba serve como fallback para
+    // linhas com data nula ou ano corrompido (mantém o lançamento no
+    // saldo final, igual à fórmula da planilha).
+    let primeiraDataValida = null;
+    for (let i = headerRow + 1; i < aoa.length; i++) {
+      if (i === saldoInicialRow) continue;
+      const r0 = aoa[i] || [];
+      const d0 = excelSerialToDate(r0[0]);
+      if (d0) {
+        const y = d0.getUTCFullYear();
+        if (y >= 2010 && y <= 2030) { primeiraDataValida = d0; break; }
+      }
+    }
+
     const toCreate = [];
     let ignorados = 0;
-    let datasInvalidas = 0;
+    let datasCorrigidas = 0;
     const MIN_YEAR = 2010, MAX_YEAR = 2030;
+    let ultimaDataValida = primeiraDataValida;
     for (let i = headerRow + 1; i < aoa.length; i++) {
       if (i === saldoInicialRow) continue;  // pula a linha do saldo inicial
       const row = aoa[i] || [];
       const [data, historico, debito, credito] = row;
-      if (data == null && !historico) continue;
-      const d = excelSerialToDate(data);
-      if (!d) continue;
-      const ano = d.getUTCFullYear();
-      if (ano < MIN_YEAR || ano > MAX_YEAR) {
-        // Célula com data corrompida do Excel — ignora silenciosamente
-        datasInvalidas++;
-        continue;
-      }
       const hist = String(historico || '').trim();
-      if (!hist) continue;
       const debitoN  = Number(debito  || 0);
       const creditoN = Number(credito || 0);
       const hasCred  = creditoN > 0.001;
       const valor    = hasCred ? creditoN : debitoN;
-      if (valor <= 0) continue;
+      if (!hist || valor <= 0) continue;
+
+      // Resolve a data: tenta parsear; se inválida/ausente, usa fallback
+      // (última válida ou a primeira da aba) pra não perder o lançamento.
+      let d = excelSerialToDate(data);
+      let dataCorrigida = false;
+      if (d) {
+        const ano = d.getUTCFullYear();
+        if (ano < MIN_YEAR || ano > MAX_YEAR) {
+          if (ultimaDataValida) { d = ultimaDataValida; dataCorrigida = true; }
+          else { d = null; }
+        } else {
+          ultimaDataValida = d;
+        }
+      } else if (ultimaDataValida) {
+        d = ultimaDataValida;
+        dataCorrigida = true;
+      }
+      if (!d) continue;
+      if (dataCorrigida) datasCorrigidas++;
+
+      // Caso especial: linha com débito E crédito preenchidos ao mesmo
+      // tempo (ajuste/estorno cruzado, como "PAGAMENTO PARTE CAMINHÃO
+      // SOLANGE" no SCI-1I03 — R$200k débito e R$200k crédito). A
+      // planilha calcula =anterior - C + D, então gera saldo líquido.
+      // Espelhamos isso criando DOIS lançamentos.
+      const dataIso = d.toISOString().slice(0, 10);
+      if (debitoN > 0.001 && creditoN > 0.001) {
+        const variantes = [
+          { tipo: 'DEBITO',  valor: debitoN,  sufixo: ' (débito)'  },
+          { tipo: 'CREDITO', valor: creditoN, sufixo: ' (crédito)' },
+        ];
+        for (const v of variantes) {
+          const { categoria } = classify(hist, v.tipo === 'CREDITO');
+          const histFinal = (hist + v.sufixo).slice(0, 500);
+          const key = `${dataIso}|${v.valor.toFixed(2)}|${histFinal.slice(0, 80)}`;
+          if (existingKeys.has(key)) { ignorados++; continue; }
+          existingKeys.add(key);
+          toCreate.push({
+            truck_id:       truck.id,
+            data:           d,
+            historico:      histFinal,
+            categoria,
+            tipo:           v.tipo,
+            valor:          v.valor,
+            imported_batch: batch_id,
+            created_by_id:  req.user.id,
+          });
+        }
+        continue;
+      }
 
       const { categoria, tipo } = classify(hist, hasCred);
-      const key = `${d.toISOString().slice(0,10)}|${valor.toFixed(2)}|${hist.slice(0,80)}`;
+      const key = `${dataIso}|${valor.toFixed(2)}|${hist.slice(0,80)}`;
       if (existingKeys.has(key)) { ignorados++; continue; }
       existingKeys.add(key);
 
@@ -525,7 +607,7 @@ async function importXlsx(empresaId, req, file, options = {}) {
     }
     results.push({
       sheet: sheetName, truck_id: truck.id, placa: truck.placa,
-      criados, ignorados, datas_invalidas: datasInvalidas,
+      criados, ignorados, datas_corrigidas: datasCorrigidas,
       saldo_inicial_detectado: saldoInicialDetectado,
     });
   }
