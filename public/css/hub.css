@@ -138,10 +138,10 @@
   inset: 0;
   background-image: url('/assets/images/caminhao-hero.jpeg');
   background-size: cover;
-  background-position: center 38%;
-  filter: grayscale(15%) contrast(1.08) brightness(.65) saturate(.85);
+  background-position: 50% 72%;  /* foca no DAF PRIMA do meio */
+  filter: grayscale(10%) contrast(1.08) brightness(.62) saturate(.95);
   z-index: 1;
-  transform: scale(1.04);
+  transform: scale(1.06);
   animation: hubHeroDrift 26s ease-in-out infinite alternate;
 }
 

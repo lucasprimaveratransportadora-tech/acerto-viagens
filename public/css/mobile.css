@@ -38,16 +38,27 @@
   }
   .modal-actions .btn { flex: 1 1 auto; min-width: 80px; justify-content: center; padding: 8px 12px; }
 
-  /* Header geral — wrap + compactar */
+  /* Header geral — wrap + compactar.
+     CRÍTICO: removemos a height fixa (60px) que estourava com flex-wrap.
+     Mantemos sticky com background opaco e z-index alto pra ficar
+     sempre por cima do conteúdo enquanto rola. */
   header, .ft-header, .hub-hdr, .vc-header, .rt-header {
     flex-wrap: wrap;
     gap: 6px;
-    padding: .6rem .8rem;
+    padding: .55rem .8rem;
+    height: auto !important;
+    min-height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: var(--surface) !important;
+    box-shadow: 0 1px 0 var(--border);
   }
   header .logo, .ft-header .logo, .vc-header .logo, .rt-header .logo {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
   }
   .header-actions, .hub-hdr-actions {
     flex-wrap: wrap; gap: 4px;
@@ -55,6 +66,10 @@
     justify-content: flex-end;
   }
   .header-actions .btn, .hub-hdr-actions .btn { padding: 6px 10px; font-size: .72rem; }
+
+  /* Container do Acerto de Viagem: remover altura calculada que assumia
+     header de 60px. No mobile com header maior, vira altura natural. */
+  .container { height: auto !important; min-height: calc(100vh - 120px); }
 
   /* Module tabs com scroll horizontal */
   .module-tabs {
@@ -109,9 +124,20 @@
   .ft-kpi-hint { font-size: .62rem; }
 
   .ft-toolbar { padding: .6rem .8rem; gap: 8px; }
+  .ft-toolbar .form-group {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
   .ft-toolbar select, .ft-toolbar input { min-width: 0; width: 100%; }
-  .ft-toolbar .right { width: 100%; margin-left: 0; justify-content: stretch; }
-  .ft-toolbar .right .btn { flex: 1; justify-content: center; }
+  .ft-toolbar .right {
+    width: 100%; margin-left: 0;
+    display: flex; gap: 8px;
+  }
+  .ft-toolbar .right .btn {
+    flex: 1 1 0; min-width: 0;
+    justify-content: center;
+  }
 
   /* === VEÍCULOS === */
   .vc-main { padding: 1rem .8rem 2rem; }
@@ -122,7 +148,10 @@
   .rt-main { padding: 1rem .8rem 2rem; }
   .rt-grid { grid-template-columns: 1fr; gap: 10px; }
   .rt-toolbar { padding: .6rem .8rem; gap: 8px; }
+  .rt-toolbar .form-group { width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
   .rt-toolbar input, .rt-toolbar select { width: 100%; min-width: 0; }
+  .vc-toolbar .form-group { width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
+  .vc-toolbar input { width: 100%; min-width: 0; }
 
   /* Detalhes modal — KPIs 2 cols */
   .rt-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
