@@ -32,6 +32,7 @@ export function buildDetail(tr) {
     h += `<div class="cte-list">`;
     tr.ctes.forEach(c => {
       h += `<div class="cte-row">
+        <span class="cte-date">${fmtD(c.data)}</span>
         <span class="cte-num">${esc(c.numero || '\u2014')}</span>
         <span class="cte-route-lbl">${esc(c.origem || '')}${c.destino ? ' \u2192 ' + esc(c.destino) : ''}</span>
         <span class="cte-val">R$ ${fmt(c.valor)}</span>

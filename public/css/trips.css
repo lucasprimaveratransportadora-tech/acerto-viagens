@@ -244,6 +244,13 @@
   border-radius: 5px;
 }
 
+.cte-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .7rem;
+  color: var(--accent);
+  min-width: 76px;
+}
+
 .cte-num {
   font-family: 'IBM Plex Mono', monospace;
   font-size: .7rem;
