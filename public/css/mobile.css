@@ -1,0 +1,347 @@
+/* ============================================================
+   MOBILE — responsividade completa pra celular (todas as abas)
+   Carregar POR ÚLTIMO no <head> — sobrescreve os outros.
+   ============================================================ */
+
+/* Touch targets confortáveis em qualquer tela */
+@media (hover: none) and (pointer: coarse) {
+  .btn, .module-tab, .admin-tab, .ft-anexo-tab,
+  .rt-card, .vc-card, .hub-card,
+  .ft-table .actions button, .rt-timeline .actions button {
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    touch-action: manipulation;
+    user-select: none;
+  }
+  input, select, textarea {
+    font-size: 16px !important;  /* evita auto-zoom no iOS */
+  }
+}
+
+/* ============================================================
+   ≤ 900px — Tablet pequeno / celular landscape
+   ============================================================ */
+@media (max-width: 900px) {
+  /* Modais cabem na tela */
+  .modal {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+  .modal-title { font-size: 1rem; margin-bottom: .8rem; }
+  .form-row { flex-direction: column; gap: .6rem; }
+  .form-group { width: 100%; }
+  .modal-actions {
+    flex-wrap: wrap; gap: 8px;
+    padding-top: .8rem;
+  }
+  .modal-actions .btn { flex: 1 1 auto; min-width: 80px; justify-content: center; padding: 8px 12px; }
+
+  /* Header geral — wrap + compactar */
+  header, .ft-header, .hub-hdr, .vc-header, .rt-header {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: .6rem .8rem;
+  }
+  header .logo, .ft-header .logo, .vc-header .logo, .rt-header .logo {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .header-actions, .hub-hdr-actions {
+    flex-wrap: wrap; gap: 4px;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .header-actions .btn, .hub-hdr-actions .btn { padding: 6px 10px; font-size: .72rem; }
+
+  /* Module tabs com scroll horizontal */
+  .module-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    margin-left: 0;
+    padding-bottom: 2px;
+  }
+  .module-tabs::-webkit-scrollbar { height: 4px; }
+  .module-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .module-tab { white-space: nowrap; padding: 5px 10px; font-size: .62rem; }
+
+  /* Logo menor */
+  .logo-img { height: 28px; }
+  .logo-sub { font-size: .55rem; letter-spacing: 2px; }
+  .hub-back-btn { padding: 5px 9px; font-size: .62rem; }
+
+  /* Hub hero compactado */
+  .hub-hero { height: 70vh; min-height: 420px; max-height: 600px; }
+  .hub-hero-content { left: 1rem; right: 1rem; bottom: 4rem; padding-right: 0; }
+  .hub-title { font-size: clamp(2.8rem, 14vw, 5.5rem); }
+  .hub-eyebrow { font-size: .58rem; letter-spacing: 3px; padding: 5px 10px; }
+  .hub-subtitle { font-size: .68rem; letter-spacing: 2px; gap: 10px; flex-wrap: wrap; }
+  .hub-subtitle .badge { font-size: .58rem; padding: 3px 7px; }
+  .hub-tac.tr, .hub-tac.br { display: none; }
+  .hub-tac.tl, .hub-tac.bl { font-size: .54rem; letter-spacing: 2px; }
+  .hub-tac.tl { top: 1rem; left: 1rem; }
+  .hub-tac.bl { bottom: 1rem; left: 1rem; }
+  .hub-scroll { display: none; }
+  .hub-access { padding: 2.5rem 1rem 2rem; }
+  .hub-access-hdr { margin-bottom: 1.2rem; }
+  .hub-access-title { font-size: 1.2rem; }
+  .hub-cards { grid-template-columns: 1fr; gap: 1rem; }
+  .hub-card { padding: 1.4rem 1.2rem 1.6rem; }
+  .hub-card-title { font-size: clamp(1.8rem, 6vw, 2.4rem); }
+  .hub-card-index { font-size: 3.2rem; top: 1rem; right: 1.2rem; }
+  .hub-card-desc { font-size: .85rem; }
+  .hub-footer { padding: 1.4rem 1rem; gap: 8px; font-size: .55rem; }
+
+  /* Status pulse mais compacto no header do hub */
+  .hub-status { font-size: .58rem; letter-spacing: 2px; gap: 8px; }
+  .hub-status #hubTime { font-size: .7rem; }
+
+  /* === FRETE TERCEIRO === */
+  .ft-main { padding: 1rem .8rem 2rem; }
+  .ft-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .ft-kpi { padding: .7rem .8rem; }
+  .ft-kpi-value { font-size: 1.3rem; }
+  .ft-kpi-label { font-size: .55rem; }
+  .ft-kpi-hint { font-size: .62rem; }
+
+  .ft-toolbar { padding: .6rem .8rem; gap: 8px; }
+  .ft-toolbar select, .ft-toolbar input { min-width: 0; width: 100%; }
+  .ft-toolbar .right { width: 100%; margin-left: 0; justify-content: stretch; }
+  .ft-toolbar .right .btn { flex: 1; justify-content: center; }
+
+  /* === VEÍCULOS === */
+  .vc-main { padding: 1rem .8rem 2rem; }
+  .vc-grid { grid-template-columns: 1fr; gap: 10px; }
+  .vc-card { padding: .9rem 1rem; }
+
+  /* === RENTABILIDADE === */
+  .rt-main { padding: 1rem .8rem 2rem; }
+  .rt-grid { grid-template-columns: 1fr; gap: 10px; }
+  .rt-toolbar { padding: .6rem .8rem; gap: 8px; }
+  .rt-toolbar input, .rt-toolbar select { width: 100%; min-width: 0; }
+
+  /* Detalhes modal — KPIs 2 cols */
+  .rt-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .rt-kpi-value { font-size: 1.3rem; }
+  .rt-chart svg { height: 160px; }
+  .rt-timeline-toolbar select, .rt-timeline-toolbar input { width: 100%; min-width: 0; }
+
+  /* === MODAL VIAGEM (Acerto) === */
+  .tabs { flex-wrap: wrap; gap: 4px; }
+  .tab { padding: 6px 10px; font-size: .72rem; flex: 1 1 calc(50% - 4px); text-align: center; }
+  .entry-table { font-size: .7rem; }
+  .entry-table th, .entry-table td { padding: 3px 4px; }
+
+  /* === DROPZONE ANEXO === */
+  .ft-anexo-dropzone { padding: 1.2rem .8rem; }
+  .ft-anexo-tabs { gap: 2px; margin-bottom: .8rem; }
+  .ft-anexo-tab { padding: .5rem .6rem; font-size: .62rem; letter-spacing: 1px; }
+
+  /* === MODAL DETALHES FRETE TERCEIRO === */
+  .ft-det-header { grid-template-columns: 1fr; gap: .4rem; padding: .8rem; }
+  .ft-det-header .val.big { font-size: 1.3rem; }
+  .ft-baixa-item, .ft-anexo-item {
+    flex-wrap: wrap; gap: 8px; padding: .6rem;
+  }
+  .ft-baixa-item .parc { min-width: auto; }
+  .ft-baixa-item .meta { flex-basis: 100%; }
+  .ft-baixa-item .actions, .ft-anexo-item .actions { margin-left: 0; }
+
+  /* === ADMIN === */
+  .admin-header { flex-direction: column; align-items: stretch; gap: .6rem; }
+  .admin-tabs { margin-left: 0; flex-wrap: wrap; }
+  .admin-tab { padding: 6px 10px; font-size: .7rem; }
+  .admin-table { font-size: .72rem; }
+  .admin-filters { flex-direction: column; align-items: stretch; }
+  .admin-filters > * { width: 100%; }
+}
+
+/* ============================================================
+   ≤ 640px — Celular padrão
+   ============================================================ */
+@media (max-width: 640px) {
+  /* KPIs em 1 coluna */
+  .ft-kpis, .rt-kpi-grid { grid-template-columns: 1fr; }
+
+  /* === TABELAS VIRAM CARDS === */
+  /* Frete Terceiro */
+  .ft-table thead { display: none; }
+  .ft-table, .ft-table tbody, .ft-table tr, .ft-table td { display: block; width: 100%; }
+  .ft-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: .6rem;
+    background: var(--surface);
+  }
+  .ft-table tbody tr.clickable { cursor: pointer; }
+  .ft-table tbody tr.linked { border-left: 3px solid var(--info); }
+  .ft-table tbody td {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    align-items: center;
+    padding: 4px 2px;
+    border-bottom: 0;
+    gap: 8px;
+  }
+  .ft-table tbody td:before {
+    content: attr(data-label);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .58rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ft-table tbody td.right { text-align: left; }
+  .ft-table tbody td .actions {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+    grid-column: 1 / -1;
+  }
+  .ft-table tbody td .actions button { flex: 1 1 auto; min-width: 70px; padding: 6px 10px; font-size: .7rem; }
+
+  /* Rentabilidade timeline */
+  .rt-timeline { border: 0; }
+  .rt-timeline table, .rt-timeline thead, .rt-timeline tbody, .rt-timeline tr, .rt-timeline td {
+    display: block; width: 100%;
+  }
+  .rt-timeline thead { display: none; }
+  .rt-timeline tbody tr {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: .6rem;
+    background: var(--surface2);
+  }
+  .rt-timeline tbody td {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 8px;
+    padding: 3px 2px;
+    border-bottom: 0;
+  }
+  .rt-timeline tbody td:before {
+    content: attr(data-label);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .56rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .rt-timeline tbody td.right { text-align: left; }
+  .rt-timeline tbody td:has(.actions) { display: flex; justify-content: flex-end; }
+  .rt-timeline tbody td .actions { gap: 4px; flex-wrap: wrap; }
+
+  /* Admin tables: scroll horizontal */
+  .admin-table-wrap, .admin-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Sidebar Frota: vira drawer colapsável */
+  .container { flex-direction: column; height: auto; }
+  .sidebar {
+    width: 100%; min-width: 100%;
+    border-right: none; border-bottom: 1px solid var(--border);
+    max-height: 50vh;
+  }
+  .sidebar.collapsed { max-height: 44px; overflow: hidden; }
+  .sidebar-hdr { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-hdr::after {
+    content: '▼'; font-size: .7rem; color: var(--muted);
+    transition: transform .2s;
+  }
+  .sidebar.collapsed .sidebar-hdr::after { transform: rotate(-90deg); }
+  .main { padding: .8rem; min-height: 50vh; }
+
+  /* Hub status no header mostra só hora */
+  .hub-status .pulse, .hub-status .divider, .hub-status span:not(#hubTime):not(.pulse) { display: none; }
+
+  /* Login overlay menor */
+  #loginOverlay > div { padding: 1.4rem !important; width: 92vw !important; }
+
+  /* Modal de preview de anexo: full-screen */
+  .ft-preview-modal {
+    width: 100vw !important; max-width: 100vw !important;
+    height: 100vh !important; max-height: 100vh !important;
+    border-radius: 0;
+  }
+  .ft-preview-header { padding: .5rem .8rem; }
+  .ft-preview-title { font-size: .7rem; }
+
+  /* Modal de ajuda atalhos não faz muito sentido em touch — esconder algumas linhas */
+  .kb-help-table tr:has(kbd:not(:empty)) { font-size: .8rem; }
+
+  /* Page header */
+  .page-header { flex-direction: column; align-items: stretch; gap: .6rem; }
+  .page-title { font-size: 1.4rem; }
+
+  /* Botões SM grandes o suficiente */
+  .btn-sm { padding: 6px 10px; font-size: .72rem; min-height: 34px; }
+  .btn { min-height: 36px; }
+
+  /* Trip modal — total-bar empilha */
+  .total-bar { flex-direction: column; align-items: stretch; gap: 4px; text-align: center; }
+}
+
+/* ============================================================
+   ≤ 400px — Celular pequeno (iPhone SE, Galaxy A pequenos)
+   ============================================================ */
+@media (max-width: 400px) {
+  .hub-title { font-size: clamp(2.2rem, 13vw, 4rem); line-height: .9; }
+  .hub-eyebrow { font-size: .52rem; padding: 4px 8px; }
+  .hub-subtitle { font-size: .58rem; gap: 6px; }
+  .hub-card-title { font-size: 1.7rem; }
+  .hub-card-index { font-size: 2.6rem; }
+  .hub-card-desc { font-size: .78rem; }
+
+  .modal { padding: .8rem; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { width: 100%; }
+
+  .rt-card, .vc-card { padding: .8rem; }
+  .rt-num-row { grid-template-columns: 1fr; gap: 2px; }
+  .rt-num-row > div { display: flex; justify-content: space-between; align-items: center; }
+  .rt-num-row .lbl { margin: 0; }
+
+  .header-actions, .hub-hdr-actions { gap: 3px; }
+  .header-actions .btn, .hub-hdr-actions .btn { padding: 5px 8px; font-size: .65rem; }
+
+  .ft-anexo-dropzone-content > div { font-size: .78rem; }
+}
+
+/* ============================================================
+   Modo mobile específico (sem hover): remove efeitos hover
+   ============================================================ */
+@media (hover: none) {
+  .hub-card:hover { transform: none; }
+  .vc-card:hover, .rt-card:hover { transform: none; border-color: var(--border); }
+  .ft-table tbody tr:hover td,
+  .rt-timeline tbody tr:hover td { background: inherit; }
+
+  /* Ativa hover-like estado via :active pra feedback de toque */
+  .hub-card:active { border-color: var(--accent); }
+  .vc-card:active, .rt-card:active { border-color: var(--accent); }
+}
+
+/* ============================================================
+   Orientação landscape em celular — hero ainda menor
+   ============================================================ */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .hub-hero { height: 80vh; min-height: 320px; }
+  .hub-title { font-size: clamp(2.4rem, 8vh, 4rem); }
+  .hub-tac { display: none; }
+}
+
+/* ============================================================
+   Safe area (iPhone notch / Android navigation bar)
+   ============================================================ */
+@supports (padding: max(0px)) {
+  header, .ft-header, .hub-hdr, .vc-header, .rt-header {
+    padding-left:  max(.8rem, env(safe-area-inset-left));
+    padding-right: max(.8rem, env(safe-area-inset-right));
+  }
+  .hub-footer {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+}

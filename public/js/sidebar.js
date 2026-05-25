@@ -30,4 +30,22 @@ window.selectTruck = async function (id) {
   setSelectedTruck(id);
   renderSidebar();
   await renderMain();
+  // Em mobile, colapsa a sidebar após selecionar
+  if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+    document.querySelector('.sidebar')?.classList.add('collapsed');
+  }
 };
+
+// Toggle do drawer em mobile
+window.toggleSidebar = function () {
+  const sb = document.querySelector('.sidebar');
+  if (sb) sb.classList.toggle('collapsed');
+};
+
+// Wire click no sidebar-hdr só em mobile
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.sidebar-hdr')) return;
+  if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+    document.querySelector('.sidebar')?.classList.toggle('collapsed');
+  }
+});

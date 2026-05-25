@@ -290,14 +290,14 @@ function renderTimeline() {
         ? `<a onclick="rtb.openAnexoFile(event,'${esc(e.id)}')" href="/api/truck-ledger/${esc(trId)}/entries/${esc(e.id)}/anexo/download" target="_blank">📎 ${esc(e.anexo_nome || 'arquivo')}</a>`
         : `<a href="${esc(e.anexo_url)}" target="_blank">🔗 ${esc(e.anexo_nome || 'link')}</a>`;
     return `<tr>
-      <td class="mono">${fmtDate(e.data)}</td>
-      <td><span class="pill ${esc(e.categoria)}">${esc(CATEGORIA_LABEL[e.categoria] || e.categoria)}</span></td>
-      <td>${esc(e.historico)}${e.observacoes ? ` <small style="color:var(--muted)">· ${esc(e.observacoes)}</small>` : ''}</td>
-      <td class="right mono deb">${e.tipo === 'DEBITO' ? fmtBRL(valor) : ''}</td>
-      <td class="right mono cred">${e.tipo === 'CREDITO' ? fmtBRL(valor) : ''}</td>
-      <td class="right mono" style="color:${acc >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtBRL(acc)}</td>
-      <td>${anexoCell}</td>
-      <td><div class="actions">
+      <td class="mono" data-label="Data">${fmtDate(e.data)}</td>
+      <td data-label="Categoria"><span class="pill ${esc(e.categoria)}">${esc(CATEGORIA_LABEL[e.categoria] || e.categoria)}</span></td>
+      <td data-label="Histórico">${esc(e.historico)}${e.observacoes ? ` <small style="color:var(--muted)">· ${esc(e.observacoes)}</small>` : ''}</td>
+      <td class="right mono deb" data-label="Débito">${e.tipo === 'DEBITO' ? fmtBRL(valor) : ''}</td>
+      <td class="right mono cred" data-label="Crédito">${e.tipo === 'CREDITO' ? fmtBRL(valor) : ''}</td>
+      <td class="right mono" data-label="Saldo" style="color:${acc >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtBRL(acc)}</td>
+      <td data-label="Anexo">${anexoCell}</td>
+      <td data-label="Ações"><div class="actions">
         <button onclick="rtb.openEditEntry('${esc(e.id)}')">Editar</button>
         <button onclick="rtb.openAnexo('${esc(e.id)}')" title="Anexar arquivo">📎</button>
         <button class="danger" onclick="rtb.removeEntry('${esc(e.id)}')">×</button>
