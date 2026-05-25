@@ -270,7 +270,11 @@ window.saveTrip = async function () {
   const kmFim = parseFloat(document.getElementById('fuelKmFinal').value) || 0;
   const kmTotal = (kmFim > kmIni) ? Math.round(kmFim - kmIni) : 0;
 
-  const tripData = {
+  // Payload aninhado: trip + ctes + fuels numa única request. Antes o front
+  // fazia PATCH + N DELETEs + N POSTs + M DELETEs + M POSTs sequencialmente,
+  // e qualquer blip de rede deixava a viagem meio-reconstruída. Agora o
+  // backend grava tudo dentro de uma transação Prisma — atômico.
+  const tripPayload = {
     data_inicio: date,
     data_fim: document.getElementById('trpDateEnd').value || null,
     origem: document.getElementById('trpOrigin').value.trim(),
@@ -283,67 +287,29 @@ window.saveTrip = async function () {
     observacoes: document.getElementById('trpObs').value.trim(),
     km_inicial: kmIni,
     km_final: kmFim,
+    ctes: getCteRows(),
+    fuels: getFuelRows(),
   };
 
-  const ctes = getCteRows();
-  const fuels = getFuelRows();
   const expenses = getDespValues();
-
   const eid = document.getElementById('tripEditId').dataset.id;
+
+  // Trava o botão durante o save — evita double-submit duplicar CTEs/Fuels.
+  const saveBtn = document.querySelector('button[onclick*="saveTrip"]');
+  const originalLabel = saveBtn?.textContent;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
 
   try {
     let savedTrip;
-
     if (eid) {
-      // ---- UPDATE existing trip ----
-      savedTrip = await api.patch('/api/trips/' + eid, tripData);
-      const tripId = eid;
-
-      // Delete existing CTEs and re-create (simpler than diffing)
-      // The backend should handle this, but we send them individually
-      if (savedTrip.ctes) {
-        for (const c of savedTrip.ctes) {
-          await api.delete('/api/ctes/' + c.id);
-        }
-      }
-      for (const c of ctes) {
-        await api.post('/api/ctes/trip/' + tripId, c);
-      }
-
-      // Delete existing fuels and re-create
-      if (savedTrip.fuels) {
-        for (const f of savedTrip.fuels) {
-          await api.delete('/api/fuels/' + f.id);
-        }
-      }
-      for (const f of fuels) {
-        await api.post('/api/fuels/trip/' + tripId, f);
-      }
-
-      // Upsert expenses — só envia se houver alguma categoria com valor > 0
-      if (Object.keys(expenses).length) {
-        await api.put('/api/expenses/trip/' + tripId, expenses);
-      }
-
+      savedTrip = await api.patch('/api/trips/' + eid, tripPayload);
     } else {
-      // ---- CREATE new trip ----
-      savedTrip = await api.post('/api/trips/truck/' + truckId, tripData);
-      const tripId = savedTrip.id;
+      savedTrip = await api.post('/api/trips/truck/' + truckId, tripPayload);
+    }
 
-      // Create CTEs
-      for (const c of ctes) {
-        await api.post('/api/ctes/trip/' + tripId, c);
-      }
-
-      // Create fuels
-      for (const f of fuels) {
-        await api.post('/api/fuels/trip/' + tripId, f);
-      }
-
-      // Create expenses
-      if (Object.keys(expenses).length) {
-        await api.put('/api/expenses/trip/' + tripId, expenses);
-      }
+    // Despesas seguem em endpoint separado (modelo de upsert por categoria).
+    if (Object.keys(expenses).length) {
+      await api.put('/api/expenses/trip/' + savedTrip.id, expenses);
     }
 
     setSelectedTruck(truckId);
@@ -352,5 +318,7 @@ window.saveTrip = async function () {
     await renderMain();
   } catch (e) {
     alert('Erro ao salvar viagem: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
   }
 };

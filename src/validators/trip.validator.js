@@ -1,5 +1,14 @@
 const { body } = require('express-validator');
 
+// Aceita opcionalmente arrays `ctes` e `fuels` no body — o frontend agora
+// manda uma única request PATCH/POST com tudo aninhado, e o service grava
+// dentro de uma transação. Detalhes dos elementos são whitelistados no
+// service (normalizeCte/normalizeFuel), então aqui só validamos shape.
+const NESTED_ARRAYS = [
+  body('ctes').optional().isArray().withMessage('ctes deve ser um array.'),
+  body('fuels').optional().isArray().withMessage('fuels deve ser um array.'),
+];
+
 const createTrip = [
   body('data_inicio').notEmpty().withMessage('Data de início obrigatória.').isISO8601().withMessage('Data de início inválida.'),
   body('data_fim').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data de fim inválida.'),
@@ -14,6 +23,7 @@ const createTrip = [
   body('km_inicial').optional().isFloat().withMessage('km_inicial deve ser numérico.'),
   body('km_final').optional().isFloat().withMessage('km_final deve ser numérico.'),
   body('imported_batch').optional().isString(),
+  ...NESTED_ARRAYS,
 ];
 
 const updateTrip = [
@@ -29,6 +39,7 @@ const updateTrip = [
   body('observacoes').optional(),
   body('km_inicial').optional().isFloat().withMessage('km_inicial deve ser numérico.'),
   body('km_final').optional().isFloat().withMessage('km_final deve ser numérico.'),
+  ...NESTED_ARRAYS,
 ];
 
 const addAnexo = [

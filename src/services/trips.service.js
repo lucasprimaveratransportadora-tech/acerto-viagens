@@ -9,6 +9,55 @@ const TRIP_ANEXO_LIST_SELECT = {
   created_at: true,
 };
 
+// Whitelist explícito do que o cliente pode editar via PATCH/POST.
+// Antes, `data` (= req.body) ia direto pro Prisma — abrindo brecha de
+// mass-assignment (cliente podia mandar truck_id e mover viagem entre tenants).
+const TRIP_PATCH_FIELDS = [
+  'data_inicio', 'data_fim', 'origem', 'destino', 'carga', 'motorista',
+  'km_total', 'status', 'adiantamento', 'observacoes',
+  'km_inicial', 'km_final',
+];
+const TRIP_CREATE_FIELDS = [...TRIP_PATCH_FIELDS, 'imported_batch'];
+
+function pick(src, fields) {
+  const out = {};
+  for (const f of fields) {
+    if (src && Object.prototype.hasOwnProperty.call(src, f)) out[f] = src[f];
+  }
+  return out;
+}
+
+function normalizeTripFields(patch) {
+  if (patch.data_inicio) patch.data_inicio = new Date(patch.data_inicio);
+  if (patch.data_fim) patch.data_fim = new Date(patch.data_fim);
+  // string vazia em motorista vira null (consistente com create() antigo)
+  if (patch.motorista !== undefined) patch.motorista = patch.motorista || null;
+  return patch;
+}
+
+// CTE/Fuel aninhados em payload de trip — também com whitelist explícito.
+function normalizeCte(c) {
+  return {
+    data: c?.data ? new Date(c.data) : null,
+    numero: c?.numero ?? null,
+    origem: c?.origem ?? null,
+    destino: c?.destino ?? null,
+    valor: c?.valor ?? 0,
+  };
+}
+
+function normalizeFuel(f) {
+  return {
+    data: f?.data ? new Date(f.data) : null,
+    litros: f?.litros ?? 0,
+    preco_litro: f?.preco_litro ?? 0,
+    posto_cnpj: f?.posto_cnpj ?? null,
+    nota_fiscal: f?.nota_fiscal ?? null,
+    km: f?.km == null || f.km === '' ? null : Math.round(Number(f.km)),
+    valor_total: f?.valor_total ?? 0,
+  };
+}
+
 async function verifyTruckOwnership(truckId, empresaId) {
   const truck = await prisma.truck.findFirst({
     where: { id: truckId, empresa_id: empresaId, deleted_at: null },
@@ -70,29 +119,33 @@ async function getById(id, empresaId) {
 async function create(truckId, empresaId, req, data) {
   await verifyTruckOwnership(truckId, empresaId);
 
-  const trip = await prisma.trip.create({
-    data: {
-      truck_id: truckId,
-      data_inicio: new Date(data.data_inicio),
-      data_fim: data.data_fim ? new Date(data.data_fim) : null,
-      origem: data.origem,
-      destino: data.destino,
-      carga: data.carga,
-      motorista: data.motorista || null,
-      km_total: data.km_total,
-      status: data.status,
-      adiantamento: data.adiantamento,
-      observacoes: data.observacoes,
-      km_inicial: data.km_inicial,
-      km_final: data.km_final,
-      imported_batch: data.imported_batch || null,
-    },
-    include: {
-      ctes: true,
-      fuels: true,
-      expenses: true,
-    },
+  const tripData = normalizeTripFields(pick(data, TRIP_CREATE_FIELDS));
+  const ctes = Array.isArray(data?.ctes) ? data.ctes.map(normalizeCte) : null;
+  const fuels = Array.isArray(data?.fuels) ? data.fuels.map(normalizeFuel) : null;
+
+  // Atomicidade: ou tudo entra, ou nada. Antes o front fazia N+M+1
+  // requests separados — qualquer falha no meio deixava viagem
+  // parcialmente preenchida.
+  const trip = await prisma.$transaction(async (tx) => {
+    const created = await tx.trip.create({
+      data: { ...tripData, truck_id: truckId },
+    });
+    if (ctes && ctes.length > 0) {
+      await tx.cte.createMany({
+        data: ctes.map((c) => ({ ...c, trip_id: created.id })),
+      });
+    }
+    if (fuels && fuels.length > 0) {
+      await tx.fuel.createMany({
+        data: fuels.map((f) => ({ ...f, trip_id: created.id })),
+      });
+    }
+    return tx.trip.findUnique({
+      where: { id: created.id },
+      include: { ctes: true, fuels: true, expenses: true },
+    });
   });
+
   await audit.log({ req, empresaId, entity: 'TRIP', action: 'CREATE', entityId: trip.id, before: null, after: trip });
   return trip;
 }
@@ -100,23 +153,49 @@ async function create(truckId, empresaId, req, data) {
 async function update(id, empresaId, req, data) {
   await verifyTripOwnership(id, empresaId);
 
-  if (data.data_inicio) data.data_inicio = new Date(data.data_inicio);
-  if (data.data_fim) data.data_fim = new Date(data.data_fim);
-  // Normaliza motorista: string vazia vira null
-  if (data.motorista !== undefined) data.motorista = data.motorista || null;
+  const tripPatch = normalizeTripFields(pick(data, TRIP_PATCH_FIELDS));
+  // Semântica: se a chave `ctes`/`fuels` vier no body, é a lista COMPLETA
+  // nova (replace all). Se não vier, não toca nas linhas existentes.
+  const ctes = Array.isArray(data?.ctes) ? data.ctes.map(normalizeCte) : null;
+  const fuels = Array.isArray(data?.fuels) ? data.fuels.map(normalizeFuel) : null;
 
-  const before = await prisma.trip.findUnique({ where: { id } });
-  const after = await prisma.trip.update({
-    where: { id },
-    data,
-    include: {
-      ctes: true,
-      fuels: true,
-      expenses: true,
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    const before = await tx.trip.findUnique({
+      where: { id },
+      include: { ctes: true, fuels: true, expenses: true },
+    });
+
+    if (Object.keys(tripPatch).length > 0) {
+      await tx.trip.update({ where: { id }, data: tripPatch });
+    }
+
+    if (ctes !== null) {
+      await tx.cte.deleteMany({ where: { trip_id: id } });
+      if (ctes.length > 0) {
+        await tx.cte.createMany({
+          data: ctes.map((c) => ({ ...c, trip_id: id })),
+        });
+      }
+    }
+
+    if (fuels !== null) {
+      await tx.fuel.deleteMany({ where: { trip_id: id } });
+      if (fuels.length > 0) {
+        await tx.fuel.createMany({
+          data: fuels.map((f) => ({ ...f, trip_id: id })),
+        });
+      }
+    }
+
+    const after = await tx.trip.findUnique({
+      where: { id },
+      include: { ctes: true, fuels: true, expenses: true },
+    });
+    return { before, after };
   });
-  await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id, before, after });
-  return after;
+
+  await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id, before: result.before, after: result.after });
+  return result.after;
 }
 
 async function remove(id, empresaId, req) {
