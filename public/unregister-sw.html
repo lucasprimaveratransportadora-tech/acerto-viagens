@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Limpar app — Prima Acerto</title>
+<style>
+  body { font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#0e0f11; color:#eee; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:1rem; }
+  .card { max-width: 420px; background:#1a1c1f; border:1px solid #2a2d31; border-radius:12px; padding:1.6rem; box-shadow:0 6px 20px rgba(0,0,0,.45); }
+  h1 { color:#E30613; margin:0 0 .6rem; font-size:1.1rem; }
+  p  { margin:.5rem 0; font-size:.9rem; color:#aaa; line-height:1.45; }
+  button { margin-top:1.2rem; background:#E30613; color:#fff; border:none; padding:11px 18px; border-radius:8px; font-size:.9rem; cursor:pointer; width:100%; font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre { background:#0a0b0c; border:1px solid #2a2d31; padding:.8rem; border-radius:6px; font-size:.78rem; white-space:pre-wrap; word-break:break-all; color:#9aa; }
+  a { color:#E30613; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Limpar instalação do app</h1>
+    <p>Use esta página se o app estiver travando, em tela branca ou sem carregar. Ela apaga o cache offline e desinstala o service worker.</p>
+    <p>Depois disso, abra <a href="/">a página inicial</a> normalmente — vai recarregar tudo do servidor.</p>
+    <button id="btn" type="button">Limpar agora</button>
+    <pre id="log">Aguardando…</pre>
+  </div>
+<script>
+(function () {
+  var btn = document.getElementById('btn');
+  var log = document.getElementById('log');
+  function write(line) { log.textContent += '\n' + line; }
+  btn.onclick = async function () {
+    btn.disabled = true;
+    log.textContent = 'Iniciando…';
+    try {
+      if ('serviceWorker' in navigator) {
+        var regs = await navigator.serviceWorker.getRegistrations();
+        write('Service workers encontrados: ' + regs.length);
+        for (var i = 0; i < regs.length; i++) {
+          var ok = await regs[i].unregister();
+          write('  → unregister ' + (ok ? 'OK' : 'FALHOU') + ': ' + (regs[i].scope || '(sem scope)'));
+        }
+      } else {
+        write('Service workers: não suportado neste navegador');
+      }
+      if (window.caches) {
+        var keys = await caches.keys();
+        write('Caches encontrados: ' + keys.length);
+        for (var j = 0; j < keys.length; j++) {
+          var del = await caches.delete(keys[j]);
+          write('  → delete ' + (del ? 'OK' : 'FALHOU') + ': ' + keys[j]);
+        }
+      }
+      write('');
+      write('Pronto. Recarregue ou abra https://web-production-8408e.up.railway.app/');
+      btn.textContent = 'Ir para o app';
+      btn.disabled = false;
+      btn.onclick = function () { location.href = '/'; };
+    } catch (e) {
+      write('Erro: ' + (e && e.message ? e.message : String(e)));
+      btn.disabled = false;
+    }
+  };
+})();
+</script>
+</body>
+</html>
