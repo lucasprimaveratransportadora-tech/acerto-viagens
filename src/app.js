@@ -6,12 +6,17 @@ const path = require('path');
 const config = require('./config');
 const { globalLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
+const requestId = require('./middleware/requestId');
 const routes = require('./routes');
 
 const app = express();
 
 // Trust Railway/Proxy headers (X-Forwarded-For) for rate-limit and secure cookies
 app.set('trust proxy', 1);
+
+// Request correlation ID — precisa vir antes de tudo pra estar disponível
+// nos logs do errorHandler e nas respostas (header X-Request-Id).
+app.use(requestId);
 
 // Security headers
 app.use(helmet({
