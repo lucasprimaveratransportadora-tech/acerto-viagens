@@ -52,7 +52,8 @@ function draw(container, search) {
               <button class="btn btn-ghost btn-sm" onclick="adminUserToggle('${esc(u.id)}', ${!u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
             </td>
           </tr>
-        `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Nenhum usuário</td></tr>`}
+        `;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Nenhum usuário</td></tr>`}
       </tbody>
     </table>
   `;
