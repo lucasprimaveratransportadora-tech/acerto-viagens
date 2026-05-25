@@ -113,7 +113,7 @@ function renderGrid() {
     const noData = t.status === 'SEM_DADOS';
     const saldoIni = Number(t.saldoInicial || 0);
     const saldoIniBadge = saldoIni !== 0
-      ? `<span title="Saldo histórico anterior ao livro" style="margin-left:6px;padding:1px 6px;border-radius:3px;background:rgba(56,189,248,.10);border:1px solid rgba(56,189,248,.35);color:var(--info);font-family:'IBM Plex Mono',monospace;font-size:.55rem;letter-spacing:1px">+${fmtBRLShort(saldoIni)} inicial</span>`
+      ? `<span class="rt-badge-inicial" title="Saldo histórico anterior ao livro">${saldoIni > 0 ? '+' : ''}${fmtBRLShort(saldoIni)} inicial</span>`
       : '';
     return `
       <div class="rt-card ${noData ? 'no-data' : ''}" onclick="rtb.openDetails('${esc(t.truck_id)}')">
@@ -121,8 +121,14 @@ function renderGrid() {
           <span class="rt-plate">${esc(t.placa)}</span>
           <span class="rt-status ${statusCls}">${statusLbl}${t.status === 'EM_PAYBACK' ? ' · ' + pct + '%' : ''}</span>
         </div>
-        <div class="model">${esc(t.modelo || '—')}${t.motorista ? ' · ' + esc(t.motorista) : ' · <span class="muted">sem motorista</span>'}${saldoIniBadge}</div>
-        ${t.carreta_placa ? `<div class="model" style="font-size:.7rem;color:var(--muted)">Carreta ${esc(t.carreta_placa)}</div>` : ''}
+        <div class="rt-modelo" title="${esc(t.modelo || '')}">${esc(t.modelo || '—')}</div>
+        <div class="rt-motorista" title="${esc(t.motorista || 'sem motorista')}">
+          ${t.motorista ? esc(t.motorista) : '<span class="muted">sem motorista</span>'}
+        </div>
+        ${(t.carreta_placa || saldoIniBadge) ? `<div class="rt-meta-row">
+          ${t.carreta_placa ? `<span class="rt-carreta">Carreta ${esc(t.carreta_placa)}</span>` : ''}
+          ${saldoIniBadge}
+        </div>` : ''}
         <div class="rt-num-row">
           <div><div class="lbl">Investido</div><div class="val deb">${fmtBRLShort(t.totalDebito)}</div></div>
           <div><div class="lbl">Recebido</div><div class="val cred">${fmtBRLShort(t.totalCredito)}</div></div>

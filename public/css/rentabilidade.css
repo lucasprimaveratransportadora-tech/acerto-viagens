@@ -72,6 +72,57 @@
 }
 .rt-card .model .muted { color: var(--muted); }
 
+/* Layout em linhas separadas pra evitar quebrar com motorista grande */
+.rt-card .rt-modelo {
+  font-size: .82rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+.rt-card .rt-motorista {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .68rem;
+  letter-spacing: 1px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.rt-card .rt-motorista .muted { color: var(--muted); font-style: italic; }
+
+.rt-card .rt-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+.rt-card .rt-carreta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+.rt-card .rt-badge-inicial {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: 1px;
+  color: var(--info);
+  background: rgba(56,189,248,.10);
+  border: 1px solid rgba(56,189,248,.35);
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 .rt-num-row {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 4px 10px; margin-top: 4px;
