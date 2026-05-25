@@ -26,6 +26,38 @@ export function buildDetail(tr) {
 
   let h = `<div class="detail-grid">`;
 
+  // ---- Faixa info no topo (Data início/fim, Motorista, KM Inicial/Final) ----
+  h += `<div class="trip-info-bar" style="grid-column:1/-1">
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">📅 Início</span>
+      <span class="trip-info-val">${fmtD(tr.data_inicio)}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">🏁 Fim</span>
+      <span class="trip-info-val">${tr.data_fim ? fmtD(tr.data_fim) : '<em style="color:var(--muted);font-style:normal">em curso</em>'}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">👤 Motorista</span>
+      <span class="trip-info-val">${esc(tr.motorista || tr.truck?.motorista || '—')}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">📍 KM Inicial</span>
+      <span class="trip-info-val">${kmIni > 0 ? kmIni.toLocaleString('pt-BR') : '—'}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">🏁 KM Final</span>
+      <span class="trip-info-val">${kmFin > 0 ? kmFin.toLocaleString('pt-BR') : '—'}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">🛣️ Percorridos</span>
+      <span class="trip-info-val" style="color:var(--accent)">${kmPerc > 0 ? kmPerc.toLocaleString('pt-BR') + ' km' : '—'}</span>
+    </div>
+    <div class="trip-info-item">
+      <span class="trip-info-lbl">⛽ Média</span>
+      <span class="trip-info-val" style="color:var(--info)">${media}</span>
+    </div>
+  </div>`;
+
   // ---- CTEs ----
   h += `<div class="detail-section"><div class="detail-section-hdr"><span class="detail-section-title">&#x1F4C4; CTes / Fretes</span><span class="detail-section-total val pos">R$ ${fmt(frete)}</span></div>`;
   if (tr.ctes && tr.ctes.length) {

@@ -227,6 +227,44 @@
   font-weight: 600;
 }
 
+/* Faixa de informação no topo da viagem expandida — resumo rápido:
+   datas, motorista, KM inicial/final/percorrido, média de consumo. */
+.trip-info-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: .5rem .8rem;
+  padding: .65rem .85rem;
+  margin-bottom: .6rem;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.trip-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trip-info-lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .58rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trip-info-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .82rem;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cte-list {
   padding: .45rem .8rem;
   display: flex;
