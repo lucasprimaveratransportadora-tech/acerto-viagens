@@ -446,6 +446,52 @@
 }
 
 /* ============================================================
+   SEÇÕES DA ABA "Geral" do Acerto de Viagem.
+   Separa visualmente "preenchido na saída" (🚚) de "preenchido
+   na chegada / posterior" (🏁) — o KM total, data fim e status
+   só são conhecidos depois.
+   ============================================================ */
+.trip-section {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: .8rem .9rem .6rem;
+  margin-bottom: .9rem;
+  background: rgba(255,255,255,.015);
+}
+.trip-section-late {
+  border-style: dashed;
+  border-color: rgba(255,255,255,.18);
+  background: rgba(56,189,248,.04);
+}
+.trip-section-head {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: -.2rem -.2rem .55rem;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.trip-section-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.trip-section-title {
+  font-size: .82rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text);
+  font-weight: 700;
+}
+.trip-section-hint {
+  font-size: .68rem;
+  color: var(--muted);
+  letter-spacing: .3px;
+  text-transform: none;
+}
+.trip-section-late .trip-section-title { color: var(--info, #38bdf8); }
+
+/* ============================================================
    PAINEL LATERAL DO PDF — Folha de Acerto visível enquanto edita.
    Aparece quando o usuário clica em "Ver lado a lado" num anexo
    da aba "Folha de Acerto" do tripModal.

@@ -248,14 +248,13 @@ window.updateDespTotal = function () {
 };
 
 function getDespValues() {
-  const arr = [];
+  // Backend espera objeto { CATEGORIA: valor } — não array.
+  const obj = {};
   DESP.forEach(dk => {
     const v = parseFloat(document.getElementById('desp_' + dk.k)?.value || 0) || 0;
-    if (v > 0) {
-      arr.push({ categoria: dk.k, valor: v });
-    }
+    if (v > 0) obj[dk.k] = v;
   });
-  return arr;
+  return obj;
 }
 
 // ==================== SAVE TRIP ====================
@@ -315,8 +314,10 @@ window.saveTrip = async function () {
         await api.post('/api/fuels/trip/' + tripId, f);
       }
 
-      // Upsert expenses
-      await api.put('/api/expenses/trip/' + tripId, expenses);
+      // Upsert expenses — só envia se houver alguma categoria com valor > 0
+      if (Object.keys(expenses).length) {
+        await api.put('/api/expenses/trip/' + tripId, expenses);
+      }
 
     } else {
       // ---- CREATE new trip ----
@@ -334,7 +335,7 @@ window.saveTrip = async function () {
       }
 
       // Create expenses
-      if (expenses.length) {
+      if (Object.keys(expenses).length) {
         await api.put('/api/expenses/trip/' + tripId, expenses);
       }
     }

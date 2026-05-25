@@ -34,7 +34,18 @@ async function request(method, url, body = null) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro na requisição.' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    let msg = err.error || `HTTP ${res.status}`;
+    // Express-validator: anexa o nome do campo + msg pra dar contexto ao usuário
+    if (Array.isArray(err.details) && err.details.length) {
+      const detailMsgs = err.details
+        .map(d => d.field ? `${d.field}: ${d.message}` : d.message)
+        .filter(Boolean);
+      if (detailMsgs.length) msg += '\n• ' + detailMsgs.join('\n• ');
+    }
+    const e = new Error(msg);
+    e.status = res.status;
+    e.details = err.details || null;
+    throw e;
   }
 
   return res.json();
