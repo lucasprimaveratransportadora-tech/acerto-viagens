@@ -6,11 +6,10 @@ export function fmt(v) {
 
 export function fmtD(d) {
   if (!d) return '\u2014';
-  // Aceita tanto "YYYY-MM-DD" (input type=date) quanto ISO completo
-  // ("2026-05-25T17:00:00.000Z" \u2014 Prisma DateTime). Sem o ajuste, somar
-  // 'T12:00:00' num ISO completo gera "Invalid Date".
-  const s = String(d);
-  const date = new Date(/T/.test(s) ? s : s + 'T12:00:00');
+  // Data de calend\u00e1rio (CTE/abastecimento) \u2014 ignora hora/timezone do ISO
+  // do Prisma ("2025-09-19T00:00:00.000Z") pra n\u00e3o perder 1 dia em UTC-3.
+  const s = String(d).slice(0, 10);
+  const date = new Date(s + 'T12:00:00');
   if (isNaN(date.getTime())) return '\u2014';
   return date.toLocaleDateString('pt-BR');
 }
