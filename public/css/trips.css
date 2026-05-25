@@ -265,6 +265,41 @@
   text-overflow: ellipsis;
 }
 
+/* Input editável inline na faixa (mesmo "look" de span, mas digitável).
+   Sem borda quando inativo, ganha borda accent ao focar. */
+.trip-info-input {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .82rem;
+  color: var(--text);
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+}
+.trip-info-input:hover {
+  border-color: rgba(255,255,255,.1);
+  background: rgba(0,0,0,.15);
+}
+.trip-info-input:focus {
+  border-color: var(--accent);
+  background: rgba(0,0,0,.25);
+}
+.trip-info-input::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+  font-style: italic;
+}
+/* O dropdown nativo do date picker num campo escuro fica feio em alguns
+   navegadores; força ícone branco no Chromium. */
+.trip-info-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
 .cte-list {
   padding: .45rem .8rem;
   display: flex;

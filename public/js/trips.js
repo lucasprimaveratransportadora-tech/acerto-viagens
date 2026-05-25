@@ -26,27 +26,37 @@ export function buildDetail(tr) {
 
   let h = `<div class="detail-grid">`;
 
-  // ---- Faixa info no topo (Data início/fim, Motorista, KM Inicial/Final) ----
+  // ---- Faixa info no topo (editável inline) ----
+  const isoDate = (d) => d ? String(d).slice(0, 10) : '';
+  const tid = esc(tr.id);
   h += `<div class="trip-info-bar" style="grid-column:1/-1">
     <div class="trip-info-item">
-      <span class="trip-info-lbl">📅 Início</span>
-      <span class="trip-info-val">${fmtD(tr.data_inicio)}</span>
+      <span class="trip-info-lbl">📅 Início *</span>
+      <input type="date" class="trip-info-input" value="${isoDate(tr.data_inicio)}"
+        onchange="inlineUpdateTrip('${tid}','data_inicio',this.value)" title="Data de início da viagem">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🏁 Fim</span>
-      <span class="trip-info-val">${tr.data_fim ? fmtD(tr.data_fim) : '<em style="color:var(--muted);font-style:normal">em curso</em>'}</span>
+      <input type="date" class="trip-info-input" value="${isoDate(tr.data_fim)}"
+        onchange="inlineUpdateTrip('${tid}','data_fim',this.value)" title="Data de retorno (deixe vazio se em curso)">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">👤 Motorista</span>
-      <span class="trip-info-val">${esc(tr.motorista || tr.truck?.motorista || '—')}</span>
+      <input type="text" class="trip-info-input" value="${esc(tr.motorista || '')}" maxlength="120"
+        placeholder="${esc(tr.truck?.motorista || 'Quem rodou')}"
+        onchange="inlineUpdateTrip('${tid}','motorista',this.value)" title="Motorista da viagem">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">📍 KM Inicial</span>
-      <span class="trip-info-val">${kmIni > 0 ? kmIni.toLocaleString('pt-BR') : '—'}</span>
+      <input type="number" class="trip-info-input" value="${tr.km_inicial || ''}"
+        placeholder="ex: 152000"
+        onchange="inlineUpdateTrip('${tid}','km_inicial',this.value)" onfocus="this.select()" title="KM do hodômetro na saída">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🏁 KM Final</span>
-      <span class="trip-info-val">${kmFin > 0 ? kmFin.toLocaleString('pt-BR') : '—'}</span>
+      <input type="number" class="trip-info-input" value="${tr.km_final || ''}"
+        placeholder="ex: 154500"
+        onchange="inlineUpdateTrip('${tid}','km_final',this.value)" onfocus="this.select()" title="KM do hodômetro na chegada">
     </div>
     <div class="trip-info-item">
       <span class="trip-info-lbl">🛣️ Percorridos</span>
@@ -248,6 +258,44 @@ function updateMonthStats() {
     }
   });
 }
+
+// ==================== INLINE TRIP FIELDS (data, motorista, km) ====================
+
+window.inlineUpdateTrip = async function (tripId, field, value) {
+  // Data Início é obrigatória — não permite apagar via input inline
+  if (field === 'data_inicio' && !value) {
+    alert('Data Início é obrigatória. Para cancelar a viagem use o status "Cancelada".');
+    await inlineRefreshTrip(tripId);
+    return;
+  }
+
+  const body = {};
+  if (field === 'data_inicio' || field === 'data_fim') {
+    body[field] = value || null;
+  } else if (field === 'km_inicial' || field === 'km_final') {
+    body[field] = parseFloat(value) || 0;
+  } else if (field === 'motorista') {
+    body[field] = (value || '').trim() || null;
+  } else {
+    body[field] = value;
+  }
+
+  // Quando muda km inicial/final, recalcula km_total no mesmo PATCH
+  if (field === 'km_inicial' || field === 'km_final') {
+    const tr = state.trips.find(t => t.id === tripId);
+    const kmIni = field === 'km_inicial' ? body.km_inicial : parseFloat(tr?.km_inicial || 0);
+    const kmFin = field === 'km_final'   ? body.km_final   : parseFloat(tr?.km_final   || 0);
+    body.km_total = kmFin > kmIni ? Math.round(kmFin - kmIni) : 0;
+  }
+
+  try {
+    await api.patch('/api/trips/' + tripId, body);
+    await inlineRefreshTrip(tripId);
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+    await inlineRefreshTrip(tripId);
+  }
+};
 
 // ==================== INLINE DESPESAS ====================
 
