@@ -27,5 +27,12 @@ export function calcFrete(trip) {
 }
 
 export function calcDesp(trip) {
-  return (trip.expenses || []).reduce((s, e) => s + parseFloat(e.valor || 0), 0);
+  // Total de despesas que entra no acerto = todas as Expenses (exceto a
+  // categoria ABASTECIMENTO, que é auto-calculada a partir dos Fuels)
+  // + soma dos abastecimentos lançados na seção ⛽.
+  const sumOutras = (trip.expenses || [])
+    .filter(e => e.categoria !== 'ABASTECIMENTO')
+    .reduce((s, e) => s + parseFloat(e.valor || 0), 0);
+  const sumFuels = (trip.fuels || []).reduce((s, f) => s + parseFloat(f.valor_total || 0), 0);
+  return sumOutras + sumFuels;
 }

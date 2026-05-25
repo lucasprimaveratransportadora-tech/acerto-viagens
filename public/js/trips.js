@@ -106,13 +106,14 @@ export function buildDetail(tr) {
     // ABASTECIMENTO = soma automática dos abastecimentos lançados (readonly).
     const isAuto = dk.k === 'ABASTECIMENTO';
     const v = isAuto ? totFuelVal : (despMap[dk.k] || 0);
+    const valStr = v > 0 ? (isAuto ? v.toFixed(2) : v) : '';
     const labelExtra = isAuto ? ' <small style="color:var(--info);font-size:.6rem">(auto = ⛽)</small>' : '';
     const inputAttrs = isAuto
       ? `readonly tabindex="-1" style="opacity:.75;cursor:not-allowed;background:rgba(56,189,248,.06)" title="Somatório dos abastecimentos — edite na seção ⛽ Abastecimentos"`
       : `onchange="inlineUpdateDesp('${esc(tr.id)}','${esc(dk.k)}',this.value)" onfocus="this.select()"`;
     h += `<div class="desp-row">
       <span class="desp-label">${esc(dk.l)}${labelExtra}</span>
-      <input type="number" class="desp-inline-input ${v > 0 ? 'has-val' : ''}" value="${v || ''}" step="0.01" placeholder="0,00"
+      <input type="number" class="desp-inline-input ${v > 0 ? 'has-val' : ''}" value="${valStr}" step="0.01" placeholder="0,00"
         data-trip="${esc(tr.id)}" data-desp="${esc(dk.k)}"
         ${inputAttrs}>
     </div>`;
