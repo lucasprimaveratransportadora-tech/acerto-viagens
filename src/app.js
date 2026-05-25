@@ -24,6 +24,12 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
+      // Permite preview inline de PDFs e outros anexos via blob URLs
+      // (iframe e <object>/<embed>). Sem isso o browser bloqueia o
+      // iframe do modal de preview ("Este conteúdo está bloqueado").
+      frameSrc: ["'self'", "blob:"],
+      objectSrc: ["'self'", "blob:"],
+      mediaSrc:  ["'self'", "blob:"],
     },
   },
 }));
