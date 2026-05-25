@@ -796,7 +796,53 @@ export async function initFreteTerceiro() {
   if (truckSel) truckSel.addEventListener('change', onTruckChange);
   wireAnexoModal();
   wirePreviewCleanup();
+  wireDetailsDropzone();
   await loadAll();
+}
+
+function wireDetailsDropzone() {
+  const modal = document.getElementById('ftDetalhesModal');
+  if (!modal || modal.__dropWired) return;
+  modal.__dropWired = true;
+  let dragCount = 0;
+  const reset = () => { dragCount = 0; modal.classList.remove('drop-active'); };
+  modal.addEventListener('dragenter', e => {
+    if (!modal.classList.contains('open')) return;
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes('Files')) return;
+    e.preventDefault();
+    dragCount++;
+    modal.classList.add('drop-active');
+  });
+  modal.addEventListener('dragover', e => {
+    if (!modal.classList.contains('open')) return;
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  modal.addEventListener('dragleave', () => {
+    dragCount--;
+    if (dragCount <= 0) reset();
+  });
+  modal.addEventListener('drop', e => {
+    if (!modal.classList.contains('open')) return;
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    reset();
+    if (!state.detailsId) return;
+    openAddAnexo();
+    setTimeout(() => {
+      setSelectedFile(file);
+      const inp = document.getElementById('ftAnexoFile');
+      if (inp) {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          inp.files = dt.files;
+        } catch { /* */ }
+      }
+    }, 60);
+  });
 }
 
 /* ---------- EXPORT ---------- */

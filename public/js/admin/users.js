@@ -26,16 +26,25 @@ function draw(container, search) {
     </div>
     <table class="admin-table">
       <thead>
-        <tr><th>Nome</th><th>Email</th><th>Role</th><th>Status</th><th>Criado</th><th style="text-align:right">Ações</th></tr>
+        <tr><th>Nome</th><th>Email</th><th>Role</th><th>Acessos</th><th>Status</th><th style="text-align:right">Ações</th></tr>
       </thead>
       <tbody>
-        ${filtered.map(u => `
+        ${filtered.map(u => {
+          const perms = u.role === 'ADMIN'
+            ? '<span style="color:var(--success);font-family:\'IBM Plex Mono\',monospace;font-size:.65rem">TODOS</span>'
+            : (Array.isArray(u.permissoes) && u.permissoes.length
+                ? u.permissoes.map(p => {
+                    const icons = { 'frota':'🚚', 'frete-terceiro':'🔁', 'veiculos':'🛡️', 'rentabilidade':'💰' };
+                    return `<span title="${esc(p)}" style="margin-right:4px">${icons[p] || '·'}</span>`;
+                  }).join('')
+                : '<span style="color:var(--muted);font-size:.7rem">— nenhum —</span>');
+          return `
           <tr>
             <td>${esc(u.nome)}</td>
             <td><code style="font-size:.7rem;color:var(--muted)">${esc(u.email)}</code></td>
             <td><span class="action-badge ${u.role === 'ADMIN' ? 'action-DELETE' : 'action-UPDATE'}">${u.role}</span></td>
+            <td style="font-size:1rem">${perms}</td>
             <td>${u.ativo ? '<span style="color:var(--success)">Ativo</span>' : '<span style="color:var(--muted)">Inativo</span>'}</td>
-            <td style="font-size:.7rem;color:var(--muted)">${new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
             <td style="text-align:right;white-space:nowrap">
               <button class="btn btn-ghost btn-sm" onclick="adminUserEdit('${esc(u.id)}')">Editar</button>
               <button class="btn btn-ghost btn-sm" onclick="adminUserResetPwd('${esc(u.id)}')" title="Resetar senha">↻ Senha</button>
@@ -53,8 +62,15 @@ window.adminUserFilter = function (val) {
   draw(document.getElementById('adminContent'), val);
 };
 
+const ALL_MODULES = [
+  { key: 'frota',           label: '🚚 Acerto de Viagem' },
+  { key: 'frete-terceiro',  label: '🔁 Frete Terceiro' },
+  { key: 'veiculos',        label: '🛡️ Veículos' },
+  { key: 'rentabilidade',   label: '💰 Rentabilidade' },
+];
+
 window.adminUserNew = function () {
-  showUserModal({ id: '', nome: '', email: '', role: 'GESTOR', ativo: true });
+  showUserModal({ id: '', nome: '', email: '', role: 'GESTOR', ativo: true, permissoes: ALL_MODULES.map(m => m.key) });
 };
 
 window.adminUserEdit = function (id) {
@@ -72,9 +88,17 @@ window.adminUserToggle = async function (id, ativo) {
 
 function showUserModal(u) {
   const isNew = !u.id;
+  const userPerms = Array.isArray(u.permissoes) ? u.permissoes : ALL_MODULES.map(m => m.key);
+  const permsCheckboxes = ALL_MODULES.map(m => `
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);cursor:pointer">
+      <input type="checkbox" name="uPerm" value="${esc(m.key)}" ${userPerms.includes(m.key) ? 'checked' : ''}>
+      <span style="font-size:.85rem">${m.label}</span>
+    </label>
+  `).join('');
+
   const html = `
     <div class="modal-overlay" id="userModal" style="display:flex">
-      <div class="modal" style="width:480px">
+      <div class="modal" style="width:520px;max-width:96vw;max-height:92vh;overflow-y:auto">
         <div class="modal-title">${isNew ? '+ Novo Usuário' : 'Editar Usuário'}</div>
         <div class="form-row"><div class="form-group">
           <label>Nome *</label><input id="uNome" value="${esc(u.nome)}">
@@ -86,12 +110,25 @@ function showUserModal(u) {
           <label>Senha *</label><input id="uSenha" type="password" placeholder="Min 6 chars">
         </div></div>` : ''}
         <div class="form-row"><div class="form-group">
-          <label>Role</label>
-          <select id="uRole">
-            <option value="GESTOR" ${u.role === 'GESTOR' ? 'selected' : ''}>GESTOR</option>
-            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+          <label>Tipo de acesso</label>
+          <select id="uRole" onchange="adminTogglePermsBlock()">
+            <option value="GESTOR" ${u.role === 'GESTOR' ? 'selected' : ''}>GESTOR (acesso restrito)</option>
+            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN (acesso total)</option>
           </select>
         </div></div>
+
+        <div id="uPermsBlock" class="form-row" style="display:${u.role === 'ADMIN' ? 'none' : ''};flex-direction:column">
+          <div class="form-group" style="width:100%">
+            <label>Módulos liberados</label>
+            <p style="font-size:.7rem;color:var(--muted);margin-bottom:8px">
+              Marque quais áreas este usuário pode acessar. ADMIN tem acesso a tudo automaticamente.
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              ${permsCheckboxes}
+            </div>
+          </div>
+        </div>
+
         ${isNew ? '' : `<div class="form-row"><div class="form-group">
           <label><input id="uAtivo" type="checkbox" ${u.ativo ? 'checked' : ''}> Ativo</label>
         </div></div>`}
@@ -104,19 +141,34 @@ function showUserModal(u) {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 
+window.adminTogglePermsBlock = function () {
+  const role = document.getElementById('uRole').value;
+  const block = document.getElementById('uPermsBlock');
+  if (block) block.style.display = role === 'ADMIN' ? 'none' : '';
+};
+
 window.adminUserSave = async function (id, isNew) {
   const nome = document.getElementById('uNome').value.trim();
   const email = isNew ? document.getElementById('uEmail').value.trim() : null;
   const senha = isNew ? document.getElementById('uSenha').value : null;
   const role = document.getElementById('uRole').value;
   const ativo = isNew ? true : document.getElementById('uAtivo').checked;
+  const permissoes = Array.from(document.querySelectorAll('input[name="uPerm"]:checked')).map(el => el.value);
   if (!nome) return alert('Nome obrigatório.');
   if (isNew && (!email || !senha)) return alert('Email e senha obrigatórios.');
+  if (role === 'GESTOR' && permissoes.length === 0) {
+    if (!confirm('Este usuário GESTOR não terá acesso a nenhum módulo. Continuar mesmo assim?')) return;
+  }
   try {
-    if (isNew) await api.post('/api/users', { nome, email, senha, role });
-    else await api.patch('/api/users/' + id, { nome, role, ativo });
+    const body = { nome, role, permissoes };
+    if (isNew) { body.email = email; body.senha = senha; }
+    else { body.ativo = ativo; }
+    if (isNew) await api.post('/api/users', body);
+    else await api.patch('/api/users/' + id, body);
     document.getElementById('userModal').remove();
     await renderUsers(document.getElementById('adminContent'));
+    // Se o usuário admin atual editou as próprias permissões, atualizar tabs
+    if (window.refreshPermissions) window.refreshPermissions();
   } catch (e) { alert('Erro: ' + e.message); }
 };
 

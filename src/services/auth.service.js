@@ -64,6 +64,7 @@ async function login(email, senha, reqMeta) {
       nome: user.nome,
       email: user.email,
       role: user.role,
+      permissoes: user.permissoes || [],
       empresa: user.empresa,
     },
   };

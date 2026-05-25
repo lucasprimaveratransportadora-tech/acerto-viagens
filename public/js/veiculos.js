@@ -444,12 +444,60 @@ async function openAnexoFile(ev, anexoId) {
 /* ============================================================
    INIT
    ============================================================ */
+function wireDetailsDropzone() {
+  const modal = document.getElementById('vcDetalhesModal');
+  if (!modal || modal.__dropWired) return;
+  modal.__dropWired = true;
+
+  let dragCount = 0;
+  const reset = () => { dragCount = 0; modal.classList.remove('drop-active'); };
+  modal.addEventListener('dragenter', e => {
+    if (!modal.classList.contains('open')) return;
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes('Files')) return;
+    e.preventDefault();
+    dragCount++;
+    modal.classList.add('drop-active');
+  });
+  modal.addEventListener('dragover', e => {
+    if (!modal.classList.contains('open')) return;
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  modal.addEventListener('dragleave', () => {
+    dragCount--;
+    if (dragCount <= 0) reset();
+  });
+  modal.addEventListener('drop', e => {
+    if (!modal.classList.contains('open')) return;
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    reset();
+    if (!state.detailsId) return;
+    // Abre modal de anexo já com o arquivo selecionado
+    openAddAnexo();
+    setTimeout(() => {
+      setSelectedFile(file);
+      const inp = document.getElementById('vcAnexoFile');
+      if (inp) {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          inp.files = dt.files;
+        } catch { /* alguns browsers não permitem */ }
+      }
+    }, 60);
+  });
+}
+
 export async function initVeiculos() {
   if (state.loaded) { await loadAll(); return; }
   state.loaded = true;
   const search = document.getElementById('vcSearch');
   if (search) search.addEventListener('input', applyFilter);
   wireAnexoModal();
+  wireDetailsDropzone();
   // Registra cleanup global para revogar blob URL deste módulo
   // quando o modal de preview compartilhado for fechado.
   window.__previewCleanupHooks = window.__previewCleanupHooks || [];

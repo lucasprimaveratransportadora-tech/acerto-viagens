@@ -42,6 +42,10 @@ export function showHub() {
 }
 
 export async function goToFrota() {
+  if (!hasModuleAccess('frota')) {
+    alert('Você não tem permissão para acessar Acerto de Viagem.');
+    return showHub();
+  }
   hideAll();
   const mod = document.getElementById('moduleContainer');
   if (mod) mod.style.display = '';
@@ -78,6 +82,10 @@ export async function goToFrota() {
 }
 
 export async function goToFreteTerceiro() {
+  if (!hasModuleAccess('frete-terceiro')) {
+    alert('Você não tem permissão para acessar Frete Terceiro.');
+    return showHub();
+  }
   hideAll();
   const ft = document.getElementById('freteTerceiroView');
   if (ft) ft.style.display = '';
@@ -95,6 +103,10 @@ export async function goToFreteTerceiro() {
 }
 
 export async function goToVeiculos() {
+  if (!hasModuleAccess('veiculos')) {
+    alert('Você não tem permissão para acessar Veículos.');
+    return showHub();
+  }
   hideAll();
   const v = document.getElementById('veiculosView');
   if (v) v.style.display = '';
@@ -112,6 +124,10 @@ export async function goToVeiculos() {
 }
 
 export async function goToRentabilidade() {
+  if (!hasModuleAccess('rentabilidade')) {
+    alert('Você não tem permissão para acessar Rentabilidade.');
+    return showHub();
+  }
   hideAll();
   const v = document.getElementById('rentabilidadeView');
   if (v) v.style.display = '';
@@ -153,7 +169,30 @@ export async function goToAdmin() {
   }
 }
 
-/* ---------- ADMIN BUTTON VISIBILITY ---------- */
+/* ---------- ADMIN BUTTON + PERMISSÕES POR MÓDULO ---------- */
+
+const ALL_MODULES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade'];
+
+export function hasModuleAccess(moduleName) {
+  const u = getCurrentUser();
+  if (!u) return false;
+  if (u.role === 'ADMIN') return true;
+  return Array.isArray(u.permissoes) && u.permissoes.includes(moduleName);
+}
+
+function applyPermissions() {
+  for (const mod of ALL_MODULES) {
+    const allowed = hasModuleAccess(mod);
+    // Tabs nos headers
+    document.querySelectorAll(`[data-mod-tab="${mod}"]`).forEach(el => {
+      el.style.display = allowed ? '' : 'none';
+    });
+    // Cards do hub
+    document.querySelectorAll(`[data-module="${mod}"]`).forEach(el => {
+      el.style.display = allowed ? '' : 'none';
+    });
+  }
+}
 
 function refreshAdminVisibility() {
   const u = getCurrentUser();
@@ -161,7 +200,11 @@ function refreshAdminVisibility() {
   document.querySelectorAll('.admin-trigger').forEach(b => {
     b.style.display = show ? '' : 'none';
   });
+  applyPermissions();
 }
+
+// Exposto pro admin (após salvar permissões, atualizar tabs visíveis)
+window.refreshPermissions = refreshAdminVisibility;
 
 /* ---------- HEADER UI ---------- */
 
@@ -202,11 +245,12 @@ export async function routeAfterLogin() {
   let last = null;
   try { last = localStorage.getItem('lastTab'); } catch { /* */ }
   refreshAdminVisibility();
+  // Só restaura a aba se o usuário ainda tem permissão pra ela
   try {
-    if (last === 'frota')          return await goToFrota();
-    if (last === 'frete-terceiro') return await goToFreteTerceiro();
-    if (last === 'veiculos')       return await goToVeiculos();
-    if (last === 'rentabilidade')  return await goToRentabilidade();
+    if (last === 'frota'          && hasModuleAccess('frota'))          return await goToFrota();
+    if (last === 'frete-terceiro' && hasModuleAccess('frete-terceiro')) return await goToFreteTerceiro();
+    if (last === 'veiculos'       && hasModuleAccess('veiculos'))       return await goToVeiculos();
+    if (last === 'rentabilidade'  && hasModuleAccess('rentabilidade'))  return await goToRentabilidade();
   } catch (e) {
     console.error('Falha ao restaurar última aba; voltando ao hub:', e);
     try { localStorage.removeItem('lastTab'); } catch { /* */ }

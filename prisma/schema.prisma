@@ -153,6 +153,9 @@ model User {
   email          String         @unique
   senha_hash     String
   role           Role           @default(GESTOR)
+  // Módulos liberados (GESTOR). ADMIN tem acesso a tudo independente
+  // do valor aqui. Valores: 'frota','frete-terceiro','veiculos','rentabilidade'.
+  permissoes     String[]       @default(["frota","frete-terceiro","veiculos","rentabilidade"])
   ativo          Boolean        @default(true)
   created_at     DateTime       @default(now())
   updated_at     DateTime       @updatedAt

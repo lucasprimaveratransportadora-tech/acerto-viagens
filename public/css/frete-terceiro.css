@@ -417,6 +417,34 @@
   border-color: var(--accent);
 }
 
+/* Drop overlay quando arrastando arquivo no modal de detalhes */
+.modal-overlay.drop-active {
+  background: rgba(227,6,19,.18) !important;
+  transition: background .15s;
+}
+.modal-overlay.drop-active .modal {
+  outline: 3px dashed var(--accent);
+  outline-offset: -10px;
+  position: relative;
+}
+.modal-overlay.drop-active .modal::after {
+  content: '📥  SOLTE PARA ANEXAR';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.1rem;
+  letter-spacing: 4px;
+  color: var(--accent);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  padding: 1.2rem 2rem;
+  border-radius: 8px;
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: 0 0 60px rgba(227,6,19,.6);
+}
+
 /* Error banner */
 .ft-error-banner {
   background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.35);
