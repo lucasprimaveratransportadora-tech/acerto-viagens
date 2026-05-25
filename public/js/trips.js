@@ -288,7 +288,7 @@ function syncInlineTripPatch(tripId, patch) {
     if (valSpans[1]) valSpans[1].textContent = media;
   }
 
-  // Header numbers do card (frete / despesa / líquido / km total)
+  // Header numbers do card (frete / despesa / líquido / km total) e data
   const card = det?.closest('.trip-card');
   if (card) {
     const f = calcFrete(trip), d = calcDesp(trip), l = f - d;
@@ -299,6 +299,16 @@ function syncInlineTripPatch(tripId, patch) {
         <span class="val neg">- R$ ${fmt(d)}</span>
         <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
         ${trip.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(trip.km_total).toLocaleString('pt-BR')}km</span>` : ''}`;
+    }
+    // Data exibida no cabeçalho do card (em vermelho) — quando muda
+    // data_inicio inline, sincronizar pra não ficar dessincronizada
+    // do input lá embaixo.
+    if (patch.data_inicio !== undefined) {
+      const dateLbl = card.querySelector('.trip-date');
+      if (dateLbl) {
+        const ds = (trip.data_inicio || '').slice(0, 10);
+        dateLbl.textContent = fmtD(ds);
+      }
     }
   }
 
