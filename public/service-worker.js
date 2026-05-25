@@ -14,7 +14,7 @@
  * Para invalidar todo o cache após mudanças incompatíveis: bumpe CACHE_VERSION.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `prima-acerto-${CACHE_VERSION}`;
 const NAV_TIMEOUT_MS = 6000;
 

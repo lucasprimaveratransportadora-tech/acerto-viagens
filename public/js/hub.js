@@ -219,29 +219,46 @@ function renderHubUser() {
   if (el && u) el.textContent = `${u.nome} · ${u.role}`;
 }
 
-/* ---------- LIVE CLOCK ---------- */
+/* ---------- LIVE CLOCK ----------
+   Roda independente da view ativa — antes só arrancava no showHub(),
+   então se o usuário caía direto na aba salva (frota/fretes/etc.) o
+   relógio do hub ficava preso em --:--:-- até a primeira visita ao hub.
+   Em PWA iOS standalone o setInterval também é suspenso em background;
+   o visibilitychange força um tick imediato ao voltar. */
 
 let clockTimer = null;
-function startHubClock() {
-  const tick = () => {
-    const el = document.getElementById('hubTime');
-    const dateEl = document.getElementById('hubDateLabel');
-    if (!el && !dateEl) return;
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    if (el) el.textContent = `${hh}:${mm}:${ss}`;
-    if (dateEl) {
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mo = String(now.getMonth() + 1).padStart(2, '0');
-      const yy = now.getFullYear();
-      dateEl.textContent = `${dd}.${mo}.${yy}`;
-    }
-  };
-  tick();
+let clockStarted = false;
+
+function tickClock() {
+  const el = document.getElementById('hubTime');
+  const dateEl = document.getElementById('hubDateLabel');
+  if (!el && !dateEl) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  if (el) el.textContent = `${hh}:${mm}:${ss}`;
+  if (dateEl) {
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mo = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = now.getFullYear();
+    dateEl.textContent = `${dd}.${mo}.${yy}`;
+  }
+}
+
+export function startHubClock() {
+  tickClock();
   if (clockTimer) clearInterval(clockTimer);
-  clockTimer = setInterval(tick, 1000);
+  clockTimer = setInterval(tickClock, 1000);
+
+  // visibilitychange só uma vez por sessão — força tick imediato quando
+  // o PWA volta de background (iOS suspende setInterval).
+  if (!clockStarted) {
+    clockStarted = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') tickClock();
+    });
+  }
 }
 
 /* ---------- INITIAL ROUTE ---------- */

@@ -71,6 +71,9 @@ async function loadAppModules() {
     ]);
     hubMod = h;
     try { adminMod.initAdmin(); } catch (e) { console.error('initAdmin error:', e); }
+    // Garante que o relógio do Hub esteja ticando independente da view ativa
+    // (rota pode levar direto pra última aba e nunca passar por showHub).
+    try { hubMod.startHubClock(); } catch (e) { console.error('startHubClock error:', e); }
     try { await hubMod.routeAfterLogin(); }
     catch (e) {
       console.error('routeAfterLogin error:', e);
