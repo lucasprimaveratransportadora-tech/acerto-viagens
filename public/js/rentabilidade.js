@@ -481,7 +481,7 @@ function uploadXHR(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.upload.onprogress = (ev) => {
@@ -556,7 +556,7 @@ async function openAnexoFile(ev, entryId) {
   body.innerHTML = '<div class="ft-prev-loading">Carregando…</div>';
   document.getElementById('ftAnexoPreviewModal').classList.add('open');
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/truck-ledger/${truckId}/entries/${entryId}/anexo/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',

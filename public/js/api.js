@@ -1,11 +1,14 @@
 // api.js — Fetch wrapper that handles JWT tokens
 
-let accessToken = sessionStorage.getItem('accessToken');
+// localStorage (e não sessionStorage) porque iOS PWA standalone apaga o
+// sessionStorage entre relaunches do app — sem isso o usuário precisa
+// logar de novo toda vez que volta pro app pela home screen.
+let accessToken = localStorage.getItem('accessToken');
 
 export function setToken(token) {
   accessToken = token;
-  if (token) sessionStorage.setItem('accessToken', token);
-  else sessionStorage.removeItem('accessToken');
+  if (token) localStorage.setItem('accessToken', token);
+  else localStorage.removeItem('accessToken');
 }
 
 export function getToken() { return accessToken; }
@@ -19,16 +22,19 @@ async function request(method, url, body = null) {
 
   let res = await fetch(url, opts);
 
-  // If 401 TOKEN_EXPIRED, try refresh
-  if (res.status === 401) {
-    const data = await res.json().catch(() => ({}));
-    if (data.code === 'TOKEN_EXPIRED') {
-      const refreshed = await tryRefresh();
-      if (refreshed) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-        opts.headers = headers;
-        res = await fetch(url, opts);
-      }
+  // Tenta refresh em qualquer 401 (não só TOKEN_EXPIRED). Cobre o caso
+  // do PWA no iOS: quando o app volta da home screen o accessToken pode
+  // ter sumido do storage, então a request sai sem header e o backend
+  // devolve "Token não fornecido" — mas o cookie httpOnly de refresh
+  // ainda está válido. Guard contra loop: não refresha o próprio refresh.
+  if (res.status === 401 && !url.includes('/api/auth/refresh')) {
+    // Consome o body pra liberar a conexão antes do refresh.
+    await res.json().catch(() => ({}));
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+      opts.headers = headers;
+      res = await fetch(url, opts);
     }
   }
 

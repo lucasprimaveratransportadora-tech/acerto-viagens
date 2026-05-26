@@ -193,7 +193,7 @@ function uploadXHR(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.upload.onprogress = (ev) => {
@@ -294,7 +294,7 @@ async function openPane(ev, anexoId) {
   body.innerHTML = '<div class="trip-pdf-pane-loading">Carregando…</div>';
 
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/trips/${tripId}/anexos/${anexoId}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
@@ -447,7 +447,7 @@ async function loadGlobalPdf(anexoId) {
   if (title) title.textContent = '📄 ' + nome;
   if (body)  body.innerHTML = '<div class="global-pdf-pane-loading">Carregando…</div>';
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/trips/${tripId}/anexos/${anexoId}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
