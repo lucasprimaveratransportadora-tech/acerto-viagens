@@ -4,6 +4,7 @@ const controller = require('../controllers/trips.controller');
 const { createTrip, updateTrip, addAnexo } = require('../validators/trip.validator');
 const validate = require('../middleware/validate');
 const { uuidParams } = require('../middleware/paramValidators');
+const { anexoFilter } = require('../middleware/uploadFilter');
 const auth = require('../middleware/auth');
 const tenant = require('../middleware/tenant');
 
@@ -12,6 +13,7 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // folha de acerto pode ter scan grande
+  fileFilter: anexoFilter,
 });
 
 router.get   ('/truck/:truckId', auth, tenant, uuidParams('truckId'), controller.listByTruck);

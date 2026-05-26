@@ -7,6 +7,7 @@ const {
 } = require('../validators/freteTerceiro.validator');
 const validate = require('../middleware/validate');
 const { uuidParams } = require('../middleware/paramValidators');
+const { anexoFilter } = require('../middleware/uploadFilter');
 const auth = require('../middleware/auth');
 const tenant = require('../middleware/tenant');
 
@@ -17,6 +18,7 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: anexoFilter,
 });
 
 router.get   ('/',           auth, tenant, controller.list);

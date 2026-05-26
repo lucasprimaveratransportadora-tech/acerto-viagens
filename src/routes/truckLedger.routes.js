@@ -4,6 +4,7 @@ const controller = require('../controllers/truckLedger.controller');
 const { createEntry, updateEntry, addAnexoUrl } = require('../validators/truckLedger.validator');
 const validate = require('../middleware/validate');
 const { uuidParams } = require('../middleware/paramValidators');
+const { anexoFilter, xlsxFilter } = require('../middleware/uploadFilter');
 const auth = require('../middleware/auth');
 const tenant = require('../middleware/tenant');
 
@@ -13,12 +14,14 @@ const router = Router({ mergeParams: true });
 const uploadAnexo = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // anexos de comprovante
+  fileFilter: anexoFilter,
 });
 
 // XLSX completo pode passar de 1 MB — permite até 25 MB
 const uploadXlsx = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: xlsxFilter,
 });
 
 /* Overview (todos os caminhões da empresa) — não tem :truckId */
