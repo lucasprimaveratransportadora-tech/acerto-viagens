@@ -88,7 +88,10 @@ async function refresh(refreshTokenValue, reqMeta) {
 
   if (!stored || stored.expires_at < new Date()) {
     if (stored) {
-      await prisma.refreshToken.delete({ where: { id: stored.id } });
+      // deleteMany pra ser idempotente: se outra request paralela já apagou
+      // o token (race quando o usuário tem 2 abas dando refresh ao mesmo
+      // tempo), .delete() throwa P2025; deleteMany retorna 0 e segue.
+      await prisma.refreshToken.deleteMany({ where: { id: stored.id } });
     }
     await loginEvents.log({
       req: reqMeta,
