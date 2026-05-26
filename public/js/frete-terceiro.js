@@ -3,7 +3,7 @@
 // Visão pública: window.ft.* expõe ações chamadas pelos onclick do HTML.
 
 import { api } from './api.js';
-import { esc } from './utils.js';
+import { esc, fmtD } from './utils.js';
 
 const state = {
   items: [],
@@ -19,12 +19,11 @@ const state = {
 function fmtBRL(n) {
   return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
+// fmtDate antes fazia new Date(ISO) direto — em UTC-3 (Brasil), uma
+// data armazenada como 2025-09-19T00:00:00.000Z exibia 18/09/2025
+// (offset de 1 dia atrás). Agora delega pro fmtD do utils.js que faz
+// slice(0,10) + T12:00:00 pra preservar o dia exato.
+const fmtDate = fmtD;
 function dateISO(d = new Date()) { return new Date(d).toISOString().slice(0, 10); }
 function statusPill(s) {
   const map = {

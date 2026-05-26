@@ -5,7 +5,7 @@
 // botão de + Lançar entrada / + Importar Planilha.
 
 import { api } from './api.js';
-import { esc } from './utils.js';
+import { esc, fmtD } from './utils.js';
 
 const state = {
   overview: [],
@@ -39,12 +39,10 @@ function fmtBRLShort(n) {
   if (abs >= 1_000)     return (v < 0 ? '−' : '') + 'R$ ' + (abs / 1_000).toFixed(0) + 'k';
   return fmtBRL(v);
 }
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
+// Antes fazia new Date(ISO) — em UTC-3 a coluna Data da timeline e do
+// gráfico exibia 1 dia anterior pra entradas com data midnight UTC.
+// Delega pro fmtD do utils.js (slice + T12:00:00).
+const fmtDate = fmtD;
 function fmtMonth(s) {
   if (!s) return '';
   // s = "2024-03"
