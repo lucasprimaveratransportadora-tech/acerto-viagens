@@ -261,29 +261,19 @@ function updateMonthStats() {
 
 // ==================== INLINE TRIP FIELDS (data, motorista, km) ====================
 
-// Chave de mês (YYYY-MM) usada pelo dashboard pra agrupar trips.
-function monthKeyFromDate(d) {
-  const ds = (d || '2000-01-01').slice(0, 10);
-  const dt = new Date(ds + 'T12:00:00');
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-}
-
 // Update cirúrgico após PATCH de campo da faixa info: NÃO re-renderiza os
 // inputs (isso causava o "indo e voltando" — toda a faixa era destruída
 // no onchange e o foco se perdia ao tabular pro próximo campo).
 // Aqui atualizamos só os valores derivados (Percorridos, Média, header
 // numbers, KPIs, stats do mês). Os inputs já mostram o valor digitado.
-// Caso especial: se data_inicio mudou de MÊS, o card precisa pular pro
-// bloco do novo mês — re-render completo é o jeito mais limpo de cobrir
-// criação/remoção de month-blocks e reordenação.
-async function syncInlineTripPatch(tripId, patch) {
+// Quando data_inicio muda de mês, o card fica no bloco antigo até o
+// próximo F5 ou save via modal — re-render inline durante a digitação
+// fazia a página pular antes do usuário terminar de digitar o ano.
+function syncInlineTripPatch(tripId, patch) {
   const idx = state.trips.findIndex(t => t.id === tripId);
   if (idx < 0) return;
-  const oldMonthKey = monthKeyFromDate(state.trips[idx].data_inicio);
   Object.assign(state.trips[idx], patch);
   const trip = state.trips[idx];
-  const newMonthKey = monthKeyFromDate(trip.data_inicio);
-  const monthChanged = patch.data_inicio !== undefined && oldMonthKey !== newMonthKey;
 
   const det = document.getElementById('detail_' + tripId);
   if (det) {
@@ -327,19 +317,6 @@ async function syncInlineTripPatch(tripId, patch) {
 
   updateKPIs();
   updateMonthStats();
-
-  // Mudou de mês → re-render do dashboard inteiro pra mover o card.
-  // dashboard.js é importado dinamicamente pra evitar dependência
-  // circular estática (dashboard.js importa buildDetail daqui).
-  if (monthChanged) {
-    const { renderMain } = await import('./dashboard.js');
-    await renderMain();
-    const det = document.getElementById('detail_' + tripId);
-    if (det) {
-      det.classList.add('open');
-      det.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
 }
 
 window.inlineUpdateTrip = async function (tripId, field, value, inputEl) {
@@ -375,7 +352,7 @@ window.inlineUpdateTrip = async function (tripId, field, value, inputEl) {
 
   try {
     await api.patch('/api/trips/' + tripId, body);
-    await syncInlineTripPatch(tripId, body);
+    syncInlineTripPatch(tripId, body);
   } catch (e) {
     alert('Erro ao salvar: ' + e.message);
     // Reverte o input pro valor armazenado em state (fonte da verdade local).

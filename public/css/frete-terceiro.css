@@ -390,12 +390,20 @@
 }
 
 /* Module tabs (Acerto vs Frete Terceiro vs Veículos) */
+/* Antes usava flex-wrap: wrap — quando o painel lateral da Folha de
+   Acerto abria, a área principal ficava estreita e os botões quebravam
+   pra linhas separadas (visual estranho). Agora rola horizontalmente. */
 .module-tabs {
   display: flex; gap: 4px;
   margin-left: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  min-width: 0;
 }
-.module-tab { flex-shrink: 0; }
+.module-tabs::-webkit-scrollbar { height: 4px; }
+.module-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.module-tab { flex-shrink: 0; white-space: nowrap; }
 .module-tab {
   background: transparent;
   border: 1px solid var(--border);
