@@ -124,17 +124,21 @@ export async function renderMain() {
   main.innerHTML = html;
 }
 
-// Toggle helpers
+// Toggle helpers — null guards: se a viagem foi removida em outra aba ou
+// o DOM foi re-renderizado entre o clique e o handler, o elemento pode
+// não existir mais. Antes virava Uncaught TypeError no console.
 window.toggleTrip = function (id) {
-  document.getElementById('detail_' + id).classList.toggle('open');
+  const el = document.getElementById('detail_' + id);
+  if (el) el.classList.toggle('open');
 };
 
 window.toggleMonth = function (key) {
   const el = document.getElementById('mtable_' + key);
   const block = document.getElementById('mb_' + key);
+  if (!el || !block) return;
   const hidden = el.style.display === 'none';
   el.style.display = hidden ? '' : 'none';
-  block.querySelector('.month-hdr').classList.toggle('collapsed', !hidden);
+  block.querySelector('.month-hdr')?.classList.toggle('collapsed', !hidden);
 };
 
 // Confirm delete trip

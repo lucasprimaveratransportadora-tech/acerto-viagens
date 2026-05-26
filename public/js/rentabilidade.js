@@ -284,6 +284,10 @@ function renderTimeline() {
 
   // Saldo acumulado: parte do saldo inicial (caminhões antigos podem ter
   // valor pré-existente) e percorre os lançamentos em ordem cronológica.
+  // Antes não ordenava — se a API retornasse DESC (recente primeiro), a
+  // coluna "Saldo" ficava completamente errada (somava na ordem errada).
+  // slice() faz cópia pra não mutar state.detailsEntries.
+  rows = rows.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
   let acc = Number(state.detailsSummary?.saldoInicial || 0);
   const trId = state.detailsTruck?.truck_id;
   tbody.innerHTML = rows.map(e => {
