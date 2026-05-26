@@ -7,10 +7,10 @@ const nodeEnv = process.env.NODE_ENV || 'development';
 // é mais seguro do que subir com um secret previsível.
 function requireSecret(name, fallback) {
   const v = process.env[name];
-  if (v && v.length >= 16) return v;
+  if (v && v.length > 0) return v;
   if (nodeEnv === 'production') {
     throw new Error(
-      `[config] ${name} ausente ou curto demais em produção. ` +
+      `[config] ${name} ausente em produção. ` +
       `Defina ${name} no ambiente do Railway antes de subir.`
     );
   }
