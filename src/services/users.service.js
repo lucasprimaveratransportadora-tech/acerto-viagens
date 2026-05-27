@@ -3,8 +3,8 @@ const ApiError = require('../utils/ApiError');
 const { hashPassword } = require('./auth.service');
 const audit = require('./audit.service');
 
-const VALID_MODULES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade'];
-const DEFAULT_PERMISSOES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade'];
+const VALID_MODULES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade', 'controle-viagens'];
+const DEFAULT_PERMISSOES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade', 'controle-viagens'];
 
 const USER_SELECT = {
   id: true, nome: true, email: true, role: true,

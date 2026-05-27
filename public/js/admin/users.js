@@ -34,7 +34,7 @@ function draw(container, search) {
             ? '<span style="color:var(--success);font-family:\'IBM Plex Mono\',monospace;font-size:.65rem">TODOS</span>'
             : (Array.isArray(u.permissoes) && u.permissoes.length
                 ? u.permissoes.map(p => {
-                    const icons = { 'frota':'🚚', 'frete-terceiro':'🔁', 'veiculos':'🛡️', 'rentabilidade':'💰' };
+                    const icons = { 'frota':'🚚', 'frete-terceiro':'🔁', 'veiculos':'🛡️', 'rentabilidade':'💰', 'controle-viagens':'📋' };
                     return `<span title="${esc(p)}" style="margin-right:4px">${icons[p] || '·'}</span>`;
                   }).join('')
                 : '<span style="color:var(--muted);font-size:.7rem">— nenhum —</span>');
@@ -64,10 +64,11 @@ window.adminUserFilter = function (val) {
 };
 
 const ALL_MODULES = [
-  { key: 'frota',           label: '🚚 Acerto de Viagem' },
-  { key: 'frete-terceiro',  label: '🔁 Frete Terceiro' },
-  { key: 'veiculos',        label: '🛡️ Veículos' },
-  { key: 'rentabilidade',   label: '💰 Rentabilidade' },
+  { key: 'frota',            label: '🚚 Acerto de Viagem' },
+  { key: 'frete-terceiro',   label: '🔁 Frete Terceiro' },
+  { key: 'veiculos',         label: '🛡️ Veículos' },
+  { key: 'rentabilidade',    label: '💰 Rentabilidade' },
+  { key: 'controle-viagens', label: '📋 Controle de Viagens' },
 ];
 
 window.adminUserNew = function () {

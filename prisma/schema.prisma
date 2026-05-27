@@ -136,42 +136,55 @@ enum LoginAction {
   REFRESH_FAILED
 }
 
+enum TruckOperationalStatus {
+  VAZIO_AGUARDANDO_CARGA
+  INDO_CARREGAR
+  NA_FABRICA
+  CARREGADO_EM_VIAGEM
+  EM_DESCARGA_NO_CLIENTE
+  EM_MANUTENCAO
+}
+
 model Empresa {
-  id         String   @id @default(uuid())
-  nome       String
-  cnpj       String?  @unique
-  logo_url   String?
-  ativo      Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  users      User[]
-  trucks     Truck[]
-  attachments Attachment[]
-  audit_logs   AuditLog[]
-  login_events LoginEvent[]
+  id               String          @id @default(uuid())
+  nome             String
+  cnpj             String?         @unique
+  logo_url         String?
+  ativo            Boolean         @default(true)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  users            User[]
+  trucks           Truck[]
+  attachments      Attachment[]
+  audit_logs       AuditLog[]
+  login_events     LoginEvent[]
   fretes_terceiros FreteTerceiro[]
+
   @@map("empresas")
 }
 
 model User {
-  id             String         @id @default(uuid())
-  empresa_id     String
-  empresa        Empresa        @relation(fields: [empresa_id], references: [id])
-  nome           String
-  email          String         @unique
-  senha_hash     String
-  role           Role           @default(GESTOR)
+  id                            String                    @id @default(uuid())
+  empresa_id                    String
+  empresa                       Empresa                   @relation(fields: [empresa_id], references: [id])
+  nome                          String
+  email                         String                    @unique
+  senha_hash                    String
+  role                          Role                      @default(GESTOR)
   // Módulos liberados (GESTOR). ADMIN tem acesso a tudo independente
   // do valor aqui. Valores: 'frota','frete-terceiro','veiculos','rentabilidade'.
-  permissoes     String[]       @default(["frota","frete-terceiro","veiculos","rentabilidade"])
-  ativo          Boolean        @default(true)
-  created_at     DateTime       @default(now())
-  updated_at     DateTime       @updatedAt
-  refresh_tokens RefreshToken[]
-  audit_logs     AuditLog[]
-  login_events   LoginEvent[]
-  fretes_lancados   FreteTerceiro[] @relation("FreteTerceiroCreated")
-  fretes_pagos      FreteTerceiro[] @relation("FreteTerceiroPaid")
+  permissoes                    String[]                  @default(["frota", "frete-terceiro", "veiculos", "rentabilidade"])
+  ativo                         Boolean                   @default(true)
+  created_at                    DateTime                  @default(now())
+  updated_at                    DateTime                  @updatedAt
+  refresh_tokens                RefreshToken[]
+  audit_logs                    AuditLog[]
+  login_events                  LoginEvent[]
+  fretes_lancados               FreteTerceiro[]           @relation("FreteTerceiroCreated")
+  fretes_pagos                  FreteTerceiro[]           @relation("FreteTerceiroPaid")
+  operational_state_updates     TruckOperationalState[]   @relation("OperationalStateUpdatedBy")
+  operational_comments_authored TruckOperationalComment[] @relation("OperationalCommentAuthor")
+
   @@index([empresa_id])
   @@map("users")
 }
@@ -183,66 +196,71 @@ model RefreshToken {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   expires_at DateTime
   created_at DateTime @default(now())
+
   @@index([user_id])
   @@map("refresh_tokens")
 }
 
 model Truck {
-  id              String      @id @default(uuid())
-  empresa_id      String
-  empresa         Empresa     @relation(fields: [empresa_id], references: [id])
-  placa           String      @unique
-  modelo          String?
-  motorista       String?
+  id                   String                    @id @default(uuid())
+  empresa_id           String
+  empresa              Empresa                   @relation(fields: [empresa_id], references: [id])
+  placa                String                    @unique
+  modelo               String?
+  motorista            String?
   // Carreta acoplada (placa + modelo) — opcional, alguns são truck simples
-  carreta_placa   String?
-  carreta_modelo  String?
+  carreta_placa        String?
+  carreta_modelo       String?
   // Saldo histórico anterior ao primeiro lançamento do livro (positivo
   // pra caminhões antigos que já se pagaram fora do sistema; negativo
   // pra caminhões adquiridos com dívida residual).
-  saldo_inicial   Decimal     @default(0) @db.Decimal(12, 2)
-  observacoes     String?
-  created_at      DateTime    @default(now())
-  updated_at      DateTime    @updatedAt
-  deleted_at      DateTime?
-  trips           Trip[]
-  attachments     Attachment[]
-  fretes_terceiros FreteTerceiro[]
-  truck_anexos    TruckAnexo[]
-  truck_ledger    TruckLedgerEntry[]
+  saldo_inicial        Decimal                   @default(0) @db.Decimal(12, 2)
+  observacoes          String?
+  created_at           DateTime                  @default(now())
+  updated_at           DateTime                  @updatedAt
+  deleted_at           DateTime?
+  trips                Trip[]
+  attachments          Attachment[]
+  fretes_terceiros     FreteTerceiro[]
+  truck_anexos         TruckAnexo[]
+  truck_ledger         TruckLedgerEntry[]
+  operational_state    TruckOperationalState?
+  operational_comments TruckOperationalComment[]
+
   @@index([empresa_id])
   @@map("trucks")
 }
 
 model Trip {
-  id           String      @id @default(uuid())
-  truck_id     String
-  truck        Truck       @relation(fields: [truck_id], references: [id])
-  data_inicio  DateTime
-  data_fim     DateTime?
-  origem       String?
-  destino      String?
-  carga        String?
+  id               String          @id @default(uuid())
+  truck_id         String
+  truck            Truck           @relation(fields: [truck_id], references: [id])
+  data_inicio      DateTime
+  data_fim         DateTime?
+  origem           String?
+  destino          String?
+  carga            String?
   // Motorista que rodou esta viagem específica. Pode divergir do motorista
   // atual cadastrado no caminhão (ex.: trocas de motorista ao longo do tempo).
-  motorista    String?
-  km_total     Int         @default(0)
-  status       TripStatus  @default(PENDENTE)
-  adiantamento Decimal     @default(0) @db.Decimal(12, 2)
-  observacoes  String?
-  km_inicial   Decimal?    @db.Decimal(12, 2)
-  km_final     Decimal?    @db.Decimal(12, 2)
+  motorista        String?
+  km_total         Int             @default(0)
+  status           TripStatus      @default(PENDENTE)
+  adiantamento     Decimal         @default(0) @db.Decimal(12, 2)
+  observacoes      String?
+  km_inicial       Decimal?        @db.Decimal(12, 2)
+  km_final         Decimal?        @db.Decimal(12, 2)
   // Lote de importação (ex.: scripts em massa) — permite "desfazer importação".
-  imported_batch String?
-  created_at   DateTime    @default(now())
-  updated_at   DateTime    @updatedAt
-  deleted_at   DateTime?
-  ctes         Cte[]
-  fuels        Fuel[]
-  expenses     Expense[]
-  attachments  Attachment[]
-  trip_anexos  TripAnexo[]
+  imported_batch   String?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  deleted_at       DateTime?
+  ctes             Cte[]
+  fuels            Fuel[]
+  expenses         Expense[]
+  attachments      Attachment[]
+  trip_anexos      TripAnexo[]
   fretes_terceiros FreteTerceiro[]
+
   @@index([truck_id])
   @@index([data_inicio])
   @@index([imported_batch])
@@ -250,33 +268,35 @@ model Trip {
 }
 
 model Cte {
-  id         String      @id @default(uuid())
-  trip_id    String
-  trip       Trip        @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  data       DateTime?
-  numero     String?
-  origem     String?
-  destino    String?
-  valor      Decimal     @default(0) @db.Decimal(12, 2)
-  created_at DateTime    @default(now())
+  id          String       @id @default(uuid())
+  trip_id     String
+  trip        Trip         @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  data        DateTime?
+  numero      String?
+  origem      String?
+  destino     String?
+  valor       Decimal      @default(0) @db.Decimal(12, 2)
+  created_at  DateTime     @default(now())
   attachments Attachment[]
+
   @@index([trip_id])
   @@map("ctes")
 }
 
 model Fuel {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   trip_id     String
-  trip        Trip        @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  trip        Trip         @relation(fields: [trip_id], references: [id], onDelete: Cascade)
   data        DateTime?
-  litros      Decimal     @default(0) @db.Decimal(10, 3)
-  preco_litro Decimal     @default(0) @db.Decimal(8, 4)
+  litros      Decimal      @default(0) @db.Decimal(10, 3)
+  preco_litro Decimal      @default(0) @db.Decimal(8, 4)
   posto_cnpj  String?
   nota_fiscal String?
   km          Int?
-  valor_total Decimal     @default(0) @db.Decimal(12, 2)
-  created_at  DateTime    @default(now())
+  valor_total Decimal      @default(0) @db.Decimal(12, 2)
+  created_at  DateTime     @default(now())
   attachments Attachment[]
+
   @@index([trip_id])
   @@map("fuels")
 }
@@ -289,6 +309,7 @@ model Expense {
   valor      Decimal         @default(0) @db.Decimal(12, 2)
   created_at DateTime        @default(now())
   updated_at DateTime        @updatedAt
+
   @@unique([trip_id, categoria])
   @@index([trip_id])
   @@map("expenses")
@@ -312,6 +333,7 @@ model Attachment {
   fuel_id      String?
   fuel         Fuel?          @relation(fields: [fuel_id], references: [id])
   created_at   DateTime       @default(now())
+
   @@index([empresa_id])
   @@index([truck_id])
   @@index([trip_id])
@@ -319,20 +341,20 @@ model Attachment {
 }
 
 model AuditLog {
-  id           String       @id @default(uuid())
-  empresa_id   String
-  empresa      Empresa      @relation(fields: [empresa_id], references: [id])
-  actor_id     String?
-  actor        User?        @relation(fields: [actor_id], references: [id])
-  actor_email  String
-  entity_type  AuditEntity
-  entity_id    String
-  action       AuditAction
-  before       Json?
-  after        Json?
-  ip           String?
-  user_agent   String?
-  created_at   DateTime     @default(now())
+  id          String      @id @default(uuid())
+  empresa_id  String
+  empresa     Empresa     @relation(fields: [empresa_id], references: [id])
+  actor_id    String?
+  actor       User?       @relation(fields: [actor_id], references: [id])
+  actor_email String
+  entity_type AuditEntity
+  entity_id   String
+  action      AuditAction
+  before      Json?
+  after       Json?
+  ip          String?
+  user_agent  String?
+  created_at  DateTime    @default(now())
 
   @@index([empresa_id, created_at(sort: Desc)])
   @@index([entity_type, entity_id])
@@ -341,45 +363,45 @@ model AuditLog {
 }
 
 model FreteTerceiro {
-  id                  String                 @id @default(uuid())
-  empresa_id          String
-  empresa             Empresa                @relation(fields: [empresa_id], references: [id])
+  id         String  @id @default(uuid())
+  empresa_id String
+  empresa    Empresa @relation(fields: [empresa_id], references: [id])
 
-  empresa_pagadora    String
-  data                DateTime
-  motorista           String
-  veiculo             String
-  origem              String?
-  destino             String?
-  truck_id            String?
-  truck               Truck?                 @relation(fields: [truck_id], references: [id])
+  empresa_pagadora String
+  data             DateTime
+  motorista        String
+  veiculo          String
+  origem           String?
+  destino          String?
+  truck_id         String?
+  truck            Truck?   @relation(fields: [truck_id], references: [id])
 
-  baixas              FreteTerceiroBaixa[]
-  anexos              FreteTerceiroAnexo[]
+  baixas FreteTerceiroBaixa[]
+  anexos FreteTerceiroAnexo[]
 
-  valor_total         Decimal                @default(0) @db.Decimal(12, 2)
-  valor_adiantamento  Decimal                @default(0) @db.Decimal(12, 2)
-  valor_pago          Decimal                @default(0) @db.Decimal(12, 2)
+  valor_total        Decimal @default(0) @db.Decimal(12, 2)
+  valor_adiantamento Decimal @default(0) @db.Decimal(12, 2)
+  valor_pago         Decimal @default(0) @db.Decimal(12, 2)
 
-  forma_pagamento     FreteTerceiroPagamento @default(INTEGRAL)
-  status              FreteTerceiroStatus    @default(ABERTO)
+  forma_pagamento FreteTerceiroPagamento @default(INTEGRAL)
+  status          FreteTerceiroStatus    @default(ABERTO)
 
-  data_adiantamento   DateTime?
-  data_pagamento      DateTime?
+  data_adiantamento DateTime?
+  data_pagamento    DateTime?
 
-  trip_id             String?
-  trip                Trip?                  @relation(fields: [trip_id], references: [id])
+  trip_id String?
+  trip    Trip?   @relation(fields: [trip_id], references: [id])
 
-  observacoes         String?
+  observacoes String?
 
-  created_by_id       String?
-  created_by          User?                  @relation("FreteTerceiroCreated", fields: [created_by_id], references: [id])
-  paid_by_id          String?
-  paid_by             User?                  @relation("FreteTerceiroPaid",   fields: [paid_by_id],   references: [id])
+  created_by_id String?
+  created_by    User?   @relation("FreteTerceiroCreated", fields: [created_by_id], references: [id])
+  paid_by_id    String?
+  paid_by       User?   @relation("FreteTerceiroPaid", fields: [paid_by_id], references: [id])
 
-  created_at          DateTime               @default(now())
-  updated_at          DateTime               @updatedAt
-  deleted_at          DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
 
   @@index([empresa_id, created_at(sort: Desc)])
   @@index([truck_id])
@@ -389,110 +411,110 @@ model FreteTerceiro {
 }
 
 model FreteTerceiroBaixa {
-  id                String                @id @default(uuid())
-  frete_id          String
-  frete             FreteTerceiro         @relation(fields: [frete_id], references: [id], onDelete: Cascade)
-  valor             Decimal               @db.Decimal(12, 2)
-  data_pagamento    DateTime
-  parcela           FreteTerceiroParcela  @default(AVULSO)
-  observacoes       String?
-  baixou_por_id     String?
-  created_at        DateTime              @default(now())
-  deleted_at        DateTime?
+  id             String               @id @default(uuid())
+  frete_id       String
+  frete          FreteTerceiro        @relation(fields: [frete_id], references: [id], onDelete: Cascade)
+  valor          Decimal              @db.Decimal(12, 2)
+  data_pagamento DateTime
+  parcela        FreteTerceiroParcela @default(AVULSO)
+  observacoes    String?
+  baixou_por_id  String?
+  created_at     DateTime             @default(now())
+  deleted_at     DateTime?
 
   @@index([frete_id, data_pagamento(sort: Desc)])
   @@map("frete_terceiro_baixas")
 }
 
 model FreteTerceiroAnexo {
-  id              String                  @id @default(uuid())
-  frete_id        String
-  frete           FreteTerceiro           @relation(fields: [frete_id], references: [id], onDelete: Cascade)
-  tipo            FreteTerceiroAnexoTipo  @default(OUTRO)
-  nome            String
+  id            String                 @id @default(uuid())
+  frete_id      String
+  frete         FreteTerceiro          @relation(fields: [frete_id], references: [id], onDelete: Cascade)
+  tipo          FreteTerceiroAnexoTipo @default(OUTRO)
+  nome          String
   // url externo (Drive, Dropbox, etc.) — usado quando o usuário cola um link
-  url             String?
+  url           String?
   // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
-  dados           Bytes?
-  mime_type       String?
-  tamanho         Int?
-  descricao       String?
-  created_by_id   String?
-  created_at      DateTime                @default(now())
-  deleted_at      DateTime?
+  dados         Bytes?
+  mime_type     String?
+  tamanho       Int?
+  descricao     String?
+  created_by_id String?
+  created_at    DateTime               @default(now())
+  deleted_at    DateTime?
 
   @@index([frete_id, created_at(sort: Desc)])
   @@map("frete_terceiro_anexos")
 }
 
 model TripAnexo {
-  id              String          @id @default(uuid())
-  trip_id         String
-  trip            Trip            @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  tipo            TripAnexoTipo   @default(FOLHA_ACERTO)
-  nome            String
+  id            String        @id @default(uuid())
+  trip_id       String
+  trip          Trip          @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  tipo          TripAnexoTipo @default(FOLHA_ACERTO)
+  nome          String
   // url externo (Drive, Dropbox) — usado quando o usuário cola um link
-  url             String?
+  url           String?
   // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
-  dados           Bytes?
-  mime_type       String?
-  tamanho         Int?
-  descricao       String?
-  created_by_id   String?
-  created_at      DateTime        @default(now())
-  deleted_at      DateTime?
+  dados         Bytes?
+  mime_type     String?
+  tamanho       Int?
+  descricao     String?
+  created_by_id String?
+  created_at    DateTime      @default(now())
+  deleted_at    DateTime?
 
   @@index([trip_id, created_at(sort: Desc)])
   @@map("trip_anexos")
 }
 
 model TruckAnexo {
-  id              String          @id @default(uuid())
-  truck_id        String
-  truck           Truck           @relation(fields: [truck_id], references: [id], onDelete: Cascade)
-  tipo            TruckAnexoTipo  @default(OUTRO)
-  nome            String
+  id            String         @id @default(uuid())
+  truck_id      String
+  truck         Truck          @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  tipo          TruckAnexoTipo @default(OUTRO)
+  nome          String
   // url externo (Drive, Dropbox) — usado quando o usuário cola um link
-  url             String?
+  url           String?
   // upload nativo: bytes do arquivo + metadados. Mutuamente exclusivo com url.
-  dados           Bytes?
-  mime_type       String?
-  tamanho         Int?
-  descricao       String?
-  created_by_id   String?
-  created_at      DateTime        @default(now())
-  deleted_at      DateTime?
+  dados         Bytes?
+  mime_type     String?
+  tamanho       Int?
+  descricao     String?
+  created_by_id String?
+  created_at    DateTime       @default(now())
+  deleted_at    DateTime?
 
   @@index([truck_id, created_at(sort: Desc)])
   @@map("truck_anexos")
 }
 
 model TruckLedgerEntry {
-  id              String                @id @default(uuid())
-  truck_id        String
-  truck           Truck                 @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  truck_id String
+  truck    Truck  @relation(fields: [truck_id], references: [id], onDelete: Cascade)
 
-  data            DateTime              @db.Date
-  historico       String
-  categoria       TruckLedgerCategoria  @default(OUTRO_CUSTO)
-  tipo            TruckLedgerTipo
-  valor           Decimal               @db.Decimal(12, 2)
-  observacoes     String?
+  data        DateTime             @db.Date
+  historico   String
+  categoria   TruckLedgerCategoria @default(OUTRO_CUSTO)
+  tipo        TruckLedgerTipo
+  valor       Decimal              @db.Decimal(12, 2)
+  observacoes String?
 
   // Anexo opcional (mesmo padrão URL/upload do TruckAnexo)
-  anexo_url       String?
-  anexo_dados     Bytes?
-  anexo_mime      String?
-  anexo_tamanho   Int?
-  anexo_nome      String?
+  anexo_url     String?
+  anexo_dados   Bytes?
+  anexo_mime    String?
+  anexo_tamanho Int?
+  anexo_nome    String?
 
   // Identificador do lote de importação (XLSX) — permite "Desfazer importação"
-  imported_batch  String?
+  imported_batch String?
 
-  created_by_id   String?
-  created_at      DateTime              @default(now())
-  updated_at      DateTime              @updatedAt
-  deleted_at      DateTime?
+  created_by_id String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
 
   @@index([truck_id, data])
   @@index([truck_id, categoria])
@@ -501,19 +523,54 @@ model TruckLedgerEntry {
 }
 
 model LoginEvent {
-  id            String       @id @default(uuid())
+  id            String      @id @default(uuid())
   empresa_id    String?
-  empresa       Empresa?     @relation(fields: [empresa_id], references: [id])
+  empresa       Empresa?    @relation(fields: [empresa_id], references: [id])
   user_id       String?
-  user          User?        @relation(fields: [user_id], references: [id])
+  user          User?       @relation(fields: [user_id], references: [id])
   email_attempt String
   action        LoginAction
   ip            String?
   user_agent    String?
-  created_at    DateTime     @default(now())
+  created_at    DateTime    @default(now())
 
   @@index([empresa_id, created_at(sort: Desc)])
   @@index([user_id, created_at(sort: Desc)])
   @@index([created_at])
   @@map("login_events")
+}
+
+model TruckOperationalState {
+  id                       String                 @id @default(uuid())
+  truck_id                 String                 @unique
+  truck                    Truck                  @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  status                   TruckOperationalStatus @default(VAZIO_AGUARDANDO_CARGA)
+  contexto_atual           String?
+  data_coleta              DateTime?              @db.Date
+  data_agendamento_entrega DateTime?              @db.Date
+  carga_descricao          String?
+  descricao                String?
+  updated_at               DateTime               @updatedAt
+  updated_by_id            String?
+  updated_by               User?                  @relation("OperationalStateUpdatedBy", fields: [updated_by_id], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("truck_operational_states")
+}
+
+model TruckOperationalComment {
+  id            String    @id @default(uuid())
+  truck_id      String
+  truck         Truck     @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  author_id     String?
+  author        User?     @relation("OperationalCommentAuthor", fields: [author_id], references: [id])
+  author_email  String
+  author_nome   String
+  texto         String
+  created_at    DateTime  @default(now())
+  deleted_at    DateTime?
+  deleted_by_id String?
+
+  @@index([truck_id, created_at(sort: Desc)])
+  @@map("truck_operational_comments")
 }
