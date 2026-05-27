@@ -136,6 +136,15 @@ enum LoginAction {
   REFRESH_FAILED
 }
 
+enum TruckOperationalStatus {
+  VAZIO_AGUARDANDO_CARGA
+  INDO_CARREGAR
+  NA_FABRICA
+  CARREGADO_EM_VIAGEM
+  EM_DESCARGA_NO_CLIENTE
+  EM_MANUTENCAO
+}
+
 model Empresa {
   id         String   @id @default(uuid())
   nome       String
@@ -171,7 +180,9 @@ model User {
   audit_logs     AuditLog[]
   login_events   LoginEvent[]
   fretes_lancados   FreteTerceiro[] @relation("FreteTerceiroCreated")
-  fretes_pagos      FreteTerceiro[] @relation("FreteTerceiroPaid")
+  fretes_pagos                  FreteTerceiro[]          @relation("FreteTerceiroPaid")
+  operational_state_updates     TruckOperationalState[]  @relation("OperationalStateUpdatedBy")
+  operational_comments_authored TruckOperationalComment[] @relation("OperationalCommentAuthor")
   @@index([empresa_id])
   @@map("users")
 }
@@ -209,7 +220,9 @@ model Truck {
   attachments     Attachment[]
   fretes_terceiros FreteTerceiro[]
   truck_anexos    TruckAnexo[]
-  truck_ledger    TruckLedgerEntry[]
+  truck_ledger         TruckLedgerEntry[]
+  operational_state    TruckOperationalState?
+  operational_comments TruckOperationalComment[]
   @@index([empresa_id])
   @@map("trucks")
 }
@@ -516,4 +529,39 @@ model LoginEvent {
   @@index([user_id, created_at(sort: Desc)])
   @@index([created_at])
   @@map("login_events")
+}
+
+model TruckOperationalState {
+  id                          String                 @id @default(uuid())
+  truck_id                    String                 @unique
+  truck                       Truck                  @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  status                      TruckOperationalStatus @default(VAZIO_AGUARDANDO_CARGA)
+  contexto_atual              String?
+  data_coleta                 DateTime?              @db.Date
+  data_agendamento_entrega    DateTime?              @db.Date
+  carga_descricao             String?
+  descricao                   String?
+  updated_at                  DateTime               @updatedAt
+  updated_by_id               String?
+  updated_by                  User?                  @relation("OperationalStateUpdatedBy", fields: [updated_by_id], references: [id])
+
+  @@index([status])
+  @@map("truck_operational_states")
+}
+
+model TruckOperationalComment {
+  id            String    @id @default(uuid())
+  truck_id      String
+  truck         Truck     @relation(fields: [truck_id], references: [id], onDelete: Cascade)
+  author_id     String?
+  author        User?     @relation("OperationalCommentAuthor", fields: [author_id], references: [id])
+  author_email  String
+  author_nome   String
+  texto         String
+  created_at    DateTime  @default(now())
+  deleted_at    DateTime?
+  deleted_by_id String?
+
+  @@index([truck_id, created_at(sort: Desc)])
+  @@map("truck_operational_comments")
 }
