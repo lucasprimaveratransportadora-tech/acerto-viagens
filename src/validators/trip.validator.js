@@ -9,11 +9,12 @@ const NESTED_ARRAYS = [
   body('fuels').optional().isArray().withMessage('fuels deve ser um array.'),
 ];
 
+// origem/destino sairam: agora vem derivados do 1o CTE no service
+// (deriveOrigemDestino). UI nao manda mais; se o cliente mandar, sera
+// silenciosamente ignorado pelo whitelist do service.
 const createTrip = [
   body('data_inicio').notEmpty().withMessage('Data de início obrigatória.').isISO8601().withMessage('Data de início inválida.'),
   body('data_fim').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data de fim inválida.'),
-  body('origem').optional(),
-  body('destino').optional(),
   body('carga').optional(),
   body('motorista').optional().isLength({ max: 120 }).withMessage('Motorista até 120 caracteres.'),
   body('km_total').optional().isInt().withMessage('km_total deve ser inteiro.'),
@@ -29,8 +30,6 @@ const createTrip = [
 const updateTrip = [
   body('data_inicio').optional().isISO8601().withMessage('Data de início inválida.'),
   body('data_fim').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data de fim inválida.'),
-  body('origem').optional(),
-  body('destino').optional(),
   body('carga').optional(),
   body('motorista').optional().isLength({ max: 120 }).withMessage('Motorista até 120 caracteres.'),
   body('km_total').optional().isInt().withMessage('km_total deve ser inteiro.'),
