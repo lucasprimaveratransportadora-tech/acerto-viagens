@@ -188,12 +188,46 @@ export async function openDetail(truckId) {
   viagensPane.renderForTruck(state.data);
   activityPane.renderFor(state.data);
 
-  document.getElementById('cvDetailModal').classList.add('open');
+  const dlg = document.getElementById('cvDetailModal');
+  dlg.classList.add('open');
   switchModalTab('detail');
+
+  // Click no backdrop (fora do conteúdo) fecha o modal
+  dlg.onclick = (e) => {
+    if (e.target === dlg) closeDetail();
+  };
+
+  // Esc fecha o modal de detalhe; Enter no input de comentário envia.
+  if (!state._keyHandler) {
+    state._keyHandler = (e) => {
+      if (e.key === 'Escape') {
+        const formOpen = document.getElementById('cvViagemFormModal').classList.contains('open');
+        if (formOpen) {
+          window.cv?.closeViagemForm?.();
+        } else if (document.getElementById('cvDetailModal').classList.contains('open')) {
+          closeDetail();
+        }
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        // Enter (sem shift) dentro do textarea de comentário envia
+        const ci = document.getElementById('cvCommentInput');
+        if (document.activeElement === ci) {
+          e.preventDefault();
+          window.cv?.submitComment?.();
+        }
+      }
+    };
+    document.addEventListener('keydown', state._keyHandler);
+  }
 }
 
 export function closeDetail() {
-  document.getElementById('cvDetailModal').classList.remove('open');
+  const dlg = document.getElementById('cvDetailModal');
+  dlg.classList.remove('open');
+  dlg.onclick = null;
+  if (state._keyHandler) {
+    document.removeEventListener('keydown', state._keyHandler);
+    state._keyHandler = null;
+  }
   if (window.cv?.markSeen && state.truckId) window.cv.markSeen(state.truckId);
   state.truckId = null;
   state.data = null;

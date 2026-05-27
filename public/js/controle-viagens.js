@@ -407,6 +407,7 @@ const cv = {
   toggleDetails: modal.toggleDetails,
   submitComment: activityPane.submitComment,
   deleteComment: activityPane.deleteComment,
+  toggleActivityExpand: activityPane.toggleExpand,
   openNewViagem: viagensPane.openNewViagem,
   closeViagemForm: viagensPane.closeViagemForm,
   saveViagemForm: viagensPane.saveViagemForm,

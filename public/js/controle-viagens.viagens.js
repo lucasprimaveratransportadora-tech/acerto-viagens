@@ -110,13 +110,19 @@ export function toggleCollapse(viagemId) {
 /* ============================================================
    FORM (nova carga / editar)
    ============================================================ */
+function openFormModal() {
+  const dlg = document.getElementById('cvViagemFormModal');
+  dlg.classList.add('open');
+  dlg.onclick = (e) => { if (e.target === dlg) closeViagemForm(); };
+}
+
 export function openNewViagem() {
   state.formMode = 'create';
   state.editingViagemId = null;
   document.getElementById('cvVgTitle').textContent = 'Nova carga';
-  ['cvVgOrigem','cvVgDestino','cvVgCarga','cvVgFabrica','cvVgCliente','cvVgValor','cvVgColeta','cvVgAgend','cvVgObs']
+  ['cvVgOrigem','cvVgDestino','cvVgCarga','cvVgFabrica','cvVgCliente','cvVgValor','cvVgColeta','cvVgAgend']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('cvViagemFormModal').classList.add('open');
+  openFormModal();
 }
 
 export function editViagem(viagemId) {
@@ -135,12 +141,13 @@ export function editViagem(viagemId) {
   document.getElementById('cvVgValor').value    = v.valor_frete ?? '';
   document.getElementById('cvVgColeta').value   = v.data_coleta ? new Date(v.data_coleta).toISOString().slice(0,10) : '';
   document.getElementById('cvVgAgend').value    = v.data_agendamento_entrega ? new Date(v.data_agendamento_entrega).toISOString().slice(0,10) : '';
-  document.getElementById('cvVgObs').value      = v.observacoes || '';
-  document.getElementById('cvViagemFormModal').classList.add('open');
+  openFormModal();
 }
 
 export function closeViagemForm() {
-  document.getElementById('cvViagemFormModal').classList.remove('open');
+  const dlg = document.getElementById('cvViagemFormModal');
+  dlg.classList.remove('open');
+  dlg.onclick = null;
   state.formMode = null;
   state.editingViagemId = null;
 }
@@ -157,7 +164,6 @@ export async function saveViagemForm() {
     valor_frete:              document.getElementById('cvVgValor').value ? Number(document.getElementById('cvVgValor').value) : null,
     data_coleta:              document.getElementById('cvVgColeta').value || null,
     data_agendamento_entrega: document.getElementById('cvVgAgend').value  || null,
-    observacoes:              document.getElementById('cvVgObs').value.trim() || null,
   };
   const btn = document.getElementById('cvVgSaveBtn');
   btn.disabled = true;

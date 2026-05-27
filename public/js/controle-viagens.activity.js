@@ -81,6 +81,9 @@ function describe(event) {
   }
 }
 
+const VISIBLE_LIMIT = 5;
+let expanded = false;
+
 export function renderFor(data) {
   const list = document.getElementById('cvActivityList');
   const events = data.activity || [];
@@ -92,7 +95,8 @@ export function renderFor(data) {
   const meId = me?.id || null;
   const isAdmin = me?.role === 'ADMIN';
 
-  list.innerHTML = events.map(ev => {
+  const visible = expanded ? events : events.slice(0, VISIBLE_LIMIT);
+  const eventsHtml = visible.map(ev => {
     const d = describe(ev);
     const canDelete = ev.tipo === 'COMMENT' && (isAdmin || (ev.author_id && ev.author_id === meId));
     return `
@@ -107,6 +111,21 @@ export function renderFor(data) {
         </div>
       </div>`;
   }).join('');
+
+  const hidden = events.length - visible.length;
+  const more = (hidden > 0 || expanded)
+    ? `<button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="cv.toggleActivityExpand()">${
+        expanded ? '▲ Recolher' : `▼ Ver mais (${hidden})`
+      }</button>`
+    : '';
+
+  list.innerHTML = eventsHtml + more;
+}
+
+export function toggleExpand() {
+  expanded = !expanded;
+  const data = modal.getCurrentData?.();
+  if (data) renderFor(data);
 }
 
 export async function submitComment() {
