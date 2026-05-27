@@ -141,4 +141,72 @@ async function upsertState(truckId, empresaId, req, payload) {
   return after;
 }
 
-module.exports = { getBoard, getDetail, upsertState, VALID_STATUS, DEFAULT_STATUS };
+async function listComments(truckId, empresaId, { limit = 50, before } = {}) {
+  const truck = await prisma.truck.findFirst({
+    where: { id: truckId, empresa_id: empresaId, deleted_at: null },
+    select: { id: true },
+  });
+  if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
+
+  const where = { truck_id: truckId, deleted_at: null };
+  if (before) where.created_at = { lt: new Date(before) };
+
+  return prisma.truckOperationalComment.findMany({
+    where,
+    orderBy: { created_at: 'desc' },
+    take: Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200),
+  });
+}
+
+async function addComment(truckId, empresaId, req, { texto }) {
+  const truck = await prisma.truck.findFirst({
+    where: { id: truckId, empresa_id: empresaId, deleted_at: null },
+    select: { id: true },
+  });
+  if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
+
+  const t = (texto || '').trim();
+  if (!t) throw ApiError.badRequest('Texto do comentário não pode ser vazio.');
+  if (t.length > 4000) throw ApiError.badRequest('Comentário muito longo (máx 4000).');
+
+  return prisma.truckOperationalComment.create({
+    data: {
+      truck_id:     truckId,
+      author_id:    req.user.id,
+      author_email: req.user.email,
+      author_nome:  req.user.nome,
+      texto:        t,
+    },
+  });
+}
+
+async function deleteComment(truckId, commentId, empresaId, req) {
+  const truck = await prisma.truck.findFirst({
+    where: { id: truckId, empresa_id: empresaId, deleted_at: null },
+    select: { id: true },
+  });
+  if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
+
+  const c = await prisma.truckOperationalComment.findFirst({
+    where: { id: commentId, truck_id: truckId, deleted_at: null },
+  });
+  if (!c) throw ApiError.notFound('Comentário não encontrado.');
+
+  const isAuthor = c.author_id && c.author_id === req.user.id;
+  const isAdmin  = req.user.role === 'ADMIN';
+  if (!isAuthor && !isAdmin) {
+    throw ApiError.forbidden('Só o autor ou um ADMIN pode apagar este comentário.');
+  }
+
+  await prisma.truckOperationalComment.update({
+    where: { id: commentId },
+    data: { deleted_at: new Date(), deleted_by_id: req.user.id },
+  });
+  return { ok: true };
+}
+
+module.exports = {
+  getBoard, getDetail, upsertState,
+  listComments, addComment, deleteComment,
+  VALID_STATUS, DEFAULT_STATUS,
+};
