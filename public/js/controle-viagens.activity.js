@@ -95,8 +95,11 @@ export function renderFor(data) {
   const meId = me?.id || null;
   const isAdmin = me?.role === 'ADMIN';
 
-  const visible = expanded ? events : events.slice(0, VISIBLE_LIMIT);
-  const eventsHtml = visible.map(ev => {
+  // Recolhido: SÓ comentários humanos. Expandido: tudo (incluindo movimentações).
+  const visibleEvents = expanded ? events : events.filter(e => e.tipo === 'COMMENT');
+  const hidden = events.length - visibleEvents.length;
+
+  const eventsHtml = visibleEvents.map(ev => {
     const d = describe(ev);
     const canDelete = ev.tipo === 'COMMENT' && (isAdmin || (ev.author_id && ev.author_id === meId));
     return `
@@ -112,14 +115,17 @@ export function renderFor(data) {
       </div>`;
   }).join('');
 
-  const hidden = events.length - visible.length;
+  const emptyHint = !expanded && visibleEvents.length === 0
+    ? '<div class="cv-muted" style="padding:.5rem 0;font-size:.78rem">Nenhum comentário ainda. Mostre todo o histórico em "Ver mais".</div>'
+    : '';
+
   const more = (hidden > 0 || expanded)
     ? `<div style="margin-bottom:.5rem"><button class="btn btn-ghost btn-sm" onclick="cv.toggleActivityExpand()">${
-        expanded ? '▲ Recolher' : `▼ Ver mais (${hidden})`
+        expanded ? '▲ Mostrar só comentários' : `▼ Ver tudo (${hidden} movimentações)`
       }</button></div>`
     : '';
 
-  list.innerHTML = more + eventsHtml;
+  list.innerHTML = more + emptyHint + eventsHtml;
 }
 
 export function toggleExpand() {
