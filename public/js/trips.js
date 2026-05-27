@@ -163,6 +163,49 @@ export function buildDetail(tr) {
   });
   h += `</div></div>`;
 
+  // ---- Folha de Acerto (anexos) ----
+  const anexos = tr.trip_anexos || [];
+  h += `<div class="detail-section" style="grid-column:1/-1"><div class="detail-section-hdr">
+    <span class="detail-section-title">&#x1F4CE; Folha de Acerto</span>
+    <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();window.trpAnx?.openInlineModal('${tid}')">+ Anexar folha</button>
+  </div>`;
+  if (anexos.length) {
+    h += `<div class="trip-anexo-inline-list">`;
+    anexos.forEach(a => {
+      const isUrl = !!a.url;
+      const tipoLbl = ({
+        FOLHA_ACERTO: 'Folha',
+        COMPROVANTE:  'Comprov.',
+        NOTA_FISCAL:  'NF',
+        OUTRO:        'Outro',
+      })[a.tipo] || 'Anexo';
+      const dataLbl = a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '';
+      const open = isUrl
+        ? `target="_blank" rel="noopener" href="${esc(a.url)}"`
+        : `href="#" onclick="event.stopPropagation();event.preventDefault();window.trpAnx?.openGlobalPane('${tid}','${esc(a.id)}')"`;
+      h += `<div class="trip-anexo-inline-item">
+        <a ${open} class="trip-anexo-inline-link">
+          <span>${isUrl ? '🔗' : '📄'}</span>
+          <span class="ft-anexo-nome">${esc(a.nome || 'Anexo')}</span>
+        </a>
+        <span class="trip-anexo-inline-meta">${tipoLbl}${dataLbl ? ' · ' + dataLbl : ''}</span>
+        <button class="inline-del" onclick="event.stopPropagation();window.trpAnx?.removeInline('${tid}','${esc(a.id)}')" title="Remover">✕</button>
+      </div>`;
+    });
+    h += `</div>`;
+  } else {
+    h += `<div style="padding:.5rem .7rem;font-size:.72rem;color:var(--muted)">Sem folha anexada. Use <b>+ Anexar folha</b> pra mandar o PDF/imagem digitalizado.</div>`;
+  }
+  h += `</div>`;
+
+  // ---- Frete Retorno (Terceiro) ----
+  h += `<div class="detail-section" style="grid-column:1/-1"><div class="detail-section-hdr">
+    <span class="detail-section-title">&#x1F501; Frete Retorno (Terceiro)</span>
+    <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();window.openPullFreteModal('${tid}','${esc(tr.truck_id || '')}')">+ Puxar Frete Retorno</button>
+  </div>
+  <div id="tripFreteLinked_${tid}" style="padding:.5rem .7rem;font-size:.72rem;color:var(--muted)">Carregando...</div>
+  </div>`;
+
   // ---- Acerto ----
   const obs = tr.observacoes || '';
   h += `<div class="acerto-box" style="grid-column:1/-1">
@@ -173,10 +216,19 @@ export function buildDetail(tr) {
     ${adto > 0 ? `<div style="margin-top:.5rem;padding:.4rem .5rem;background:rgba(227,6,19,.06);border:1px solid rgba(227,6,19,.2);border-radius:5px;font-size:.72rem;display:flex;justify-content:space-between"><span style="color:var(--muted)">&#x2139;&#xFE0F; Adiantamento motorista (informativo)</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--accent)">R$ ${fmt(adto)}</span></div>` : ''}
   </div>`;
 
+  // Carrega frete vinculado de forma assincrona (a div ja foi criada acima)
+  setTimeout(() => {
+    if (window.refreshTripFreteLinked) window.refreshTripFreteLinked(tr.id);
+  }, 0);
+
   return h;
 }
 
 // ==================== INLINE REFRESH ====================
+
+// Expoe pra outros modulos (trip-anexos.js) chamarem apos mudancas que
+// invalidam a view inline (anexo adicionado, frete vinculado, etc.)
+window.inlineRefreshTrip = (tripId) => inlineRefreshTrip(tripId);
 
 async function inlineRefreshTrip(tripId) {
   try {

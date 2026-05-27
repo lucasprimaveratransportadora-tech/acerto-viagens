@@ -13,7 +13,11 @@ const localState = {
 };
 
 function currentTripId() {
-  return document.getElementById('tripEditId')?.dataset?.id || '';
+  // Inline-first: o ID vem do data-current-trip que setamos no body ao abrir
+  // o modal de anexo. Fallback legacy pro elemento do antigo modal grande.
+  return document.body.getAttribute('data-current-trip')
+      || document.getElementById('tripEditId')?.dataset?.id
+      || '';
 }
 
 function fmtSize(bytes) {
@@ -248,7 +252,10 @@ async function save() {
       await api.post(`/api/trips/${tripId}/anexos`, { tipo, nome, url, descricao: desc || null });
     }
     document.getElementById('trpAnexoModal').classList.remove('open');
-    await refresh();
+    // Re-render: se estamos no fluxo inline, atualiza o card; senao mantem o
+    // comportamento antigo (refresh do modal — no-op com modal deletado).
+    if (window.inlineRefreshTrip) await window.inlineRefreshTrip(tripId);
+    else await refresh();
   } catch (e) {
     alert('Erro: ' + e.message);
   } finally {
@@ -491,11 +498,32 @@ function closeGlobalPane() {
   if (body) body.innerHTML = `<div class="global-pdf-pane-placeholder">Clique em <b>📎 Folha</b> em qualquer viagem pra ver aqui ao lado.</div>`;
 }
 
+// Abre o modal de anexo a partir da view inline. Seta body[data-current-trip]
+// pra que currentTripId() saiba a quem pertence o upload.
+function openInlineModal(tripId) {
+  if (!tripId) { alert('Trip ID nao informado.'); return; }
+  document.body.setAttribute('data-current-trip', tripId);
+  openModal();
+}
+
+// Remove via inline: faz o delete e re-renderiza o card inline.
+async function removeInline(tripId, anexoId) {
+  if (!confirm('Excluir este anexo?')) return;
+  try {
+    await api.delete(`/api/trips/${tripId}/anexos/${anexoId}`);
+    if (window.inlineRefreshTrip) await window.inlineRefreshTrip(tripId);
+  } catch (e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
 window.trpAnx = {
   openModal,
+  openInlineModal,
   switchMode,
   save,
   remove,
+  removeInline,
   openPane,
   closePane,
   refresh,

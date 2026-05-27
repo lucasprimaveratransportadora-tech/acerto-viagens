@@ -350,3 +350,30 @@
   font-weight: 600;
   color: var(--success);
 }
+
+/* ============ Anexos inline (folha de acerto na view inline) ============ */
+.trip-anexo-inline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.trip-anexo-inline-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .35rem .75rem;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .72rem;
+}
+.trip-anexo-inline-item:last-child { border-bottom: none; }
+.trip-anexo-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+}
+.trip-anexo-inline-link:hover .ft-anexo-nome { color: var(--accent); text-decoration: underline; }
+.trip-anexo-inline-meta { color: var(--muted); font-size: .66rem; font-family: 'IBM Plex Mono', monospace; }
