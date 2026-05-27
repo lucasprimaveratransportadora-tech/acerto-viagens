@@ -1,18 +1,20 @@
-// controle-viagens.modal.js — Modal de detalhe do caminhão:
-// status (dropdown), campos contextuais e bloco de descrição.
-// A timeline de comentários é tratada no mesmo modal mas em outro
-// arquivo (próxima task).
+// controle-viagens.modal.js — Modal de detalhe do caminhão (v2):
+// status dropdown + campos da coluna + descrição persistente.
+// O painel de viagens fica em controle-viagens.viagens.js
+// O activity log fica em controle-viagens.activity.js
 
 import { api } from './api.js';
 import { esc } from './utils.js';
+import * as viagensPane from './controle-viagens.viagens.js';
+import * as activityPane from './controle-viagens.activity.js';
 
 const COLUMNS_INFO = {
-  VAZIO_AGUARDANDO_CARGA: { label: 'Vazio aguardando carga', color: 'var(--cv-col-vazio)',     fields: ['contexto_atual'], contextoLabel: 'Local atual' },
-  INDO_CARREGAR:          { label: 'Indo carregar',          color: 'var(--cv-col-indo)',      fields: ['data_coleta','data_agendamento_entrega','carga_descricao'] },
-  NA_FABRICA:             { label: 'Na fábrica',             color: 'var(--cv-col-fabrica)',   fields: ['contexto_atual'], contextoLabel: 'Fábrica' },
-  CARREGADO_EM_VIAGEM:    { label: 'Carregado em viagem',    color: 'var(--cv-col-carregado)', fields: ['data_agendamento_entrega','carga_descricao'] },
-  EM_DESCARGA_NO_CLIENTE: { label: 'Em descarga no cliente', color: 'var(--cv-col-descarga)',  fields: ['contexto_atual'], contextoLabel: 'Cliente' },
-  EM_MANUTENCAO:          { label: 'Em manutenção',          color: 'var(--cv-col-manutencao)',fields: ['contexto_atual'], contextoLabel: 'Descrição da manutenção' },
+  VAZIO_AGUARDANDO_CARGA: { label: 'Vazio aguardando carga', color: 'var(--cv-col-vazio)',     fields: [] },
+  INDO_CARREGAR:          { label: 'Indo carregar',          color: 'var(--cv-col-indo)',      fields: ['fabrica','data_coleta','data_agendamento_entrega','carga_descricao','valor_frete'] },
+  NA_FABRICA:             { label: 'Na fábrica',             color: 'var(--cv-col-fabrica)',   fields: ['fabrica','data_coleta','data_agendamento_entrega','carga_descricao','valor_frete'] },
+  CARREGADO_EM_VIAGEM:    { label: 'Carregado em viagem',    color: 'var(--cv-col-carregado)', fields: ['carga_descricao','data_carregamento','data_agendamento_entrega','valor_frete'] },
+  EM_DESCARGA_NO_CLIENTE: { label: 'Em descarga no cliente', color: 'var(--cv-col-descarga)',  fields: ['cliente_descarga','data_agendamento_entrega','carga_descricao'] },
+  EM_MANUTENCAO:          { label: 'Em manutenção',          color: 'var(--cv-col-manutencao)',fields: ['manutencao_descricao'] },
 };
 
 const state = {
@@ -23,23 +25,13 @@ const state = {
 
 function toDateInput(s) {
   if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  const yy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yy}-${mm}-${dd}`;
+  const d = new Date(s); if (isNaN(d)) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
 function fmtPtBR(s) {
   if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${dd}/${mm} ${hh}:${mi}`;
+  const d = new Date(s); if (isNaN(d)) return '';
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
 function populateStatusSelect() {
@@ -48,70 +40,104 @@ function populateStatusSelect() {
     .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
   sel.onchange = () => {
     renderFields();
-    const info = COLUMNS_INFO[sel.value];
-    sel.style.borderColor = info?.color || 'var(--border)';
+    sel.style.borderColor = COLUMNS_INFO[sel.value]?.color || 'var(--border)';
   };
+}
+
+function getViagemEmCurso() {
+  return state.data?.viagens?.find(v => v.status_viagem === 'EM_CURSO') || null;
 }
 
 function renderFields() {
   const sel = document.getElementById('cvDetStatus');
-  const status = sel.value;
-  const info = COLUMNS_INFO[status];
-  const s = state.data?.state || {};
-
+  const coluna = sel.value;
+  const info = COLUMNS_INFO[coluna];
+  const c = state.data?.column || {};
+  const v = getViagemEmCurso() || {};
   const fieldsEl = document.getElementById('cvDetFields');
-  const partsHtml = [];
+  const parts = [];
 
   for (const f of info.fields) {
-    if (f === 'contexto_atual') {
-      partsHtml.push(`
+    if (f === 'manutencao_descricao') {
+      parts.push(`
         <div class="form-group">
-          <label>${esc(info.contextoLabel || 'Local')}</label>
-          <input type="text" id="cvDetCtx" value="${esc(s.contexto_atual || '')}" maxlength="500">
+          <label>Descrição da manutenção</label>
+          <input type="text" id="cvDetManut" value="${esc(c.manutencao_descricao || '')}" maxlength="500">
+        </div>`);
+    } else if (f === 'fabrica') {
+      parts.push(`
+        <div class="form-group">
+          <label>Fábrica</label>
+          <input type="text" id="cvDetFabrica" value="${esc(v.fabrica || '')}" maxlength="200" placeholder="ex.: Cargill Goiania">
+        </div>`);
+    } else if (f === 'cliente_descarga') {
+      parts.push(`
+        <div class="form-group">
+          <label>Cliente</label>
+          <input type="text" id="cvDetCliente" value="${esc(v.cliente_descarga || '')}" maxlength="200">
         </div>`);
     } else if (f === 'data_coleta') {
-      partsHtml.push(`
+      parts.push(`
         <div class="form-group">
-          <label>Data da coleta</label>
-          <input type="date" id="cvDetColeta" value="${toDateInput(s.data_coleta)}">
+          <label>Data coleta</label>
+          <input type="date" id="cvDetColeta" value="${toDateInput(v.data_coleta)}">
+        </div>`);
+    } else if (f === 'data_carregamento') {
+      const val = toDateInput(v.data_carregamento) || toDateInput(v.data_coleta);
+      parts.push(`
+        <div class="form-group">
+          <label>Data carregamento</label>
+          <input type="date" id="cvDetCarreg" value="${val}">
         </div>`);
     } else if (f === 'data_agendamento_entrega') {
-      partsHtml.push(`
+      parts.push(`
         <div class="form-group">
-          <label>Agendamento da entrega</label>
-          <input type="date" id="cvDetAgend" value="${toDateInput(s.data_agendamento_entrega)}">
+          <label>Agendamento entrega</label>
+          <input type="date" id="cvDetAgend" value="${toDateInput(v.data_agendamento_entrega)}">
         </div>`);
     } else if (f === 'carga_descricao') {
-      partsHtml.push(`
+      parts.push(`
         <div class="form-group">
           <label>Carga</label>
-          <input type="text" id="cvDetCarga" value="${esc(s.carga_descricao || '')}" maxlength="500" placeholder="ex.: Soja - Faz. Boa Vista">
+          <input type="text" id="cvDetCarga" value="${esc(v.carga_descricao || '')}" maxlength="500">
+        </div>`);
+    } else if (f === 'valor_frete') {
+      parts.push(`
+        <div class="form-group">
+          <label>Valor frete (R$)</label>
+          <input type="number" step="0.01" min="0" id="cvDetValor" value="${v.valor_frete ?? ''}">
         </div>`);
     }
   }
-  fieldsEl.innerHTML = partsHtml.join('');
-
-  // Borda colorida do status
+  if (parts.length === 0) {
+    parts.push('<div class="cv-muted">Nenhum campo nesta coluna. Crie uma viagem pra preencher dados de carga.</div>');
+  }
+  fieldsEl.innerHTML = parts.join('');
   sel.style.borderColor = info?.color || 'var(--border)';
 }
 
-function readFieldsPayload() {
-  const status = document.getElementById('cvDetStatus').value;
-  // Only fields that are actually visible in the current status are sent.
-  // Service preserves any fields not in the payload (whitelist + undefined-skip).
-  const payload = { status, descricao: document.getElementById('cvDetDescricao').value || null };
-  const info = COLUMNS_INFO[status];
-  if (info.fields.includes('contexto_atual')) {
-    payload.contexto_atual = (document.getElementById('cvDetCtx')?.value || '').trim() || null;
+function readColumnPayload() {
+  const coluna = document.getElementById('cvDetStatus').value;
+  const payload = { coluna };
+  if (COLUMNS_INFO[coluna].fields.includes('manutencao_descricao')) {
+    payload.manutencao_descricao = (document.getElementById('cvDetManut')?.value || '').trim() || null;
   }
-  if (info.fields.includes('data_coleta')) {
-    payload.data_coleta = document.getElementById('cvDetColeta')?.value || null;
-  }
-  if (info.fields.includes('data_agendamento_entrega')) {
-    payload.data_agendamento_entrega = document.getElementById('cvDetAgend')?.value || null;
-  }
-  if (info.fields.includes('carga_descricao')) {
-    payload.carga_descricao = (document.getElementById('cvDetCarga')?.value || '').trim() || null;
+  return payload;
+}
+
+function readViagemPayload() {
+  const coluna = document.getElementById('cvDetStatus').value;
+  const fields = COLUMNS_INFO[coluna].fields;
+  const payload = {};
+  if (fields.includes('fabrica'))                  payload.fabrica = (document.getElementById('cvDetFabrica')?.value || '').trim() || null;
+  if (fields.includes('cliente_descarga'))         payload.cliente_descarga = (document.getElementById('cvDetCliente')?.value || '').trim() || null;
+  if (fields.includes('data_coleta'))              payload.data_coleta = document.getElementById('cvDetColeta')?.value || null;
+  if (fields.includes('data_carregamento'))        payload.data_carregamento = document.getElementById('cvDetCarreg')?.value || null;
+  if (fields.includes('data_agendamento_entrega')) payload.data_agendamento_entrega = document.getElementById('cvDetAgend')?.value || null;
+  if (fields.includes('carga_descricao'))          payload.carga_descricao = (document.getElementById('cvDetCarga')?.value || '').trim() || null;
+  if (fields.includes('valor_frete')) {
+    const raw = document.getElementById('cvDetValor')?.value;
+    payload.valor_frete = (raw === '' || raw == null) ? null : Number(raw);
   }
   return payload;
 }
@@ -120,40 +146,38 @@ export async function openDetail(truckId) {
   state.truckId = truckId;
   state.modalTab = 'detail';
 
-  // Carrega dados
   try {
-    state.data = await api.get(`/api/controle-viagens/${truckId}`);
+    state.data = await api.get(`/api/controle-viagens/truck/${truckId}`);
   } catch (e) {
     alert('Erro ao carregar caminhão: ' + e.message);
     return;
   }
 
-  // Header
   const t = state.data.truck;
-  const s = state.data.state || {};
+  const c = state.data.column || {};
   document.getElementById('cvDetTitle').textContent = `${t.placa} — ${t.motorista || 'sem motorista'}`;
   document.getElementById('cvDetSubtitle').textContent =
     [t.modelo, t.carreta_placa ? `+ ${t.carreta_placa}${t.carreta_modelo ? ' (' + t.carreta_modelo + ')' : ''}` : '']
       .filter(Boolean).join(' ');
 
   populateStatusSelect();
-  document.getElementById('cvDetStatus').value = s.status || 'VAZIO_AGUARDANDO_CARGA';
-  document.getElementById('cvDetDescricao').value = s.descricao || '';
+  document.getElementById('cvDetStatus').value = c.coluna || 'VAZIO_AGUARDANDO_CARGA';
+  document.getElementById('cvDetDescricao').value = c.descricao_geral || '';
   renderFields();
 
   document.getElementById('cvDetUpdated').textContent =
-    s.updated_by ? `Última: ${s.updated_by.nome} · ${fmtPtBR(s.updated_at)}` : '';
+    c.updated_by ? `Última: ${c.updated_by.nome} · ${fmtPtBR(c.updated_at)}` : '';
+
+  // Render viagens + activity (delegados)
+  viagensPane.renderForTruck(state.data);
+  activityPane.renderFor(state.data);
 
   document.getElementById('cvDetailModal').classList.add('open');
   switchModalTab('detail');
-
-  // Hook pra módulo de comentários (Task 13) carregar a lista
-  if (window.cvComments?.loadFor) await window.cvComments.loadFor(truckId);
 }
 
 export function closeDetail() {
   document.getElementById('cvDetailModal').classList.remove('open');
-  // Marca como visto ANTES de limpar o id (badge "novo" some no próximo refresh)
   if (window.cv?.markSeen && state.truckId) window.cv.markSeen(state.truckId);
   state.truckId = null;
   state.data = null;
@@ -161,117 +185,68 @@ export function closeDetail() {
 
 export async function saveDetailFields() {
   const btn = document.getElementById('cvDetSaveBtn');
-  const originalLabel = btn.textContent;
+  const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'Salvando...';
   try {
-    const payload = readFieldsPayload();
-    await api.patch(`/api/controle-viagens/${state.truckId}/state`, payload);
-    // Recarrega o board (pega novo fingerprint + status visível)
-    if (window.cv?.manualRefresh) await window.cv.manualRefresh();
-    closeDetail();
+    const coluna = document.getElementById('cvDetStatus').value;
+    const colPayload = readColumnPayload();
+    await api.patch(`/api/controle-viagens/truck/${state.truckId}/column`, colPayload);
+
+    // Se há viagem em curso E a coluna usa campos de viagem, atualiza viagem também
+    const viagem = getViagemEmCurso();
+    if (viagem && COLUMNS_INFO[coluna].fields.some(f => f !== 'manutencao_descricao' && f !== 'descricao_geral')) {
+      const vPayload = readViagemPayload();
+      if (Object.keys(vPayload).length > 0) {
+        await api.patch(`/api/controle-viagens/viagens/${viagem.id}`, vPayload);
+      }
+    }
+    if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
+    await reload();
   } catch (e) {
     alert('Erro ao salvar: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = originalLabel;
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+export async function saveDescricao() {
+  const desc = document.getElementById('cvDetDescricao').value;
+  try {
+    await api.patch(`/api/controle-viagens/truck/${state.truckId}/column`, { descricao_geral: desc });
+    await reload();
+  } catch (e) {
+    alert('Erro ao salvar descrição: ' + e.message);
   }
 }
 
 export function switchModalTab(tab) {
   state.modalTab = tab;
-  document.querySelectorAll('#cvModalTabs .cv-tab').forEach(b => {
-    b.classList.toggle('active', b.dataset.cvTab === tab);
-  });
-  document.getElementById('cvDetailPane').classList.toggle('active', tab === 'detail');
-  document.getElementById('cvCommentsPane').classList.toggle('active', tab === 'comments');
+  document.querySelectorAll('#cvModalTabs .cv-tab').forEach(b => b.classList.toggle('active', b.dataset.cvTab === tab));
+  const left = document.querySelector('.cv-left-pane');
+  const right = document.querySelector('.cv-viagens-pane');
+  if (left)  { left.classList.toggle('active', tab !== 'viagens');
+               left.classList.toggle('tab-detail',   tab === 'detail');
+               left.classList.toggle('tab-activity', tab === 'activity'); }
+  if (right) right.classList.toggle('active', tab === 'viagens');
 }
 
-/* ============================================================
-   COMMENTS
-   ============================================================ */
-const commentsState = { truckId: null, items: [] };
+export function toggleDetails() {
+  const content = document.querySelector('#cvDetailModal .cv-modal-content');
+  const btn = document.getElementById('cvToggleDetails');
+  const showing = content.classList.toggle('cv-show-details');
+  btn.textContent = showing ? 'Ocultar detalhes' : 'Mostrar detalhes';
+}
 
-async function loadComments(truckId) {
-  commentsState.truckId = truckId;
+export async function reload() {
+  if (!state.truckId) return;
   try {
-    commentsState.items = await api.get(`/api/controle-viagens/${truckId}/comments?limit=200`);
+    state.data = await api.get(`/api/controle-viagens/truck/${state.truckId}`);
+    viagensPane.renderForTruck(state.data);
+    activityPane.renderFor(state.data);
   } catch (e) {
-    commentsState.items = [];
-    console.error('[cv comments] load failed:', e);
-  }
-  renderComments();
-}
-
-function initial(name) {
-  return (name || '?').trim().charAt(0).toUpperCase();
-}
-
-function fmtPtBRFull(s) {
-  if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${dd}/${mm}/${yy} ${hh}:${mi}`;
-}
-
-function renderComments() {
-  const list = document.getElementById('cvCommentsList');
-  if (!commentsState.items.length) {
-    list.innerHTML = '<div class="cv-muted" style="text-align:center;padding:1rem">Nenhum comentário ainda. Seja o primeiro 💬</div>';
-    return;
-  }
-  const me = window.__currentUser || null;
-  const meId = me?.id || null;
-  const isAdmin = me?.role === 'ADMIN';
-
-  list.innerHTML = commentsState.items.map(c => {
-    const canDelete = isAdmin || (c.author_id && c.author_id === meId);
-    return `
-      <div class="cv-comment" data-comment-id="${esc(c.id)}">
-        <div class="cv-comment-avatar">${esc(initial(c.author_nome))}</div>
-        <div class="cv-comment-body">
-          <div class="cv-comment-head">
-            <b>${esc(c.author_nome)}</b> · ${fmtPtBRFull(c.created_at)}
-            ${canDelete ? `<button class="cv-comment-delete" onclick="cv.deleteComment('${esc(c.id)}')" title="Apagar">apagar</button>` : ''}
-          </div>
-          <div class="cv-comment-text">${esc(c.texto)}</div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-export async function submitComment() {
-  if (!commentsState.truckId) return;
-  const input = document.getElementById('cvCommentInput');
-  const texto = (input.value || '').trim();
-  if (!texto) return;
-  try {
-    const c = await api.post(`/api/controle-viagens/${commentsState.truckId}/comments`, { texto });
-    commentsState.items = [c, ...commentsState.items];
-    input.value = '';
-    renderComments();
-    // Atualiza board pra incrementar contador 💬 + last_comment_at
-    if (window.cv?.manualRefresh) await window.cv.manualRefresh();
-  } catch (e) {
-    alert('Erro ao enviar comentário: ' + e.message);
+    console.error('[cv modal reload]', e);
   }
 }
 
-export async function deleteComment(id) {
-  if (!commentsState.truckId) return;
-  if (!confirm('Apagar este comentário?')) return;
-  try {
-    await api.delete(`/api/controle-viagens/${commentsState.truckId}/comments/${id}`);
-    commentsState.items = commentsState.items.filter(c => c.id !== id);
-    renderComments();
-    if (window.cv?.manualRefresh) await window.cv.manualRefresh();
-  } catch (e) {
-    alert('Erro ao apagar: ' + e.message);
-  }
-}
-
-// Wire pro openDetail chamar quando abrir o modal
-window.cvComments = { loadFor: loadComments };
+export function getCurrentTruckId() { return state.truckId; }
+export function getCurrentData() { return state.data; }
