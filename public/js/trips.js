@@ -595,3 +595,62 @@ window.cycleTripStatus = async function (tripId, badgeEl) {
     badgeEl.classList.remove('updating');
   }
 };
+
+// ==================== PRINT ACERTO ====================
+
+// Imprime a folha de acerto (logo + Acerto Nº + placa + motorista + dados).
+// Usa window.print() + CSS @media print em public/css/print.css.
+window.printAcerto = function (tripId) {
+  const tr = state.trips.find(t => t.id === tripId);
+  if (!tr) { alert('Viagem não encontrada.'); return; }
+
+  // Marca SO o card alvo (o CSS @media print esconde todos os outros)
+  document.querySelectorAll('.trip-card').forEach(c => c.removeAttribute('data-trip-id-print'));
+  const card = document.querySelector(`.trip-card[data-trip-id="${tripId}"]`);
+  if (!card) { alert('Card não encontrado.'); return; }
+  card.setAttribute('data-trip-id-print', 'match');
+
+  // Garante que o detail está aberto (impressão precisa do conteúdo expandido)
+  const det = document.getElementById('detail_' + tripId);
+  if (det) det.classList.add('open');
+
+  // Insere/atualiza o header de impressão como primeiro filho do body
+  let header = document.getElementById('printHeader');
+  if (!header) {
+    header = document.createElement('div');
+    header.id = 'printHeader';
+    header.className = 'print-header';
+    document.body.insertBefore(header, document.body.firstChild);
+  }
+
+  const truck = tr.truck || state.trucks.find(t => t.id === tr.truck_id) || {};
+  const dt = (s) => s ? new Date(String(s).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const periodo = dt(tr.data_inicio) + (tr.data_fim ? '  →  ' + dt(tr.data_fim) : '');
+  const motorista = tr.motorista || truck.motorista || '—';
+  const placa = truck.placa || '—';
+  const modelo = truck.modelo ? ' · ' + truck.modelo : '';
+  const numero = tr.numero != null ? tr.numero : '—';
+
+  header.innerHTML = `
+    <img src="/assets/images/logo-full.png" class="print-logo" alt="Prima Transportes">
+    <div class="print-titulo">ACERTO Nº ${esc(String(numero))}</div>
+    <div class="print-subtitulo">
+      <div>Placa: <strong>${esc(placa)}${esc(modelo)}</strong></div>
+      <div>Motorista: <strong>${esc(motorista)}</strong></div>
+      <div>Período: <strong>${esc(periodo)}</strong></div>
+    </div>
+  `;
+
+  document.body.setAttribute('data-print-trip', tripId);
+
+  const onAfter = () => {
+    document.body.removeAttribute('data-print-trip');
+    if (card) card.removeAttribute('data-trip-id-print');
+    window.removeEventListener('afterprint', onAfter);
+  };
+  window.addEventListener('afterprint', onAfter);
+
+  // Pequeno timeout pra garantir que o DOM atualizado (header + atributo body)
+  // esteja aplicado antes do navegador snapshotar a página.
+  setTimeout(() => window.print(), 50);
+};
