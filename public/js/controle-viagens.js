@@ -172,13 +172,13 @@ function renderBoard() {
 function renderCard(row) {
   const t = row.truck;
   const c = row.column || {};
-  const v = row.viagem_em_curso;
   const col = COLUMNS.find(x => x.key === (c.coluna || 'VAZIO_AGUARDANDO_CARGA'));
-  const fields = miniFields(c.coluna, v, c);
   const planejadas = row.viagens_planejadas_count || 0;
   const unread = isUnread(row);
   const updated = c.updated_at ? fmtTime(c.updated_at) : '';
 
+  // Card limpo: placa + motorista + modelo + pills no rodapé.
+  // Os campos da viagem (fábrica, datas) só aparecem ao abrir o modal.
   return `
     <div class="cv-card" draggable="true"
          data-truck-id="${esc(t.id)}"
@@ -187,7 +187,6 @@ function renderCard(row) {
       <div class="cv-plate">${esc(t.placa)}</div>
       <div class="cv-driver">${esc(t.motorista || '—')}</div>
       <div class="cv-model">${esc(t.modelo || '')}</div>
-      ${fields ? `<div class="cv-divider"></div><div class="cv-fields-mini">${fields}</div>` : ''}
       <div class="cv-foot">
         <span>
           <span class="cv-pill ${unread ? 'unread' : ''}">💬 ${row.activity_count || 0}</span>
@@ -414,6 +413,7 @@ const cv = {
   editViagem: viagensPane.editViagem,
   startViagem: viagensPane.startViagem,
   finalizeViagem: viagensPane.finalizeViagem,
+  reopenViagem: viagensPane.reopenViagem,
   cancelViagem: viagensPane.cancelViagem,
   deleteViagem: viagensPane.deleteViagem,
   toggleViagem: viagensPane.toggleCollapse,

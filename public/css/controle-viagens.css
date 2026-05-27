@@ -139,12 +139,13 @@
 .cv-modal {
   display:none; position:fixed; inset:0;
   background:rgba(0,0,0,.55); z-index:80;
-  align-items:flex-start; justify-content:center;
-  padding:2.5rem 1rem 1rem; overflow-y:auto;
+  align-items:center; justify-content:center;
+  padding:1rem; overflow:hidden;
 }
 .cv-modal.open { display:flex; }
 .cv-modal-content {
   width:min(1000px, 100%);
+  max-height:calc(100vh - 2rem);
   background:var(--surface);
   border:1px solid var(--border);
   border-top:3px solid var(--accent);
@@ -184,8 +185,9 @@
 .cv-modal-body {
   display:grid;
   grid-template-columns:minmax(0, 1fr) 340px;
-  min-height:480px;
-  max-height:calc(100vh - 200px);
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
 }
 
 /* Toggle "Mostrar/Ocultar detalhes": esconde STATUS + DESCRIÇÃO,

@@ -26,6 +26,7 @@ router.post  ('/viagens/:viagemId/start',                auth, tenant, requireMo
 router.post  ('/viagens/:viagemId/finalize',             auth, tenant, requireModule, uuidParams('viagemId'), finalizeViagem, validate, controller.finalizeViagem);
 router.post  ('/viagens/:viagemId/cancel',               auth, tenant, requireModule, uuidParams('viagemId'), cancelViagem, validate, controller.cancelViagem);
 router.delete('/viagens/:viagemId',                      auth, tenant, requireModule, uuidParams('viagemId'), controller.removeViagem);
+router.post  ('/viagens/:viagemId/reopen',               auth, tenant, requireModule, uuidParams('viagemId'), controller.reopenViagem);
 
 // Activity log + comments
 router.get   ('/truck/:truckId/activity',                auth, tenant, requireModule, uuidParams('truckId'), controller.listActivity);

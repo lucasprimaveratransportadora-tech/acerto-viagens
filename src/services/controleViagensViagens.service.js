@@ -237,8 +237,44 @@ async function remove(viagemId, empresaId, req) {
   return { ok: true };
 }
 
+async function reopen(viagemId, empresaId, req) {
+  const v = await getById(viagemId, empresaId);
+  if (v.status_viagem !== 'FINALIZADA' && v.status_viagem !== 'CANCELADA') {
+    throw ApiError.badRequest('Só viagens FINALIZADAS ou CANCELADAS podem ser reabertas.');
+  }
+  // Garante que não há outra EM_CURSO no truck
+  const existing = await prisma.truckViagem.findFirst({
+    where: { truck_id: v.truck_id, status_viagem: 'EM_CURSO', deleted_at: null },
+  });
+  if (existing) {
+    throw ApiError.conflict('Este caminhão já tem uma viagem em curso. Finalize ou cancele a outra antes de reabrir esta.');
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.truckViagem.update({
+      where: { id: viagemId },
+      data: {
+        status_viagem: 'EM_CURSO',
+        finalized_at: null,
+        cancelled_at: null,
+        cancel_motivo: null,
+        data_entrega_realizada: null,
+      },
+    });
+    await activity.record({
+      tx, truckId: v.truck_id, viagemId,
+      tipo: 'VIAGEM_STARTED',
+      payload: { reopened: true, from_status: v.status_viagem },
+      author: req.user,
+    });
+    return u;
+  });
+  await audit.log({ req, empresaId, entity: 'TRUCK', action: 'UPDATE', entityId: v.truck_id, before: { viagem: v }, after: { viagem: updated } });
+  return updated;
+}
+
 module.exports = {
   listByTruck, getById, create, update,
-  start, finalize, cancel, remove,
+  start, finalize, cancel, remove, reopen,
   VALID_STATUS, EDITABLE_FIELDS,
 };

@@ -74,8 +74,9 @@ function renderViagemItem(v) {
     actions.push(`<button class="btn btn-accent btn-sm" onclick="cv.finalizeViagem('${esc(v.id)}')">Finalizar</button>`);
     actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.editViagem('${esc(v.id)}')">Editar</button>`);
     actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.cancelViagem('${esc(v.id)}')">Cancelar</button>`);
-  } else if (v.status_viagem === 'FINALIZADA') {
-    actions.push(`<button class="btn btn-ghost btn-sm" onclick="cv.editViagem('${esc(v.id)}')">Ver / Editar obs</button>`);
+  } else if (v.status_viagem === 'FINALIZADA' || v.status_viagem === 'CANCELADA') {
+    actions.push(`<button class="btn btn-accent btn-sm" onclick="cv.reopenViagem('${esc(v.id)}')">Reabrir</button>`);
+    actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.editViagem('${esc(v.id)}')">Editar</button>`);
   }
 
   return `
@@ -206,6 +207,17 @@ export async function finalizeViagem(viagemId) {
     if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
   } catch (e) {
     alert('Erro ao finalizar: ' + e.message);
+  }
+}
+
+export async function reopenViagem(viagemId) {
+  if (!confirm('Reabrir essa viagem? Ela voltará pro status EM CURSO.')) return;
+  try {
+    await api.post(`/api/controle-viagens/viagens/${viagemId}/reopen`);
+    await modal.reload();
+    if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
+  } catch (e) {
+    alert('Erro ao reabrir: ' + e.message);
   }
 }
 

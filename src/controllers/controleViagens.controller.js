@@ -54,6 +54,11 @@ const removeViagem = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
+const reopenViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.reopen(req.params.viagemId, req.empresaId, req);
+  res.json(v);
+});
+
 // Activity
 const listActivity = asyncHandler(async (req, res) => {
   const items = await activity.list({
@@ -83,6 +88,6 @@ const deleteComment = asyncHandler(async (req, res) => {
 module.exports = {
   getBoard, getTruckDetail, updateColumn,
   listViagens, createViagem, updateViagem,
-  startViagem, finalizeViagem, cancelViagem, removeViagem,
+  startViagem, finalizeViagem, cancelViagem, removeViagem, reopenViagem,
   listActivity, addComment, deleteComment,
 };
