@@ -1,324 +1,55 @@
-// trips.modal.js — Trip form with tabs (Geral, CTEs, Abastecimentos, Despesas, Folha de Acerto)
+// trips.modal.js — mini-modal para CRIAR viagem (caminhão + data inicial).
+// A edição é toda inline no card via buildDetail() em trips.js — sem modal.
 
 import { api } from './api.js';
-import { state, setSelectedTruck, DESP } from './state.js';
-import { fmt, esc } from './utils.js';
+import { state, setSelectedTruck } from './state.js';
+import { esc } from './utils.js';
 import { renderSidebar } from './sidebar.js';
 import { renderMain } from './dashboard.js';
-import { refresh as refreshTripAnexos } from './trip-anexos.js';
 
-const ALL_TABS = ['geral', 'ctes', 'abast', 'desp', 'anexo'];
-
-// ==================== TAB SWITCHING ====================
-
-window.switchTab = function (name, el) {
-  ALL_TABS.forEach(t => {
-    const tab = document.getElementById('tab-' + t);
-    const btn = document.getElementById('tab-btn-' + t);
-    if (tab) tab.style.display = t === name ? '' : 'none';
-    if (btn) btn.classList.remove('active');
-  });
-  if (el) el.classList.add('active');
-  else document.getElementById('tab-btn-' + name)?.classList.add('active');
-  if (name === 'anexo') refreshTripAnexos();
-};
-
-// ==================== OPEN TRIP MODAL ====================
-
-window.openTripModal = function (pre) {
-  const sel = document.getElementById('trpTruck');
+window.openTripModal = function (preTruckId) {
+  const sel = document.getElementById('newTripTruck');
   sel.innerHTML = state.trucks.map(t =>
-    `<option value="${esc(t.id)}">${esc(t.placa)}${t.modelo ? ' \u2014 ' + esc(t.modelo) : ''}</option>`
+    `<option value="${esc(t.id)}">${esc(t.placa)}${t.modelo ? ' — ' + esc(t.modelo) : ''}</option>`
   ).join('');
 
-  if (pre) sel.value = pre;
+  if (preTruckId) sel.value = preTruckId;
   else if (state.selectedTruckId) sel.value = state.selectedTruckId;
 
-  document.getElementById('trpDate').value = new Date().toISOString().split('T')[0];
-  ['trpDateEnd', 'trpOrigin', 'trpDest', 'trpCargo', 'trpObs', 'trpMotorista'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('trpKm').value = '';
-  document.getElementById('trpAdto').value = '';
-  document.getElementById('trpStatus').value = 'PENDENTE';
-  document.getElementById('tripEditId').dataset.id = '';
-  document.getElementById('cteTbody').innerHTML = '';
-  document.getElementById('fuelTbody').innerHTML = '';
-  document.getElementById('fuelKmInicial').value = '';
-  document.getElementById('fuelKmFinal').value = '';
-  document.getElementById('fuelKmPercLbl').textContent = '\u2014';
-  document.getElementById('cteTotalLbl').textContent = 'R$ 0,00';
-  document.getElementById('fuelTotalLbl').textContent = 'R$ 0,00';
-  document.getElementById('fuelLitrosLbl').textContent = '0 L';
-  document.getElementById('fuelMediaLbl').textContent = '\u2014';
-  window.buildDespFields({});
-  document.getElementById('despTotalLbl').textContent = 'R$ 0,00';
-  window.switchTab('geral', document.getElementById('tab-btn-geral'));
-  document.getElementById('tripModal').classList.add('open');
+  document.getElementById('newTripDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('newTripModal').classList.add('open');
 };
 
-window.closeTripModal = function () {
-  document.getElementById('tripModal').classList.remove('open');
-  // Fecha o painel lateral do PDF (se aberto) — libera blob e limpa estado
-  if (window.trpAnx && typeof window.trpAnx.closePane === 'function') {
-    window.trpAnx.closePane();
-  }
+window.closeNewTripModal = function () {
+  document.getElementById('newTripModal').classList.remove('open');
 };
 
-// ==================== EDIT TRIP (load into modal) ====================
+window.saveNewTrip = async function () {
+  const truckId = document.getElementById('newTripTruck').value;
+  const date = document.getElementById('newTripDate').value;
+  if (!truckId || !date) { alert('Informe o caminhão e a data!'); return; }
 
-window.editTrip = async function (id) {
-  try {
-    const tr = await api.get('/api/trips/' + id);
-    window.openTripModal(tr.truck_id);
-
-    document.getElementById('trpTruck').value = tr.truck_id;
-    document.getElementById('trpDate').value = (tr.data_inicio || '').slice(0, 10);
-    document.getElementById('trpDateEnd').value = (tr.data_fim || '').slice(0, 10);
-    document.getElementById('trpOrigin').value = tr.origem || '';
-    document.getElementById('trpDest').value = tr.destino || '';
-    document.getElementById('trpCargo').value = tr.carga || '';
-    document.getElementById('trpKm').value = tr.km_total || '';
-    document.getElementById('trpStatus').value = tr.status || 'PENDENTE';
-    document.getElementById('trpAdto').value = tr.adiantamento || '';
-    document.getElementById('trpObs').value = tr.observacoes || '';
-    const mot = document.getElementById('trpMotorista');
-    if (mot) mot.value = tr.motorista || '';
-    document.getElementById('tripEditId').dataset.id = id;
-    refreshTripAnexos();
-
-    // Load CTEs
-    (tr.ctes || []).forEach(c => window.addCteRow({
-      data: c.data || '',
-      num: c.numero || '',
-      origin: c.origem || '',
-      dest: c.destino || '',
-      valor: c.valor || ''
-    }));
-    window.updateCteTotals();
-
-    // Load Fuels
-    (tr.fuels || []).forEach(f => window.addFuelRow({
-      data: f.data || '',
-      litros: f.litros || '',
-      precoLitro: f.preco_litro || '',
-      posto: f.posto_cnpj || '',
-      nf: f.nota_fiscal || '',
-      km: f.km || '',
-      valor: f.valor_total || ''
-    }));
-    document.getElementById('fuelKmInicial').value = tr.km_inicial || '';
-    document.getElementById('fuelKmFinal').value = tr.km_final || '';
-    window.updateFuelTotals();
-
-    // Load Despesas from expenses array
-    const despVals = {};
-    (tr.expenses || []).forEach(e => { despVals[e.categoria] = e.valor; });
-    window.buildDespFields(despVals);
-    window.updateDespTotal();
-  } catch (e) {
-    alert('Erro ao carregar viagem: ' + e.message);
-  }
-};
-
-// ==================== CTE ROWS ====================
-
-window.addCteRow = function (d) {
-  const tbody = document.getElementById('cteTbody');
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="date" value="${d?.data || ''}" style="width:120px"></td>
-    <td><input type="text" placeholder="N\u00BA CTE" value="${esc(d?.num || '')}" style="width:100px"></td>
-    <td><input type="text" placeholder="Origem" value="${esc(d?.origin || '')}"></td>
-    <td><input type="text" placeholder="Destino" value="${esc(d?.dest || '')}"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.valor || ''}" oninput="updateCteTotals()" style="width:110px"></td>
-    <td><button class="action-btn del" onclick="this.closest('tr').remove();updateCteTotals()" style="font-size:.85rem">\u2715</button></td>`;
-  tbody.appendChild(tr);
-};
-
-window.updateCteTotals = function () {
-  let t = 0;
-  document.querySelectorAll('#cteTbody tr').forEach(r => {
-    const ins = r.querySelectorAll('input');
-    t += parseFloat(ins[4].value || 0);
-  });
-  document.getElementById('cteTotalLbl').textContent = 'R$ ' + fmt(t);
-};
-
-function getCteRows() {
-  return Array.from(document.querySelectorAll('#cteTbody tr')).map(r => {
-    const ins = r.querySelectorAll('input');
-    return {
-      data: (ins[0].value || '').trim() || null,
-      numero: ins[1].value,
-      origem: ins[2].value,
-      destino: ins[3].value,
-      valor: parseFloat(ins[4].value) || 0
-    };
-  }).filter(c => c.numero || c.valor);
-}
-
-// ==================== FUEL ROWS ====================
-
-window.addFuelRow = function (d) {
-  const tbody = document.getElementById('fuelTbody');
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="date" value="${d?.data || ''}" style="width:120px"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.litros || ''}" oninput="autoCalcFuelRow(this,'litros')" style="width:65px"></td>
-    <td><input type="number" placeholder="0,00" step="0.01" value="${d?.precoLitro || ''}" oninput="autoCalcFuelRow(this,'preco')" style="width:60px"></td>
-    <td><input type="text" placeholder="ex: SMIDERLE, PRIMA" value="${esc(d?.posto || '')}" style="min-width:130px"></td>
-    <td><input type="text" placeholder="N\u00ba NF" value="${esc(d?.nf || '')}" style="width:85px"></td>
-    <td><input type="number" placeholder="KM" value="${d?.km || ''}" style="width:75px"></td>
-    <td><input type="number" placeholder="R$ 0,00" step="0.01" value="${d?.valor || ''}" oninput="autoCalcFuelRow(this,'valor')" style="width:95px"></td>
-    <td><button class="action-btn del" onclick="this.closest('tr').remove();updateFuelTotals()" style="font-size:.85rem">\u2715</button></td>`;
-  tbody.appendChild(tr);
-};
-
-window.autoCalcFuelRow = function (input, field) {
-  const row = input.closest('tr');
-  const ins = row.querySelectorAll('input');
-  const litros = parseFloat(ins[1].value) || 0;
-  const preco = parseFloat(ins[2].value) || 0;
-  const valor = parseFloat(ins[6].value) || 0;
-  if (field === 'litros') {
-    if (preco > 0) ins[6].value = (litros * preco).toFixed(2);
-    else if (valor > 0 && litros > 0) ins[2].value = (valor / litros).toFixed(2);
-  } else if (field === 'preco') {
-    if (litros > 0) ins[6].value = (litros * preco).toFixed(2);
-    else if (valor > 0 && preco > 0) ins[1].value = (valor / preco).toFixed(2);
-  } else if (field === 'valor') {
-    if (litros > 0) ins[2].value = (valor / litros).toFixed(2);
-    else if (preco > 0 && valor > 0) ins[1].value = (valor / preco).toFixed(2);
-  }
-  window.updateFuelTotals();
-};
-
-window.updateFuelTotals = function () {
-  const rows = document.querySelectorAll('#fuelTbody tr');
-  let tv = 0, tl = 0;
-  rows.forEach(r => {
-    const ins = r.querySelectorAll('input');
-    tl += parseFloat(ins[1].value || 0);
-    tv += parseFloat(ins[6].value || 0);
-  });
-  document.getElementById('fuelTotalLbl').textContent = 'R$ ' + fmt(tv);
-  document.getElementById('fuelLitrosLbl').textContent = tl.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' L';
-
-  const kmIni = parseFloat(document.getElementById('fuelKmInicial').value || 0);
-  const kmFin = parseFloat(document.getElementById('fuelKmFinal').value || 0);
-  const kmPerc = kmFin > kmIni ? kmFin - kmIni : 0;
-  document.getElementById('fuelKmPercLbl').textContent = kmPerc > 0 ? kmPerc.toLocaleString('pt-BR') + ' km' : '\u2014';
-  document.getElementById('fuelMediaLbl').textContent = (tl > 0 && kmPerc > 0) ? (kmPerc / tl).toFixed(2) + ' km/L' : '\u2014';
-};
-
-function getFuelRows() {
-  return Array.from(document.querySelectorAll('#fuelTbody tr')).map(r => {
-    const ins = r.querySelectorAll('input');
-    return {
-      data: (ins[0].value || '').trim() || null,
-      litros: parseFloat(ins[1].value) || 0,
-      preco_litro: parseFloat(ins[2].value) || 0,
-      posto_cnpj: ins[3].value,
-      nota_fiscal: ins[4].value,
-      km: parseFloat(ins[5].value) || 0,
-      valor_total: parseFloat(ins[6].value) || 0
-    };
-  }).filter(f => f.litros || f.valor_total || f.posto_cnpj);
-}
-
-// ==================== DESPESAS ====================
-
-window.buildDespFields = function (vals) {
-  const grid = document.getElementById('despGrid');
-  grid.innerHTML = DESP.map(dk => `
-    <div class="form-group" style="margin-bottom:.45rem">
-      <label>${esc(dk.l)}</label>
-      <input type="number" id="desp_${dk.k}" placeholder="0,00" step="0.01" value="${vals && vals[dk.k] ? vals[dk.k] : ''}" oninput="updateDespTotal()">
-    </div>`).join('');
-};
-
-window.updateDespTotal = function () {
-  let t = 0;
-  DESP.forEach(dk => {
-    t += parseFloat(document.getElementById('desp_' + dk.k)?.value || 0);
-  });
-  document.getElementById('despTotalLbl').textContent = 'R$ ' + fmt(t);
-};
-
-function getDespValues() {
-  // Backend espera objeto { CATEGORIA: valor } — não array.
-  const obj = {};
-  DESP.forEach(dk => {
-    const v = parseFloat(document.getElementById('desp_' + dk.k)?.value || 0) || 0;
-    if (v > 0) obj[dk.k] = v;
-  });
-  return obj;
-}
-
-// ==================== SAVE TRIP ====================
-
-window.saveTrip = async function () {
-  const truckId = document.getElementById('trpTruck').value;
-  const date = document.getElementById('trpDate').value;
-  if (!truckId || !date) { alert('Informe o caminh\u00E3o e a data!'); return; }
-
-  // KM total derivado automaticamente do KM Inicial/Final da aba Abastecimentos
-  // (deixou de ser campo digitável separado pra evitar duplicação).
-  const kmIni = parseFloat(document.getElementById('fuelKmInicial').value) || 0;
-  const kmFim = parseFloat(document.getElementById('fuelKmFinal').value) || 0;
-  const kmTotal = (kmFim > kmIni) ? Math.round(kmFim - kmIni) : 0;
-
-  // Payload aninhado: trip + ctes + fuels numa única request. Antes o front
-  // fazia PATCH + N DELETEs + N POSTs + M DELETEs + M POSTs sequencialmente,
-  // e qualquer blip de rede deixava a viagem meio-reconstruída. Agora o
-  // backend grava tudo dentro de uma transação Prisma — atômico.
-  const tripPayload = {
-    data_inicio: date,
-    data_fim: document.getElementById('trpDateEnd').value || null,
-    origem: document.getElementById('trpOrigin').value.trim(),
-    destino: document.getElementById('trpDest').value.trim(),
-    carga: document.getElementById('trpCargo').value.trim(),
-    motorista: (document.getElementById('trpMotorista')?.value || '').trim(),
-    km_total: kmTotal,
-    status: document.getElementById('trpStatus').value,
-    adiantamento: parseFloat(document.getElementById('trpAdto').value) || 0,
-    observacoes: document.getElementById('trpObs').value.trim(),
-    km_inicial: kmIni,
-    km_final: kmFim,
-    ctes: getCteRows(),
-    fuels: getFuelRows(),
-  };
-
-  const expenses = getDespValues();
-  const eid = document.getElementById('tripEditId').dataset.id;
-
-  // Trava o botão durante o save — evita double-submit duplicar CTEs/Fuels.
-  const saveBtn = document.querySelector('button[onclick*="saveTrip"]');
-  const originalLabel = saveBtn?.textContent;
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Salvando...'; }
+  const btn = document.querySelector('#newTripModal .btn-accent');
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
 
   try {
-    let savedTrip;
-    if (eid) {
-      savedTrip = await api.patch('/api/trips/' + eid, tripPayload);
-    } else {
-      savedTrip = await api.post('/api/trips/truck/' + truckId, tripPayload);
-    }
-
-    // Despesas seguem em endpoint separado (modelo de upsert por categoria).
-    if (Object.keys(expenses).length) {
-      await api.put('/api/expenses/trip/' + savedTrip.id, expenses);
-    }
-
+    const created = await api.post('/api/trips/truck/' + truckId, {
+      data_inicio: date,
+    });
     setSelectedTruck(truckId);
-    window.closeTripModal();
+    window.closeNewTripModal();
     renderSidebar();
     await renderMain();
+
+    // Auto-expande o card recém-criado pro usuário editar inline
+    setTimeout(() => {
+      const det = document.getElementById('detail_' + created.id);
+      if (det) det.classList.add('open');
+    }, 50);
   } catch (e) {
-    alert('Erro ao salvar viagem: ' + e.message);
+    alert('Erro ao criar viagem: ' + e.message);
   } finally {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
+    if (btn) { btn.disabled = false; btn.textContent = original; }
   }
 };

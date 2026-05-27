@@ -5,7 +5,7 @@
 // botão de + Lançar entrada / + Importar Planilha.
 
 import { api } from './api.js';
-import { esc } from './utils.js';
+import { esc, fmtD } from './utils.js';
 
 const state = {
   overview: [],
@@ -39,12 +39,10 @@ function fmtBRLShort(n) {
   if (abs >= 1_000)     return (v < 0 ? '−' : '') + 'R$ ' + (abs / 1_000).toFixed(0) + 'k';
   return fmtBRL(v);
 }
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
+// Antes fazia new Date(ISO) — em UTC-3 a coluna Data da timeline e do
+// gráfico exibia 1 dia anterior pra entradas com data midnight UTC.
+// Delega pro fmtD do utils.js (slice + T12:00:00).
+const fmtDate = fmtD;
 function fmtMonth(s) {
   if (!s) return '';
   // s = "2024-03"
@@ -284,6 +282,10 @@ function renderTimeline() {
 
   // Saldo acumulado: parte do saldo inicial (caminhões antigos podem ter
   // valor pré-existente) e percorre os lançamentos em ordem cronológica.
+  // Antes não ordenava — se a API retornasse DESC (recente primeiro), a
+  // coluna "Saldo" ficava completamente errada (somava na ordem errada).
+  // slice() faz cópia pra não mutar state.detailsEntries.
+  rows = rows.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
   let acc = Number(state.detailsSummary?.saldoInicial || 0);
   const trId = state.detailsTruck?.truck_id;
   tbody.innerHTML = rows.map(e => {
@@ -479,7 +481,7 @@ function uploadXHR(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.upload.onprogress = (ev) => {
@@ -554,7 +556,7 @@ async function openAnexoFile(ev, entryId) {
   body.innerHTML = '<div class="ft-prev-loading">Carregando…</div>';
   document.getElementById('ftAnexoPreviewModal').classList.add('open');
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/truck-ledger/${truckId}/entries/${entryId}/anexo/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',

@@ -4,7 +4,7 @@
 // e uma pasta de anexos (GR aprovado, CRLV, CNH, contrato, etc).
 
 import { api } from './api.js';
-import { esc } from './utils.js';
+import { esc, fmtD } from './utils.js';
 
 const state = {
   trucks: [],
@@ -25,11 +25,9 @@ function fmtSize(n) {
   if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
   return (n / 1024 / 1024).toFixed(2) + ' MB';
 }
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s); if (isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
+// Antes fazia new Date(ISO) — em UTC-3 perdia 1 dia pra datas armazenadas
+// como midnight UTC. Delega pro fmtD do utils.js (slice + T12:00:00).
+const fmtDate = fmtD;
 
 const TIPO_LABEL = {
   GR_APROVADO:    'Gerenciamento de Risco',
@@ -331,7 +329,7 @@ function uploadXHR(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.upload.onprogress = (ev) => {
@@ -422,7 +420,7 @@ async function openAnexoFile(ev, anexoId) {
   body.innerHTML = '<div class="ft-prev-loading">Carregando…</div>';
   document.getElementById('ftAnexoPreviewModal').classList.add('open');
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/trucks/${state.detailsId}/anexos/${anexoId}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',

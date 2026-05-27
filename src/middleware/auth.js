@@ -1,15 +1,22 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const prisma = require('../config/database');
+const ApiError = require('../utils/ApiError');
 
+// Auth middleware: encaminha qualquer falha via next(err) pra que o
+// errorHandler estruturado anexe requestId, codigo e log JSON consistentes
+// com o resto da API. Antes respondia direto com res.status().json()
+// — quebrava a correlacao por requestId que foi introduzida no Pacote 1.
 async function auth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Token não fornecido.' });
+      throw ApiError.unauthorized('Token não fornecido.');
     }
 
     const token = authHeader.split(' ')[1];
+    // jwt.verify lanca JsonWebTokenError / TokenExpiredError — o
+    // errorHandler.classify() ja mapeia esses dois pra 401 com codigo.
     const decoded = jwt.verify(token, config.jwt.secret);
 
     const user = await prisma.user.findUnique({
@@ -18,16 +25,13 @@ async function auth(req, res, next) {
     });
 
     if (!user || !user.ativo) {
-      return res.status(401).json({ error: 'Usuário inativo ou não encontrado.' });
+      throw ApiError.unauthorized('Usuário inativo ou não encontrado.');
     }
 
     req.user = user;
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expirado.', code: 'TOKEN_EXPIRED' });
-    }
-    return res.status(401).json({ error: 'Token inválido.' });
+    next(error);
   }
 }
 

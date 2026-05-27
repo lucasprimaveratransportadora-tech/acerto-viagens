@@ -88,7 +88,10 @@ async function refresh(refreshTokenValue, reqMeta) {
 
   if (!stored || stored.expires_at < new Date()) {
     if (stored) {
-      await prisma.refreshToken.delete({ where: { id: stored.id } });
+      // deleteMany pra ser idempotente: se outra request paralela já apagou
+      // o token (race quando o usuário tem 2 abas dando refresh ao mesmo
+      // tempo), .delete() throwa P2025; deleteMany retorna 0 e segue.
+      await prisma.refreshToken.deleteMany({ where: { id: stored.id } });
     }
     await loginEvents.log({
       req: reqMeta,
@@ -111,7 +114,14 @@ async function refresh(refreshTokenValue, reqMeta) {
   }
 
   // Rotate: delete old, create new
-  await prisma.refreshToken.delete({ where: { id: stored.id } });
+  // deleteMany pra ser idempotente — se outra aba paralela ja rotacionou
+  // o mesmo token, .delete() lanca P2025 (404). Com deleteMany e checagem
+  // do count, detectamos o race-lost e devolvemos 401 (cliente deve usar
+  // o token novo emitido pela primeira request).
+  const deleted = await prisma.refreshToken.deleteMany({ where: { id: stored.id } });
+  if (deleted.count === 0) {
+    throw ApiError.unauthorized('Refresh token já rotacionado (race entre abas).');
+  }
 
   const accessToken = generateAccessToken(stored.user);
   const newRefreshToken = await generateRefreshToken(stored.user.id);

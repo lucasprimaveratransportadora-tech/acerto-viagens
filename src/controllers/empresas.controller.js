@@ -12,17 +12,17 @@ const getById = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const empresa = await empresasService.create(req.body);
+  const empresa = await empresasService.create(req, req.body);
   res.status(201).json(empresa);
 });
 
 const update = asyncHandler(async (req, res) => {
-  const empresa = await empresasService.update(req.params.id, req.body);
+  const empresa = await empresasService.update(req.params.id, req, req.body);
   res.json(empresa);
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await empresasService.remove(req.params.id);
+  await empresasService.remove(req.params.id, req);
   res.json({ message: 'Empresa desativada.' });
 });
 

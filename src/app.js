@@ -60,6 +60,18 @@ app.use('/src', express.static(path.join(__dirname, '..', 'src', 'public-assets'
 // API routes
 app.use('/api', routes);
 
+// 404 explícito pra /api/* — antes, /api/rota-inexistente caía no
+// SPA fallback abaixo e retornava index.html com status 200, fazendo
+// clientes JSON receberem HTML pra endpoint que não existe.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'Rota não encontrada.',
+    code: 'API_NOT_FOUND',
+    path: req.originalUrl,
+    requestId: req.id || null,
+  });
+});
+
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

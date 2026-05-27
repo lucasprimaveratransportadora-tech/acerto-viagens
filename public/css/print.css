@@ -1,0 +1,178 @@
+/* Impressão da folha de acerto — entregue ao motorista.
+   Mostra só o card da Trip cujo id == body[data-print-trip], oculta o resto.
+   Acionado via window.printAcerto(tripId) em trips.js */
+
+/* Header de impressão fica escondido em tela; só aparece no @media print */
+.print-header { display: none; }
+
+@media print {
+  /* Reset cores pra impressão em preto-no-branco */
+  body, .trip-card, .trip-detail, .detail-section, .acerto-box, .month-block, .month-hdr, .trip-info-bar {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  * { box-shadow: none !important; text-shadow: none !important; }
+
+  /* Esconde tudo que é UI ambiente */
+  .sidebar,
+  .page-header,
+  .kpi-row,
+  .month-hdr,
+  .trip-actions,
+  .inline-add-row,
+  .inline-del,
+  .action-btn,
+  .collapse-icon,
+  .empty-state,
+  #newTripModal,
+  #confirmOverlay,
+  .modal-overlay,
+  .trip-folha-btn,
+  .status-badge,
+  #trpPdfPane,
+  #globalPdfPane,
+  .trip-frete-section,
+  .pwa-install,
+  .trip-info-bar .trip-info-input::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+
+  /* Esconde todos os cards exceto o impresso */
+  .trip-card { display: none !important; }
+  body[data-print-trip] .trip-card[data-trip-id-print="match"] { display: block !important; }
+
+  /* Mostra todo o detail aberto */
+  body[data-print-trip] .trip-detail {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    background: #fff !important;
+    gap: 4mm !important;
+    border: none !important;
+  }
+
+  /* Header do card colapsa para um resumo (já temos o print-header próprio acima) */
+  body[data-print-trip] .trip-header {
+    display: none !important;
+  }
+
+  /* Header de impressão — inserido em tempo de print no topo do body */
+  body[data-print-trip] .print-header {
+    display: block !important;
+    text-align: center;
+    padding: 6mm 0 5mm 0;
+    border-bottom: 2px solid #000;
+    margin-bottom: 5mm;
+    page-break-after: avoid;
+  }
+  .print-logo {
+    max-height: 28mm;
+    margin: 0 auto 4mm auto;
+    display: block;
+  }
+  .print-titulo {
+    font-size: 20pt;
+    font-weight: 800;
+    letter-spacing: .06em;
+    margin: 0 0 3mm 0;
+    text-transform: uppercase;
+  }
+  .print-subtitulo {
+    font-size: 10pt;
+    display: flex;
+    justify-content: center;
+    gap: 10mm;
+    flex-wrap: wrap;
+  }
+  .print-subtitulo strong { font-weight: 700; }
+
+  /* Faixa de info: vira texto inline (já estamos imprimindo) */
+  .trip-info-bar {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1mm 4mm !important;
+    padding: 2mm 3mm !important;
+    margin-bottom: 3mm !important;
+    border: 1px solid #888 !important;
+    background: #f8f8f8 !important;
+    border-radius: 0 !important;
+  }
+  .trip-info-input {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    padding: 0 !important;
+    font-size: 9pt !important;
+  }
+
+  /* Layout interno do card impresso */
+  .detail-grid { display: block !important; }
+  .detail-section {
+    page-break-inside: avoid;
+    margin-bottom: 3mm !important;
+    border: 1px solid #888 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+  .detail-section-hdr {
+    background: #eee !important;
+    color: #000 !important;
+    border-bottom: 1px solid #888 !important;
+    padding: 1.5mm 3mm !important;
+  }
+  .detail-section-title, .detail-section-total { color: #000 !important; }
+  .desp-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 6mm !important; }
+  .desp-row { padding: .5mm 3mm !important; border-bottom: 1px dotted #ccc !important; }
+  .desp-row .desp-inline-input {
+    background: transparent !important;
+    border: none !important;
+    color: #000 !important;
+    text-align: right;
+    padding: 0 !important;
+    font-size: 9pt !important;
+    width: auto;
+  }
+
+  /* Acerto final — fica na mesma página que o resto se couber */
+  .acerto-box {
+    page-break-inside: avoid;
+    border: 2px solid #000 !important;
+    padding: 3mm 4mm !important;
+    margin-top: 4mm !important;
+    border-radius: 0 !important;
+  }
+  .acerto-line { padding: 1mm 0 !important; border-bottom: 1px dotted #aaa !important; }
+  .acerto-line:last-child { border-top: 2px solid #000 !important; border-bottom: none !important; font-size: 13pt !important; }
+
+  /* Cores semânticas — mantém vermelho só pra destacar despesas/negativos */
+  .val.pos { color: #000 !important; }
+  .val.neg { color: #b91c1c !important; font-weight: 700; }
+  .acerto-line .al-val { color: #000 !important; }
+  .acerto-line:last-child .al-val { color: #000 !important; font-weight: 800; }
+
+  /* Tabela de abastecimentos */
+  table.mini-table { width: 100%; border-collapse: collapse; }
+  table.mini-table th,
+  table.mini-table td {
+    border: 1px solid #bbb !important;
+    padding: 1mm 2mm !important;
+    font-size: 8.5pt !important;
+    color: #000 !important;
+  }
+  table.mini-table th { background: #f0f0f0 !important; }
+
+  /* Sem hover/transição na impressão */
+  *:hover { background: inherit !important; }
+
+  /* Seções de anexos e frete retorno - desnecessárias na folha do motorista */
+  body[data-print-trip] .trip-anexo-inline-list,
+  body[data-print-trip] [id^="tripFreteLinked_"],
+  body[data-print-trip] .detail-section:has(.btn) .btn {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}

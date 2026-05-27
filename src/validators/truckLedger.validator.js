@@ -25,8 +25,13 @@ const updateEntry = [
 ];
 
 const addAnexoUrl = [
-  body('nome').notEmpty().withMessage('Nome obrigatório.'),
-  body('url').notEmpty().withMessage('URL obrigatória.').isLength({ max: 4000 }),
+  body('nome').notEmpty().withMessage('Nome obrigatório.').isLength({ max: 200 }),
+  // isURL valida que tem protocolo (http/https). Antes só checava notEmpty
+  // e length — qualquer string passava e o /download tentava fetch.
+  body('url')
+    .notEmpty().withMessage('URL obrigatória.')
+    .isURL({ require_protocol: true }).withMessage('URL inválida (precisa começar com http:// ou https://).')
+    .isLength({ max: 4000 }),
 ];
 
 module.exports = { createEntry, updateEntry, addAnexoUrl };

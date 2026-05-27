@@ -186,7 +186,11 @@ async function update(id, empresaId, req, data) {
   if (data.valor_total != null)      patch.valor_total = total;
   if (data.valor_adiantamento != null) patch.valor_adiantamento = adi;
   if (data.forma_pagamento != null)  patch.forma_pagamento = data.forma_pagamento;
-  if (data.data_adiantamento != null) patch.data_adiantamento = data.data_adiantamento ? new Date(data.data_adiantamento) : null;
+  // !== undefined (não != null) — assim o cliente CONSEGUE limpar a data
+  // mandando { data_adiantamento: null } explicitamente. Com != null, a
+  // checagem era false pra null, então o patch nunca incluía a chave e
+  // o backend nunca conseguia voltar a data pra null.
+  if (data.data_adiantamento !== undefined) patch.data_adiantamento = data.data_adiantamento ? new Date(data.data_adiantamento) : null;
   if (data.observacoes !== undefined) patch.observacoes = data.observacoes || null;
   patch.status = status;
 
@@ -361,9 +365,12 @@ async function removeBaixa(freteId, baixaId, empresaId, req) {
       data: {
         valor_pago: novoPago,
         status: novoStatus,
-        // Se zerou pagamentos, limpa datas
+        // Se zerou pagamentos, limpa datas E o paid_by_id — senão o frete
+        // ficava com "pago por fulano" mesmo sem nenhuma baixa, dando a
+        // impressão de que foi pago.
         data_pagamento: novoPago > 0 ? frete.data_pagamento : null,
         data_adiantamento: novoPago > 0 ? frete.data_adiantamento : null,
+        paid_by_id: novoPago > 0 ? frete.paid_by_id : null,
       },
     }),
   ]);

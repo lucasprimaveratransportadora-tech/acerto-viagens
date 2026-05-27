@@ -3,7 +3,7 @@
 // Visão pública: window.ft.* expõe ações chamadas pelos onclick do HTML.
 
 import { api } from './api.js';
-import { esc } from './utils.js';
+import { esc, fmtD } from './utils.js';
 
 const state = {
   items: [],
@@ -19,12 +19,11 @@ const state = {
 function fmtBRL(n) {
   return Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function fmtDate(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
+// fmtDate antes fazia new Date(ISO) direto — em UTC-3 (Brasil), uma
+// data armazenada como 2025-09-19T00:00:00.000Z exibia 18/09/2025
+// (offset de 1 dia atrás). Agora delega pro fmtD do utils.js que faz
+// slice(0,10) + T12:00:00 pra preservar o dia exato.
+const fmtDate = fmtD;
 function dateISO(d = new Date()) { return new Date(d).toISOString().slice(0, 10); }
 function statusPill(s) {
   const map = {
@@ -550,7 +549,7 @@ async function openAnexoFile(ev, anexoId) {
   document.getElementById('ftAnexoPreviewModal').classList.add('open');
 
   try {
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     const res = await fetch(`/api/fretes-terceiros/${state.detailsId}/anexos/${anexoId}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       credentials: 'include',
@@ -683,7 +682,7 @@ function uploadXHR(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    const token = sessionStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.withCredentials = true;
     xhr.upload.onprogress = (ev) => {

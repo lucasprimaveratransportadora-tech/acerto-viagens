@@ -50,6 +50,16 @@ const ALLOWED_MIME_TYPES = [
   'text/xml',
 ];
 
+// Tipos aceitos no importer XLSX do truck-ledger.
+// .xlsx moderno = openxml; .xls antigo = ms-excel; alguns navegadores
+// reportam octet-stream pra arquivos baixados — aceitamos com cautela
+// porque o parse interno (xlsx package) já rejeita formatos inválidos.
+const XLSX_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/octet-stream',
+];
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 module.exports = {
@@ -59,5 +69,6 @@ module.exports = {
   EXPENSE_LABELS,
   ATTACHMENT_TYPES,
   ALLOWED_MIME_TYPES,
+  XLSX_MIME_TYPES,
   MAX_FILE_SIZE,
 };
