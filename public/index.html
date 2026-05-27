@@ -28,6 +28,7 @@
 <link rel="stylesheet" href="/css/veiculos.css">
 <link rel="stylesheet" href="/css/rentabilidade.css">
 <link rel="stylesheet" href="/css/mobile.css">
+<link rel="stylesheet" href="/css/print.css" media="all">
 <script>
   // Aplica tema antes do paint para evitar flash
   (function() {
@@ -1269,200 +1270,46 @@
   </div>
 </div>
 
-<!-- MODAL VIAGEM -->
-<div class="modal-overlay" id="tripModal">
-  <div class="modal" style="width:1020px;max-width:96vw">
-    <div class="modal-title">📋 Acerto de Viagem</div>
-    <div class="tabs">
-      <div class="tab active" id="tab-btn-geral" onclick="switchTab('geral',this)">⚙️ Geral</div>
-      <div class="tab" id="tab-btn-ctes" onclick="switchTab('ctes',this)">📄 CTes</div>
-      <div class="tab" id="tab-btn-abast" onclick="switchTab('abast',this)">⛽ Abastecimentos</div>
-      <div class="tab" id="tab-btn-desp" onclick="switchTab('desp',this)">💸 Despesas</div>
-      <div class="tab" id="tab-btn-anexo" onclick="switchTab('anexo',this)">📎 Folha de Acerto</div>
-    </div>
-
-    <!-- TAB GERAL -->
-    <div id="tab-geral">
-      <!-- ============ 🚚 INÍCIO (quando o caminhão sai) ============ -->
-      <div class="trip-section">
-        <div class="trip-section-head">
-          <span class="trip-section-icon">🚚</span>
-          <span class="trip-section-title">Início da viagem</span>
-          <span class="trip-section-hint">(preenche na saída)</span>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Caminhão *</label>
-            <select id="trpTruck"></select>
-          </div>
-          <div class="form-group">
-            <label>Data Início *</label>
-            <input type="date" id="trpDate">
-          </div>
-          <div class="form-group">
-            <label>Motorista da viagem</label>
-            <input type="text" id="trpMotorista" placeholder="Quem está rodando" maxlength="120">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Origem</label>
-            <input type="text" id="trpOrigin" placeholder="ex: São Paulo - SP">
-          </div>
-          <div class="form-group">
-            <label>Destino</label>
-            <input type="text" id="trpDest" placeholder="ex: Goiânia - GO">
-          </div>
-          <div class="form-group">
-            <label>Carga / Produto</label>
-            <input type="text" id="trpCargo" placeholder="ex: Soja, Granel...">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Adiantamento ao Motorista (R$)</label>
-            <input type="number" id="trpAdto" placeholder="0,00" step="0.01">
-          </div>
-          <div class="form-group" style="flex:2">
-            <label>Observações</label>
-            <input type="text" id="trpObs" placeholder="Notas adicionais...">
-          </div>
-        </div>
-      </div>
-
-      <!-- ============ 🏁 APÓS O RETORNO (preenche quando chega) ============ -->
-      <div class="trip-section trip-section-late">
-        <div class="trip-section-head">
-          <span class="trip-section-icon">🏁</span>
-          <span class="trip-section-title">Após o retorno</span>
-          <span class="trip-section-hint">(preenche quando o caminhão volta — opcional até lá)</span>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Data Fim</label>
-            <input type="date" id="trpDateEnd">
-            <small style="color:var(--muted);font-size:.66rem">Deixe em branco enquanto a viagem está em curso.</small>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select id="trpStatus">
-              <option value="PENDENTE">⏳ Em andamento</option>
-              <option value="OK">✅ Concluída</option>
-              <option value="CANCELADA">❌ Cancelada</option>
-            </select>
-          </div>
-        </div>
-        <small style="color:var(--muted);font-size:.66rem;display:block;margin-top:.4rem">
-          ⓘ Os <b>KM percorridos</b> são calculados automaticamente a partir do
-          <b>KM Inicial</b> e <b>KM Final</b> da aba ⛽ Abastecimentos.
-        </small>
-      </div>
-      <input type="hidden" id="trpKm">
-
-      <!-- Frete Terceiro (retorno) -->
-      <div class="trip-frete-section">
-        <h4>🔁 Frete Retorno (Terceiro)</h4>
-        <div id="tripFreteLinked" style="font-size:.78rem;color:var(--muted)">
-          Nenhum frete terceiro vinculado. Use o botão para puxar um frete de retorno já lançado.
-        </div>
-        <div style="margin-top:.6rem">
-          <button type="button" class="btn btn-blue btn-sm" onclick="openPullFreteModal()">+ Puxar Frete Retorno</button>
-        </div>
+<!-- MINI-MODAL: criar viagem (só caminhão + data inicial). Edição é toda inline no card. -->
+<div class="modal-overlay" id="newTripModal">
+  <div class="modal" style="width:420px;max-width:96vw">
+    <div class="modal-title">📋 Nova Viagem</div>
+    <div class="form-row" style="margin-top:.6rem">
+      <div class="form-group" style="flex:1">
+        <label>Caminhão *</label>
+        <select id="newTripTruck"></select>
       </div>
     </div>
-
-    <!-- TAB CTEs -->
-    <div id="tab-ctes" style="display:none">
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table class="entry-table" id="cteTable">
-          <thead><tr><th>Data</th><th>Nº CTE</th><th>Origem</th><th>Destino</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
-          <tbody id="cteTbody"></tbody>
-        </table>
-      </div>
-      <button class="btn btn-blue btn-sm" onclick="addCteRow()">+ Adicionar CTE</button>
-      <div class="total-bar total-bar-green" style="margin-top:.6rem">
-        <span>TOTAL FRETES</span>
-        <span class="tval" id="cteTotalLbl" style="color:var(--success)">R$ 0,00</span>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Data de início *</label>
+        <input type="date" id="newTripDate">
       </div>
     </div>
-
-    <!-- TAB ABASTECIMENTOS -->
-    <div id="tab-abast" style="display:none">
-      <div style="display:flex;gap:10px;margin-bottom:.7rem;align-items:flex-end;background:rgba(56,189,248,.04);border:1px solid rgba(56,189,248,.15);border-radius:7px;padding:.6rem .8rem">
-        <div class="form-group" style="flex:1">
-          <label>KM Inicial (saída)</label>
-          <input type="number" id="fuelKmInicial" placeholder="ex: 152000" oninput="updateFuelTotals()">
-        </div>
-        <div class="form-group" style="flex:1">
-          <label>KM Final (chegada)</label>
-          <input type="number" id="fuelKmFinal" placeholder="ex: 154500" oninput="updateFuelTotals()">
-        </div>
-        <div style="padding-bottom:2px;font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--muted);min-width:110px">
-          KM percorridos:<br><span id="fuelKmPercLbl" style="color:var(--text);font-weight:600">—</span>
-        </div>
-      </div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table class="entry-table" id="fuelTable">
-          <thead><tr><th>Data</th><th>Litros</th><th>R$/L</th><th>Posto</th><th>NF</th><th>KM</th><th>Valor (R$)</th><th style="width:32px"></th></tr></thead>
-          <tbody id="fuelTbody"></tbody>
-        </table>
-      </div>
-      <button class="btn btn-blue btn-sm" onclick="addFuelRow()">+ Adicionar Abastecimento</button>
-      <div class="total-bar total-bar-blue" style="margin-top:.6rem">
-        <span>TOTAL</span>
-        <span class="tval" id="fuelTotalLbl" style="color:var(--info)">R$ 0,00</span>
-        <span>Litros: <span class="tval" id="fuelLitrosLbl" style="color:var(--text)">0 L</span></span>
-        <span>Média consumo: <span class="tval" id="fuelMediaLbl" style="color:var(--accent)">—</span></span>
-      </div>
-    </div>
-
-    <!-- TAB DESPESAS -->
-    <div id="tab-desp" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="despGrid"></div>
-      <div class="total-bar total-bar-red" style="margin-top:.6rem">
-        <span>TOTAL DESPESAS</span>
-        <span class="tval" id="despTotalLbl" style="color:var(--danger)">R$ 0,00</span>
-      </div>
-    </div>
-
-    <!-- TAB ANEXOS (FOLHA DE ACERTO) -->
-    <div id="tab-anexo" style="display:none">
-      <div id="trpAnexoEmpty" style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
-        Salve a viagem para anexar a folha digitalizada (PDF/imagem).
-      </div>
-      <div id="trpAnexoToolbar" style="display:none;margin-bottom:.6rem">
-        <button class="btn btn-accent btn-sm" onclick="trpAnx.openModal()">📎 Adicionar folha</button>
-        <small style="color:var(--muted);font-size:.7rem;margin-left:.6rem">
-          Você também pode arrastar o PDF/imagem em qualquer lugar dessa aba.
-        </small>
-      </div>
-      <div id="trpAnexoDropZone" style="display:none">
-        <div id="trpAnexoList" class="ft-anexos-list"></div>
-      </div>
-    </div>
-
-    <div id="tripEditId" style="display:none"></div>
+    <small style="color:var(--muted);font-size:.7rem;display:block;margin-top:.4rem">
+      ⓘ Depois de criar, todos os campos da viagem (CTes, abastecimentos, despesas, folha de acerto) são editados direto no card, sem precisar abrir modal.
+    </small>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeTripModal()">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveTrip()">Salvar Viagem</button>
+      <button class="btn btn-ghost" onclick="closeNewTripModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveNewTrip()">Criar viagem</button>
     </div>
   </div>
-
-  <!-- Painel lateral persistente: PDF da folha aberta enquanto edita.
-       Aparece quando o usuário clica em "👁 Lado a lado" num anexo. -->
-  <aside class="trip-pdf-pane" id="trpPdfPane" aria-hidden="true">
-    <div class="trip-pdf-pane-head">
-      <span class="trip-pdf-pane-title" id="trpPdfPaneTitle">📄 Folha</span>
-      <div class="trip-pdf-pane-actions">
-        <a id="trpPdfPaneDownload" download class="btn btn-ghost btn-sm" title="Baixar">⬇</a>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="trpAnx.closePane()" title="Fechar painel">✕</button>
-      </div>
-    </div>
-    <div class="trip-pdf-pane-body" id="trpPdfPaneBody">
-      <div class="trip-pdf-pane-placeholder">Clique em uma folha na aba <b>📎 Folha de Acerto</b> pra ela aparecer aqui ao lado.</div>
-    </div>
-  </aside>
 </div>
+
+<!-- Painel lateral persistente: PDF da folha aberta enquanto edita inline.
+     Aparece quando o usuário clica em "👁 Lado a lado" num anexo. -->
+<aside class="trip-pdf-pane" id="trpPdfPane" aria-hidden="true">
+  <div class="trip-pdf-pane-head">
+    <span class="trip-pdf-pane-title" id="trpPdfPaneTitle">📄 Folha</span>
+    <div class="trip-pdf-pane-actions">
+      <a id="trpPdfPaneDownload" download class="btn btn-ghost btn-sm" title="Baixar">⬇</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="trpAnx.closePane()" title="Fechar painel">✕</button>
+    </div>
+  </div>
+  <div class="trip-pdf-pane-body" id="trpPdfPaneBody">
+    <div class="trip-pdf-pane-placeholder">Clique em uma folha pra ela aparecer aqui ao lado.</div>
+  </div>
+</aside>
 
 <!-- =============================================================
      MODAL: Adicionar Anexo da Viagem (Folha de Acerto / Comprovante)
