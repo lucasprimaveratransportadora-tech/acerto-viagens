@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="/css/frete-terceiro.css">
 <link rel="stylesheet" href="/css/veiculos.css">
 <link rel="stylesheet" href="/css/rentabilidade.css">
+<link rel="stylesheet" href="/css/controle-viagens.css">
 <link rel="stylesheet" href="/css/mobile.css">
 <script>
   // Aplica tema antes do paint para evitar flash
@@ -128,7 +129,7 @@
             <div class="hub-access-label">Selecione um módulo</div>
             <div class="hub-access-title">Acessos disponíveis</div>
           </div>
-          <div class="hub-access-meta">04 módulos · Acesso restrito</div>
+          <div class="hub-access-meta">05 módulos · Acesso restrito</div>
         </div>
 
         <div class="hub-cards">
@@ -255,6 +256,36 @@
             <div class="hub-card-bar"></div>
           </a>
 
+          <!-- CARD 05 — Controle de Viagens -->
+          <a class="hub-card" data-module="controle-viagens" onclick="goToControleViagens()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' ')goToControleViagens()">
+            <span class="tick tl"></span>
+            <span class="tick tr"></span>
+            <span class="tick bl"></span>
+            <span class="tick br"></span>
+
+            <div class="hub-card-index">05</div>
+            <div class="hub-card-icon" aria-hidden="true">
+              <!-- kanban board icon -->
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 4h7v24H4zM12 4h8v16h-8zM21 4h7v20h-7z"/>
+              </svg>
+            </div>
+            <div class="hub-card-label">Operação · Tempo real</div>
+            <h2 class="hub-card-title">Controle de Viagens</h2>
+            <p class="hub-card-desc">
+              Painel Kanban com o status atual de cada caminhão da
+              frota. Movimente os cards entre colunas para acompanhar
+              coleta, viagem, descarga e manutenção, com comentários
+              em tempo real.
+            </p>
+            <div class="hub-card-cta">
+              <span>Entrar no módulo</span>
+              <span class="arrow"></span>
+            </div>
+            <div class="hub-card-bar"></div>
+          </a>
+
         </div>
       </div>
     </section>
@@ -289,6 +320,7 @@
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
           <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
+          <button class="module-tab"        data-mod-tab="controle-viagens" onclick="goToControleViagens()">📋 Controle</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
@@ -336,6 +368,7 @@
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab active" data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
           <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
+          <button class="module-tab"        data-mod-tab="controle-viagens" onclick="goToControleViagens()">📋 Controle</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -381,6 +414,7 @@
           <button class="module-tab"        data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
           <button class="module-tab active" data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
+          <button class="module-tab"        data-mod-tab="controle-viagens" onclick="goToControleViagens()">📋 Controle</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -414,6 +448,92 @@
           <div class="rt-empty">Carregando…</div>
         </div>
 
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       CONTROLE DE VIAGENS — Painel Kanban operacional
+       ============================================================ -->
+  <div id="controleViagensView" style="display:none">
+
+    <header class="cv-header">
+      <div class="logo" style="display:flex;align-items:center;gap:12px">
+        <button class="hub-back-btn" onclick="goToHub()" title="Voltar ao hub">
+          <span class="arrow-l"></span>Início
+        </button>
+        <img class="logo-img" src="/assets/images/logo-full.png" alt="Prima" style="height:36px">
+        <div class="module-tabs">
+          <button class="module-tab"        data-mod-tab="frota"            onclick="goToFrota()">🚚 Acerto de Viagem</button>
+          <button class="module-tab"        data-mod-tab="frete-terceiro"  onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
+          <button class="module-tab"        data-mod-tab="veiculos"        onclick="goToVeiculos()">🛡️ Veículos</button>
+          <button class="module-tab"        data-mod-tab="rentabilidade"   onclick="goToRentabilidade()">💰 Rentabilidade</button>
+          <button class="module-tab active" data-mod-tab="controle-viagens" onclick="goToControleViagens()">📋 Controle</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-ghost btn-sm" id="cvRefreshBtn" onclick="cv.manualRefresh()" title="Atualizar agora">↻ Atualizar</button>
+        <span class="cv-refresh-info" id="cvRefreshInfo" title="Polling de atualização">—</span>
+        <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
+        <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
+      </div>
+    </header>
+
+    <div class="cv-main">
+      <div class="cv-toolbar">
+        <div class="form-group" style="flex:1;min-width:200px;max-width:400px">
+          <label>Buscar caminhão</label>
+          <input type="text" id="cvSearch" placeholder="placa, motorista, modelo, carga…">
+        </div>
+        <div class="cv-total" id="cvTotal">—</div>
+      </div>
+      <div class="cv-board" id="cvBoard">
+        <div class="cv-loading">Carregando…</div>
+      </div>
+    </div>
+
+    <!-- Modal de detalhe do caminhão -->
+    <div class="cv-modal" id="cvDetailModal">
+      <div class="cv-modal-content">
+        <header class="cv-modal-hdr">
+          <select id="cvDetStatus" class="cv-status-select"></select>
+          <div class="cv-modal-actions">
+            <button class="cv-modal-close" onclick="cv.closeDetail()" aria-label="Fechar">✕</button>
+          </div>
+        </header>
+        <div class="cv-modal-tabs" id="cvModalTabs" style="display:none">
+          <button class="cv-tab active" data-cv-tab="detail" onclick="cv.switchModalTab('detail')">Detalhes</button>
+          <button class="cv-tab"        data-cv-tab="comments" onclick="cv.switchModalTab('comments')">Comentários</button>
+        </div>
+        <div class="cv-modal-body">
+          <section class="cv-detail-pane" id="cvDetailPane">
+            <h2 id="cvDetTitle" class="cv-modal-title"></h2>
+            <div class="cv-modal-subtitle" id="cvDetSubtitle"></div>
+
+            <div class="cv-fields" id="cvDetFields"></div>
+
+            <div class="cv-section">
+              <div class="cv-section-hdr"><span>Descrição</span></div>
+              <textarea id="cvDetDescricao" rows="3" placeholder="observações gerais do caminhão (persiste entre status)"></textarea>
+            </div>
+
+            <div class="cv-modal-foot">
+              <span id="cvDetUpdated" class="cv-muted"></span>
+              <button class="btn btn-accent" id="cvDetSaveBtn" onclick="cv.saveDetailFields()">Salvar</button>
+            </div>
+          </section>
+
+          <aside class="cv-comments-pane" id="cvCommentsPane">
+            <div class="cv-comments-hdr">💬 Comentários e atividade</div>
+            <form class="cv-comment-form" onsubmit="event.preventDefault(); cv.submitComment()">
+              <textarea id="cvCommentInput" rows="2" placeholder="Escrever um comentário..."></textarea>
+              <button type="submit" class="btn btn-accent btn-sm">Enviar</button>
+            </form>
+            <div class="cv-comments-list" id="cvCommentsList"></div>
+          </aside>
+        </div>
       </div>
     </div>
 
@@ -469,6 +589,7 @@
           <button class="module-tab active" data-mod-tab="frete-terceiro" onclick="goToFreteTerceiro()">🔁 Frete Terceiro</button>
           <button class="module-tab"        data-mod-tab="veiculos"       onclick="goToVeiculos()">🛡️ Veículos</button>
           <button class="module-tab"        data-mod-tab="rentabilidade"  onclick="goToRentabilidade()">💰 Rentabilidade</button>
+          <button class="module-tab"        data-mod-tab="controle-viagens" onclick="goToControleViagens()">📋 Controle</button>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
