@@ -1,5 +1,8 @@
--- 1. Adiciona colunas (nullable durante backfill)
-ALTER TABLE "trips" ADD COLUMN "empresa_id" UUID;
+-- 1. Adiciona colunas (nullable durante backfill).
+-- empresa_id eh TEXT porque o schema Prisma usa "String @default(uuid())"
+-- sem @db.Uuid — uuids sao gerados mas armazenados como TEXT (mesmo padrao
+-- de trucks.empresa_id, users.empresa_id, etc.).
+ALTER TABLE "trips" ADD COLUMN "empresa_id" TEXT;
 ALTER TABLE "trips" ADD COLUMN "numero" INTEGER;
 
 -- 2. Backfill empresa_id a partir de trucks
