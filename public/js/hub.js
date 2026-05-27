@@ -9,12 +9,13 @@ let frotaModulesLoaded = false;
 let freteTerceiroLoaded = false;
 let veiculosLoaded = false;
 let rentabilidadeLoaded = false;
+let controleViagensLoaded = false;
 let adminLoaded = false;
 
 /* ---------- VIEWS ---------- */
 
 function hideAll() {
-  ['hubView','moduleContainer','freteTerceiroView','veiculosView','rentabilidadeView','adminView'].forEach(id => {
+  ['hubView','moduleContainer','freteTerceiroView','veiculosView','rentabilidadeView','controleViagensView','adminView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -145,6 +146,27 @@ export async function goToRentabilidade() {
   }
 }
 
+export async function goToControleViagens() {
+  if (!hasModuleAccess('controle-viagens')) {
+    alert('Você não tem permissão para acessar Controle de Viagens.');
+    return showHub();
+  }
+  hideAll();
+  const v = document.getElementById('controleViagensView');
+  if (v) v.style.display = '';
+  document.body.dataset.view = 'controle-viagens';
+  setActiveTab('controle-viagens');
+  saveLastTab('controle-viagens');
+  refreshAdminVisibility();
+  try {
+    const mod = await import('./controle-viagens.js');
+    await mod.initControleViagens();
+    controleViagensLoaded = true;
+  } catch (e) {
+    console.error('Erro ao carregar módulo Controle de Viagens:', e);
+  }
+}
+
 export async function goToAdmin() {
   // Lazy-carrega o módulo admin se for a primeira vez
   if (!adminLoaded) {
@@ -172,7 +194,7 @@ export async function goToAdmin() {
 
 /* ---------- ADMIN BUTTON + PERMISSÕES POR MÓDULO ---------- */
 
-const ALL_MODULES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade'];
+const ALL_MODULES = ['frota', 'frete-terceiro', 'veiculos', 'rentabilidade', 'controle-viagens'];
 
 export function hasModuleAccess(moduleName) {
   const u = getCurrentUser();
@@ -273,6 +295,7 @@ export async function routeAfterLogin() {
     if (last === 'frete-terceiro' && hasModuleAccess('frete-terceiro')) return await goToFreteTerceiro();
     if (last === 'veiculos'       && hasModuleAccess('veiculos'))       return await goToVeiculos();
     if (last === 'rentabilidade'  && hasModuleAccess('rentabilidade'))  return await goToRentabilidade();
+    if (last === 'controle-viagens' && hasModuleAccess('controle-viagens')) return await goToControleViagens();
   } catch (e) {
     console.error('Falha ao restaurar última aba; voltando ao hub:', e);
     try { localStorage.removeItem('lastTab'); } catch { /* */ }
@@ -288,3 +311,4 @@ window.goToVeiculos       = goToVeiculos;
 window.goToRentabilidade  = goToRentabilidade;
 window.goToHub            = showHub;
 window.goToAdmin          = goToAdmin;
+window.goToControleViagens = goToControleViagens;
