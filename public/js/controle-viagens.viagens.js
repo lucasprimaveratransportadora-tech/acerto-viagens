@@ -9,6 +9,7 @@ const state = {
   formMode: null, // 'create' ou 'edit'
   editingViagemId: null,
   collapsed: new Set(),  // ids de viagens colapsadas manualmente
+  finalizingId: null,    // viagem que está mostrando form inline de finalize
 };
 
 function fmtDate(s) {
@@ -71,9 +72,22 @@ function renderViagemItem(v) {
     actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.cancelViagem('${esc(v.id)}')">Cancelar</button>`);
     actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.deleteViagem('${esc(v.id)}')" style="color:var(--danger)">Apagar</button>`);
   } else if (v.status_viagem === 'EM_CURSO') {
-    actions.push(`<button class="btn btn-accent btn-sm" onclick="cv.finalizeViagem('${esc(v.id)}')">Finalizar</button>`);
-    actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.editViagem('${esc(v.id)}')">Editar</button>`);
-    actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.cancelViagem('${esc(v.id)}')">Cancelar</button>`);
+    if (state.finalizingId === v.id) {
+      const today = new Date().toISOString().slice(0,10);
+      actions.push(`
+        <div style="display:flex;flex-direction:column;gap:.35rem;width:100%">
+          <label class="cv-muted" style="font-size:.7rem;letter-spacing:1px">Data de entrega realizada</label>
+          <input type="date" id="cvFinalDate-${esc(v.id)}" value="${today}" style="padding:.35rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
+          <div style="display:flex;gap:.3rem">
+            <button class="btn btn-accent btn-sm" onclick="cv.confirmFinalize('${esc(v.id)}')">Confirmar finalização</button>
+            <button class="btn btn-ghost btn-sm"  onclick="cv.cancelFinalize('${esc(v.id)}')">Cancelar</button>
+          </div>
+        </div>`);
+    } else {
+      actions.push(`<button class="btn btn-accent btn-sm" onclick="cv.askFinalize('${esc(v.id)}')">Finalizar</button>`);
+      actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.editViagem('${esc(v.id)}')">Editar</button>`);
+      actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.cancelViagem('${esc(v.id)}')">Cancelar</button>`);
+    }
   } else if (v.status_viagem === 'FINALIZADA' || v.status_viagem === 'CANCELADA') {
     actions.push(`<button class="btn btn-accent btn-sm" onclick="cv.reopenViagem('${esc(v.id)}')">Reabrir</button>`);
     actions.push(`<button class="btn btn-ghost btn-sm"  onclick="cv.editViagem('${esc(v.id)}')">Editar</button>`);
@@ -169,12 +183,27 @@ export async function saveViagemForm() {
   const btn = document.getElementById('cvVgSaveBtn');
   btn.disabled = true;
   try {
+    let createdViagem = null;
     if (state.formMode === 'create') {
-      await api.post(`/api/controle-viagens/truck/${truckId}/viagens`, payload);
+      createdViagem = await api.post(`/api/controle-viagens/truck/${truckId}/viagens`, payload);
     } else {
       await api.patch(`/api/controle-viagens/viagens/${state.editingViagemId}`, payload);
     }
     closeViagemForm();
+
+    // Após criar nova viagem: pergunta se quer iniciar agora (vira EM_CURSO).
+    if (createdViagem) {
+      const data = modal.getCurrentData?.();
+      const jaTemEmCurso = (data?.viagens || []).some(x => x.status_viagem === 'EM_CURSO');
+      if (!jaTemEmCurso && confirm('Iniciar essa viagem agora? (Sim = EM CURSO · Não = PLANEJADA)')) {
+        try {
+          await api.post(`/api/controle-viagens/viagens/${createdViagem.id}/start`);
+        } catch (e) {
+          alert('Viagem criada como PLANEJADA. Erro ao iniciar: ' + e.message);
+        }
+      }
+    }
+
     await modal.reload();
     if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
   } catch (e) {
@@ -197,12 +226,24 @@ export async function startViagem(viagemId) {
   }
 }
 
-export async function finalizeViagem(viagemId) {
-  const today = new Date().toISOString().slice(0,10);
-  const dataEntrega = prompt('Data de entrega realizada? (YYYY-MM-DD)', today);
-  if (dataEntrega === null) return;
+export function askFinalize(viagemId) {
+  state.finalizingId = viagemId;
+  const data = modal.getCurrentData?.();
+  if (data) renderForTruck(data);
+}
+
+export function cancelFinalize() {
+  state.finalizingId = null;
+  const data = modal.getCurrentData?.();
+  if (data) renderForTruck(data);
+}
+
+export async function confirmFinalize(viagemId) {
+  const input = document.getElementById(`cvFinalDate-${viagemId}`);
+  const dataEntrega = input?.value || new Date().toISOString().slice(0,10);
   try {
-    await api.post(`/api/controle-viagens/viagens/${viagemId}/finalize`, { data_entrega_realizada: dataEntrega || today });
+    await api.post(`/api/controle-viagens/viagens/${viagemId}/finalize`, { data_entrega_realizada: dataEntrega });
+    state.finalizingId = null;
     await modal.reload();
     if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
   } catch (e) {

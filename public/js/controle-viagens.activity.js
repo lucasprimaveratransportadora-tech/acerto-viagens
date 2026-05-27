@@ -114,12 +114,12 @@ export function renderFor(data) {
 
   const hidden = events.length - visible.length;
   const more = (hidden > 0 || expanded)
-    ? `<button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="cv.toggleActivityExpand()">${
+    ? `<div style="margin-bottom:.5rem"><button class="btn btn-ghost btn-sm" onclick="cv.toggleActivityExpand()">${
         expanded ? '▲ Recolher' : `▼ Ver mais (${hidden})`
-      }</button>`
+      }</button></div>`
     : '';
 
-  list.innerHTML = eventsHtml + more;
+  list.innerHTML = more + eventsHtml;
 }
 
 export function toggleExpand() {

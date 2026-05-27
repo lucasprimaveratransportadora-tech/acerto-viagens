@@ -188,10 +188,7 @@ function renderCard(row) {
       <div class="cv-driver">${esc(t.motorista || '—')}</div>
       <div class="cv-model">${esc(t.modelo || '')}</div>
       <div class="cv-foot">
-        <span>
-          <span class="cv-pill ${unread ? 'unread' : ''}">💬 ${row.activity_count || 0}</span>
-          ${planejadas > 0 ? `<span class="cv-pill" style="margin-left:.3rem">📋 ${planejadas}</span>` : ''}
-        </span>
+        <span>${planejadas > 0 ? `<span class="cv-pill">📋 ${planejadas}</span>` : (unread ? `<span class="cv-pill unread" style="width:8px;height:8px;padding:0;display:inline-block;border-radius:50%"></span>` : '')}</span>
         <span>${updated ? '⏱ ' + updated : ''}</span>
       </div>
     </div>`;
@@ -412,7 +409,9 @@ const cv = {
   saveViagemForm: viagensPane.saveViagemForm,
   editViagem: viagensPane.editViagem,
   startViagem: viagensPane.startViagem,
-  finalizeViagem: viagensPane.finalizeViagem,
+  askFinalize: viagensPane.askFinalize,
+  cancelFinalize: viagensPane.cancelFinalize,
+  confirmFinalize: viagensPane.confirmFinalize,
   reopenViagem: viagensPane.reopenViagem,
   cancelViagem: viagensPane.cancelViagem,
   deleteViagem: viagensPane.deleteViagem,
