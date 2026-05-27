@@ -7,6 +7,7 @@
 
 import { api } from './api.js';
 import { esc } from './utils.js';
+import * as modal from './controle-viagens.modal.js';
 
 const COLUMNS = [
   { key: 'VAZIO_AGUARDANDO_CARGA',   label: 'Vazio aguardando carga',  color: 'var(--cv-col-vazio)' },
@@ -239,11 +240,11 @@ export async function initControleViagens() {
 const cv = {
   manualRefresh,
   applySearch,
-  openDetail: () => alert('Detalhe será implementado na próxima task'),
-  closeDetail: () => {},
-  saveDetailFields: () => {},
-  submitComment: () => {},
-  switchModalTab: () => {},
+  openDetail: modal.openDetail,
+  closeDetail: modal.closeDetail,
+  saveDetailFields: modal.saveDetailFields,
+  switchModalTab: modal.switchModalTab,
+  submitComment: () => alert('Comentários: próxima task'),
   markSeen,
 };
 window.cv = cv;
