@@ -1,5 +1,16 @@
 -- Controle de Viagens v2: viagens como entidade + activity log unificado.
--- Substitui o schema da v1 que nunca chegou em produção.
+-- Substitui o schema da v1. A v1 foi mergeada em main (commit 81a9bdb) e
+-- pode ter sido aplicada parcialmente no Railway. Esse migration limpa
+-- qualquer resíduo da v1 antes de criar a v2. Idempotente: usa IF EXISTS.
+
+-- DropV1 (defensivo — se v1 nunca foi aplicada, no-op)
+DROP TABLE IF EXISTS "truck_operational_comments" CASCADE;
+DROP TABLE IF EXISTS "truck_operational_states" CASCADE;
+DROP TYPE  IF EXISTS "TruckOperationalStatus";
+
+-- Restaura o default das permissões caso a v1 tenha mudado (v1 incluía 'controle-viagens')
+-- Mantém a permissão pra usuários — só não força o default a ter ela mais (v2 também usa).
+-- (sem alteração — o default já contém controle-viagens, e UPDATE da v1 ainda valeu pros existentes)
 
 -- CreateEnum
 CREATE TYPE "TruckKanbanColumn" AS ENUM (
