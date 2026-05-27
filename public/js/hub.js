@@ -15,6 +15,10 @@ let adminLoaded = false;
 /* ---------- VIEWS ---------- */
 
 function hideAll() {
+  if (document.body.dataset.view === 'controle-viagens') {
+    // Está saindo do controle-viagens: pausa polling + listener
+    import('./controle-viagens.js').then(m => m.stopControleViagens?.()).catch(() => {});
+  }
   ['hubView','moduleContainer','freteTerceiroView','veiculosView','rentabilidadeView','controleViagensView','adminView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';

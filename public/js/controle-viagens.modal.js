@@ -46,12 +46,11 @@ function populateStatusSelect() {
   const sel = document.getElementById('cvDetStatus');
   sel.innerHTML = Object.entries(COLUMNS_INFO)
     .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-  sel.onchange = renderFields;
-  // Recolora a borda do select conforme status atual
-  sel.addEventListener('change', () => {
+  sel.onchange = () => {
+    renderFields();
     const info = COLUMNS_INFO[sel.value];
     sel.style.borderColor = info?.color || 'var(--border)';
-  });
+  };
 }
 
 function renderFields() {
@@ -98,12 +97,12 @@ function renderFields() {
 
 function readFieldsPayload() {
   const status = document.getElementById('cvDetStatus').value;
+  // Only fields that are actually visible in the current status are sent.
+  // Service preserves any fields not in the payload (whitelist + undefined-skip).
   const payload = { status, descricao: document.getElementById('cvDetDescricao').value || null };
   const info = COLUMNS_INFO[status];
   if (info.fields.includes('contexto_atual')) {
     payload.contexto_atual = (document.getElementById('cvDetCtx')?.value || '').trim() || null;
-  } else {
-    payload.contexto_atual = null;
   }
   if (info.fields.includes('data_coleta')) {
     payload.data_coleta = document.getElementById('cvDetColeta')?.value || null;

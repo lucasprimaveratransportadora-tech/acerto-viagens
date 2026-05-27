@@ -314,3 +314,10 @@
   touch-action: none;
   outline: 2px solid var(--accent);
 }
+
+.cv-touch-ghost {
+  transform: rotate(2deg) scale(1.03);
+  box-shadow: 0 16px 32px rgba(0,0,0,.45);
+  border-color: var(--accent) !important;
+  transition: none !important;
+}

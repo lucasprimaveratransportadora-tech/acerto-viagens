@@ -104,8 +104,10 @@ async function upsertState(truckId, empresaId, req, payload) {
   });
   if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
 
-  if (payload.status && !VALID_STATUS.includes(payload.status)) {
-    throw ApiError.badRequest('Status inválido.');
+  if (payload.status !== undefined) {
+    if (!payload.status || !VALID_STATUS.includes(payload.status)) {
+      throw ApiError.badRequest('Status inválido.');
+    }
   }
 
   const before = await prisma.truckOperationalState.findUnique({ where: { truck_id: truckId } });
@@ -149,7 +151,10 @@ async function listComments(truckId, empresaId, { limit = 50, before } = {}) {
   if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
 
   const where = { truck_id: truckId, deleted_at: null };
-  if (before) where.created_at = { lt: new Date(before) };
+  if (before) {
+    const d = new Date(before);
+    if (!isNaN(d.getTime())) where.created_at = { lt: d };
+  }
 
   return prisma.truckOperationalComment.findMany({
     where,

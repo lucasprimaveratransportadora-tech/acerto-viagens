@@ -30,6 +30,7 @@ const state = {
   detailTruckId: null,
   lastSeen: loadLastSeen(),
   initialized: false,
+  visibilityHandler: null,
 };
 
 /* ============================================================
@@ -211,19 +212,40 @@ function wireDragAndDrop() {
   const cols  = document.querySelectorAll('.cv-col');
 
   cards.forEach(card => {
+    // Desktop: HTML5 native DnD
     card.addEventListener('dragstart', onDragStart);
     card.addEventListener('dragend',   onDragEnd);
-    // Mobile: long-press habilita arrasto (350ms)
+
+    // Mobile: long-press (350ms) arma um arrasto manual com touchmove tracking.
     let lpTimer = null;
+    let touchDrag = null; // { truckId, ghost, currentCol }
     card.addEventListener('touchstart', (e) => {
       lpTimer = setTimeout(() => {
-        card.classList.add('long-pressing');
-        card.setAttribute('data-lp', '1');
-        if (navigator.vibrate) try { navigator.vibrate(20); } catch { /* */ }
+        touchDrag = beginTouchDrag(card, e.touches[0]);
       }, 350);
     }, { passive: true });
-    card.addEventListener('touchend',   () => { clearTimeout(lpTimer); card.removeAttribute('data-lp'); });
-    card.addEventListener('touchmove',  () => { clearTimeout(lpTimer); });
+    card.addEventListener('touchmove', (e) => {
+      if (touchDrag) {
+        e.preventDefault();
+        moveTouchDrag(touchDrag, e.touches[0]);
+      } else {
+        clearTimeout(lpTimer);
+      }
+    }, { passive: false });
+    card.addEventListener('touchend', () => {
+      clearTimeout(lpTimer);
+      if (touchDrag) {
+        endTouchDrag(touchDrag);
+        touchDrag = null;
+      }
+    });
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(lpTimer);
+      if (touchDrag) {
+        cancelTouchDrag(touchDrag);
+        touchDrag = null;
+      }
+    });
   });
 
   cols.forEach(col => {
@@ -233,6 +255,7 @@ function wireDragAndDrop() {
   });
 }
 
+/* ===== Desktop handlers ===== */
 function onDragStart(e) {
   const card = e.currentTarget;
   card.classList.add('dragging');
@@ -249,7 +272,6 @@ function onDragOver(e) {
   e.currentTarget.classList.add('drag-over');
 }
 function onDragLeave(e) {
-  // Só remove se realmente saiu (relatedTarget fora da coluna)
   if (!e.currentTarget.contains(e.relatedTarget)) {
     e.currentTarget.classList.remove('drag-over');
   }
@@ -260,8 +282,79 @@ async function onDrop(e) {
   col.classList.remove('drag-over');
   const newStatus = col.dataset.colStatus;
   const truckId   = e.dataTransfer.getData('text/plain');
-  if (!newStatus || !truckId) return;
+  await commitMove(truckId, newStatus);
+}
 
+/* ===== Touch handlers (mobile manual drag) ===== */
+function beginTouchDrag(card, touch) {
+  card.classList.add('dragging');
+  card.setAttribute('data-lp', '1');
+  if (navigator.vibrate) try { navigator.vibrate(20); } catch { /* */ }
+
+  // Ghost: clone visual que segue o dedo
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true);
+  ghost.style.position = 'fixed';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top = rect.top + 'px';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.pointerEvents = 'none';
+  ghost.style.zIndex = '1000';
+  ghost.style.opacity = '0.85';
+  ghost.classList.add('cv-touch-ghost');
+  document.body.appendChild(ghost);
+
+  return {
+    truckId: card.dataset.truckId,
+    ghost,
+    offsetX: touch.clientX - rect.left,
+    offsetY: touch.clientY - rect.top,
+    currentCol: null,
+  };
+}
+
+function moveTouchDrag(drag, touch) {
+  drag.ghost.style.left = (touch.clientX - drag.offsetX) + 'px';
+  drag.ghost.style.top  = (touch.clientY - drag.offsetY) + 'px';
+
+  // Detecta coluna sob o dedo (esconde temporariamente o ghost pra não atrapalhar elementFromPoint)
+  drag.ghost.style.display = 'none';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  drag.ghost.style.display = '';
+  const col = el?.closest?.('.cv-col');
+
+  if (col !== drag.currentCol) {
+    if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
+    if (col) col.classList.add('drag-over');
+    drag.currentCol = col;
+  }
+}
+
+async function endTouchDrag(drag) {
+  drag.ghost.remove();
+  if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
+  document.querySelectorAll(`.cv-card[data-truck-id="${drag.truckId}"]`).forEach(c => {
+    c.classList.remove('dragging');
+    c.removeAttribute('data-lp');
+  });
+  if (drag.currentCol) {
+    const newStatus = drag.currentCol.dataset.colStatus;
+    await commitMove(drag.truckId, newStatus);
+  }
+}
+
+function cancelTouchDrag(drag) {
+  drag.ghost.remove();
+  if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
+  document.querySelectorAll(`.cv-card[data-truck-id="${drag.truckId}"]`).forEach(c => {
+    c.classList.remove('dragging');
+    c.removeAttribute('data-lp');
+  });
+}
+
+/* ===== Shared commit logic (desktop drop + touch end) ===== */
+async function commitMove(truckId, newStatus) {
+  if (!newStatus || !truckId) return;
   const row = state.rows.find(r => r.truck.id === truckId);
   if (!row) return;
   const oldStatus = row.state?.status || 'VAZIO_AGUARDANDO_CARGA';
@@ -273,10 +366,9 @@ async function onDrop(e) {
 
   try {
     await api.patch(`/api/controle-viagens/${truckId}/state`, { status: newStatus });
-    await fetchBoard(); // refresca contador, updated_by, etc.
+    await fetchBoard();
   } catch (err) {
     alert('Erro ao mover: ' + err.message);
-    // Rollback
     row.state.status = oldStatus;
     renderBoard();
   }
@@ -299,13 +391,24 @@ export async function initControleViagens() {
 
   document.getElementById('cvSearch').addEventListener('input', applySearch);
 
-  document.addEventListener('visibilitychange', () => {
+  state.visibilityHandler = () => {
+    if (document.body.dataset.view !== 'controle-viagens') return;
     if (!document.hidden) fetchBoard();
     updateRefreshInfo();
-  });
+  };
+  document.addEventListener('visibilitychange', state.visibilityHandler);
 
   await fetchBoard();
   startPolling();
+}
+
+export function stopControleViagens() {
+  stopPolling();
+  if (state.visibilityHandler) {
+    document.removeEventListener('visibilitychange', state.visibilityHandler);
+    state.visibilityHandler = null;
+  }
+  state.initialized = false; // permite re-init quando voltar
 }
 
 /* Exposto pro HTML inline (onclick) */

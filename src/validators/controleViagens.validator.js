@@ -10,7 +10,11 @@ const VALID_STATUS = [
 ];
 
 const upsertState = [
-  body('status').optional().isIn(VALID_STATUS).withMessage('Status inválido.'),
+  body('status').optional({ checkFalsy: false }).custom((v) => {
+    if (v === '' || v === null) throw new Error('Status não pode ser vazio.');
+    if (!VALID_STATUS.includes(v)) throw new Error('Status inválido.');
+    return true;
+  }),
   body('contexto_atual').optional({ nullable: true }).isLength({ max: 500 }),
   body('data_coleta').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data de coleta inválida.'),
   body('data_agendamento_entrega').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data de agendamento inválida.'),
