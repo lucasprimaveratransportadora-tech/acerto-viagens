@@ -37,7 +37,7 @@ CREATE TABLE "truck_operational_comments" (
   "texto"          TEXT NOT NULL,
   "created_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "deleted_at"     TIMESTAMP(3),
-  "deleted_by_id"  TEXT,
+  "deleted_by_id"  TEXT,   -- snapshot only, no FK (user may be deleted)
 
   CONSTRAINT "truck_operational_comments_pkey" PRIMARY KEY ("id")
 );
