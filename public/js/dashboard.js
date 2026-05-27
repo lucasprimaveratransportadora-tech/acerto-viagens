@@ -2,7 +2,7 @@
 
 import { api } from './api.js';
 import { state, setTrips, getSelectedTruck } from './state.js';
-import { fmt, fmtD, esc, calcFrete, calcDesp } from './utils.js';
+import { fmt, fmtD, esc, calcFrete, calcDesp, tripNumero, tripRota } from './utils.js';
 import { buildDetail } from './trips.js';
 
 export async function renderMain() {
@@ -96,20 +96,21 @@ export async function renderMain() {
         };
         const [sc, sl] = sm[tr.status] || sm.OK;
 
-        html += `<div class="trip-card">
+        html += `<div class="trip-card" data-trip-id="${esc(tr.id)}">
           <div class="trip-header" onclick="toggleTrip('${esc(tr.id)}')">
+            <span class="trip-numero">${tripNumero(tr)}</span>
             <span class="trip-date">${fmtD(dateField)}</span>
-            <span class="trip-route">${esc(tr.origem || '\u2014')} <span class="route-arrow">\u2192</span> ${esc(tr.destino || '\u2014')}${tr.carga ? `<span class="cargo-tag">${esc(tr.carga)}</span>` : ''}</span>
+            <span class="trip-route">${esc(tripRota(tr))}${tr.carga ? `<span class="cargo-tag">${esc(tr.carga)}</span>` : ''}</span>
             <div class="trip-nums">
               <span class="val pos">R$ ${fmt(f)}</span>
               <span class="val neg">- R$ ${fmt(d)}</span>
               <span class="val ${l >= 0 ? 'pos' : 'neg'}">${l >= 0 ? '=' : ''} R$ ${fmt(l)}</span>
               ${tr.km_total ? `<span style="color:var(--muted);font-size:.7rem">${parseInt(tr.km_total).toLocaleString('pt-BR')}km</span>` : ''}
             </div>
-            <span class="status-badge ${sc}">${sl}</span>
+            <span class="status-badge ${sc} clickable" onclick="event.stopPropagation();cycleTripStatus('${esc(tr.id)}',this)" title="Clique para alternar status">${sl}</span>
             <div class="trip-actions">
               ${(tr._count?.trip_anexos > 0) ? `<button class="trip-folha-btn" data-trip-id="${esc(tr.id)}" onclick="event.stopPropagation();window.trpAnx?.openGlobalPane('${esc(tr.id)}')" title="Ver folha de acerto ao lado">&#x1F4CE; Folha</button>` : ''}
-              <button class="action-btn" onclick="event.stopPropagation();editTrip('${esc(tr.id)}')" title="Editar">&#x270F;&#xFE0F;</button>
+              <button class="action-btn" onclick="event.stopPropagation();printAcerto('${esc(tr.id)}')" title="Imprimir folha do motorista">&#x1F5A8;&#xFE0F;</button>
               <button class="action-btn del" onclick="event.stopPropagation();confirmDeleteTrip('${esc(tr.id)}')" title="Excluir">&#x1F5D1;&#xFE0F;</button>
             </div>
           </div>

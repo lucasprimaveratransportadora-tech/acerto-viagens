@@ -35,3 +35,18 @@ export function calcDesp(trip) {
   const sumFuels = (trip.fuels || []).reduce((s, f) => s + parseFloat(f.valor_total || 0), 0);
   return sumOutras + sumFuels;
 }
+
+// Título compacto do card: "#847" ou "—" se ainda não tem número.
+export function tripNumero(trip) {
+  return trip?.numero != null ? '#' + trip.numero : '—';
+}
+
+// Rota derivada — backend manda origem_calc/destino_calc a partir do 1º CTE.
+// Sem nada: placeholder. Só um lado: mostra o lado que tem.
+export function tripRota(trip) {
+  const o = trip?.origem_calc;
+  const d = trip?.destino_calc;
+  if (!o && !d) return '— sem CTE —';
+  if (o && d) return o + ' → ' + d;
+  return o || d;
+}

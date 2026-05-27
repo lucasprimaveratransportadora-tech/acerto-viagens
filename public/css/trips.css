@@ -57,11 +57,20 @@
   background: rgba(255,255,255,.02);
 }
 
+.trip-numero {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .85rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: .03em;
+  min-width: 52px;
+}
+
 .trip-date {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: .78rem;
-  font-weight: 600;
-  color: var(--accent);
+  font-size: .74rem;
+  font-weight: 500;
+  color: var(--muted);
   min-width: 78px;
 }
 

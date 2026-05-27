@@ -87,6 +87,14 @@
   white-space: nowrap;
 }
 
+.status-badge.clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: filter .15s, transform .15s;
+}
+.status-badge.clickable:hover { filter: brightness(1.3); transform: scale(1.04); }
+.status-badge.clickable.updating { opacity: .5; cursor: wait; pointer-events: none; }
+
 .status-ok {
   background: rgba(34,197,94,.12);
   color: var(--success);
