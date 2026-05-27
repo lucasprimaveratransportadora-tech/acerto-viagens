@@ -485,7 +485,7 @@
       <div class="cv-toolbar">
         <div class="form-group" style="flex:1;min-width:200px;max-width:400px">
           <label>Buscar caminhão</label>
-          <input type="text" id="cvSearch" placeholder="placa, motorista, modelo, carga…">
+          <input type="text" id="cvSearch" placeholder="placa, motorista, modelo, carga, fábrica, cliente…">
         </div>
         <div class="cv-total" id="cvTotal">—</div>
       </div>
@@ -494,45 +494,123 @@
       </div>
     </div>
 
-    <!-- Modal de detalhe do caminhão -->
+    <!-- Modal de detalhe -->
     <div class="cv-modal" id="cvDetailModal">
-      <div class="cv-modal-content">
+      <div class="cv-modal-content cv-show-details">
         <header class="cv-modal-hdr">
           <select id="cvDetStatus" class="cv-status-select"></select>
           <div class="cv-modal-actions">
+            <button class="btn btn-ghost btn-sm" id="cvToggleDetails" onclick="cv.toggleDetails()" title="Mostrar/Ocultar detalhes">Ocultar detalhes</button>
             <button class="cv-modal-close" onclick="cv.closeDetail()" aria-label="Fechar">✕</button>
           </div>
         </header>
         <div class="cv-modal-tabs" id="cvModalTabs" style="display:none">
-          <button class="cv-tab active" data-cv-tab="detail" onclick="cv.switchModalTab('detail')">Detalhes</button>
-          <button class="cv-tab"        data-cv-tab="comments" onclick="cv.switchModalTab('comments')">Comentários</button>
+          <button class="cv-tab active" data-cv-tab="detail"   onclick="cv.switchModalTab('detail')">Detalhes</button>
+          <button class="cv-tab"        data-cv-tab="activity" onclick="cv.switchModalTab('activity')">Atividade</button>
+          <button class="cv-tab"        data-cv-tab="viagens"  onclick="cv.switchModalTab('viagens')">Viagens</button>
         </div>
+
         <div class="cv-modal-body">
-          <section class="cv-detail-pane" id="cvDetailPane">
-            <h2 id="cvDetTitle" class="cv-modal-title"></h2>
-            <div class="cv-modal-subtitle" id="cvDetSubtitle"></div>
 
-            <div class="cv-fields" id="cvDetFields"></div>
+          <!-- COLUNA ESQUERDA: detalhes da coluna + descrição + atividade -->
+          <section class="cv-left-pane">
+            <header class="cv-left-hdr">
+              <h2 id="cvDetTitle" class="cv-modal-title"></h2>
+              <div class="cv-modal-subtitle" id="cvDetSubtitle"></div>
+            </header>
 
-            <div class="cv-section">
-              <div class="cv-section-hdr"><span>Descrição</span></div>
-              <textarea id="cvDetDescricao" rows="3" placeholder="observações gerais do caminhão (persiste entre status)"></textarea>
+            <div class="cv-details-block" id="cvDetailsBlock">
+              <div class="cv-section">
+                <div class="cv-section-hdr"><span>Status atual</span></div>
+                <div class="cv-fields" id="cvDetFields"></div>
+                <div class="cv-section-foot">
+                  <span id="cvDetUpdated" class="cv-muted"></span>
+                  <button class="btn btn-accent btn-sm" id="cvDetSaveBtn" onclick="cv.saveDetailFields()">Salvar</button>
+                </div>
+              </div>
+
+              <div class="cv-section">
+                <div class="cv-section-hdr"><span>Descrição</span></div>
+                <textarea id="cvDetDescricao" rows="3" placeholder="observação geral do caminhão (persiste entre colunas/viagens)"></textarea>
+                <div class="cv-section-foot">
+                  <button class="btn btn-ghost btn-sm" onclick="cv.saveDescricao()">Salvar descrição</button>
+                </div>
+              </div>
             </div>
 
-            <div class="cv-modal-foot">
-              <span id="cvDetUpdated" class="cv-muted"></span>
-              <button class="btn btn-accent" id="cvDetSaveBtn" onclick="cv.saveDetailFields()">Salvar</button>
+            <div class="cv-activity-block">
+              <div class="cv-section-hdr"><span>💬 Atividade & comentários</span></div>
+              <form class="cv-comment-form" onsubmit="event.preventDefault(); cv.submitComment()">
+                <textarea id="cvCommentInput" rows="2" placeholder="Escrever um comentário..."></textarea>
+                <div style="display:flex;justify-content:flex-end">
+                  <button type="submit" class="btn btn-accent btn-sm">Enviar</button>
+                </div>
+              </form>
+              <div class="cv-activity-list" id="cvActivityList"></div>
             </div>
           </section>
 
-          <aside class="cv-comments-pane" id="cvCommentsPane">
-            <div class="cv-comments-hdr">💬 Comentários e atividade</div>
-            <form class="cv-comment-form" onsubmit="event.preventDefault(); cv.submitComment()">
-              <textarea id="cvCommentInput" rows="2" placeholder="Escrever um comentário..."></textarea>
-              <button type="submit" class="btn btn-accent btn-sm">Enviar</button>
-            </form>
-            <div class="cv-comments-list" id="cvCommentsList"></div>
+          <!-- COLUNA DIREITA: viagens -->
+          <aside class="cv-viagens-pane">
+            <div class="cv-section-hdr cv-viagens-hdr">
+              <span>📋 Viagens</span>
+              <button class="btn btn-accent btn-sm" onclick="cv.openNewViagem()">+ Nova carga</button>
+            </div>
+            <div class="cv-viagens-list" id="cvViagensList"></div>
           </aside>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de nova viagem / edição -->
+    <div class="cv-modal cv-modal-small" id="cvViagemFormModal">
+      <div class="cv-modal-content">
+        <header class="cv-modal-hdr">
+          <h2 class="cv-modal-title" id="cvVgTitle">Nova carga</h2>
+          <button class="cv-modal-close" onclick="cv.closeViagemForm()" aria-label="Fechar">✕</button>
+        </header>
+        <div class="cv-modal-body cv-form-body">
+          <div class="form-group">
+            <label>Origem</label>
+            <input type="text" id="cvVgOrigem" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>Destino</label>
+            <input type="text" id="cvVgDestino" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>Carga</label>
+            <input type="text" id="cvVgCarga" maxlength="500">
+          </div>
+          <div class="form-group">
+            <label>Fábrica</label>
+            <input type="text" id="cvVgFabrica" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>Cliente (descarga)</label>
+            <input type="text" id="cvVgCliente" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label>Valor do frete (R$)</label>
+            <input type="number" id="cvVgValor" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Data de coleta</label>
+            <input type="date" id="cvVgColeta">
+          </div>
+          <div class="form-group">
+            <label>Data agendamento entrega</label>
+            <input type="date" id="cvVgAgend">
+          </div>
+          <div class="form-group">
+            <label>Observações</label>
+            <textarea id="cvVgObs" rows="2" maxlength="4000"></textarea>
+          </div>
+        </div>
+        <div class="cv-modal-foot" style="padding:.8rem 1.2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.5rem">
+          <button class="btn btn-ghost btn-sm" onclick="cv.closeViagemForm()">Cancelar</button>
+          <button class="btn btn-accent" id="cvVgSaveBtn" onclick="cv.saveViagemForm()">Salvar</button>
         </div>
       </div>
     </div>
