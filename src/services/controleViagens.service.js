@@ -1,8 +1,9 @@
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
+const activity = require('./controleViagensActivity.service');
 const audit = require('./audit.service');
 
-const VALID_STATUS = [
+const VALID_COLUMNS = [
   'VAZIO_AGUARDANDO_CARGA',
   'INDO_CARREGAR',
   'NA_FABRICA',
@@ -10,20 +11,15 @@ const VALID_STATUS = [
   'EM_DESCARGA_NO_CLIENTE',
   'EM_MANUTENCAO',
 ];
-const DEFAULT_STATUS = 'VAZIO_AGUARDANDO_CARGA';
+const DEFAULT_COLUMN = 'VAZIO_AGUARDANDO_CARGA';
 
-// Devolve um state "virtual" se o caminhão ainda não tem registro.
-// Só persiste no primeiro PATCH/edição.
-function virtualState(truckId) {
+function virtualColumn(truckId) {
   return {
     id: null,
     truck_id: truckId,
-    status: DEFAULT_STATUS,
-    contexto_atual: null,
-    data_coleta: null,
-    data_agendamento_entrega: null,
-    carga_descricao: null,
-    descricao: null,
+    coluna: DEFAULT_COLUMN,
+    manutencao_descricao: null,
+    descricao_geral: null,
     updated_at: null,
     updated_by_id: null,
     updated_by: null,
@@ -36,55 +32,74 @@ async function getBoard(empresaId) {
     select: {
       id: true, placa: true, modelo: true, motorista: true,
       carreta_placa: true, carreta_modelo: true,
-      operational_state: {
-        include: {
-          updated_by: { select: { id: true, nome: true, email: true } },
-        },
+      column: {
+        include: { updated_by: { select: { id: true, nome: true, email: true } } },
+      },
+      viagens: {
+        where: { deleted_at: null, status_viagem: { in: ['EM_CURSO', 'PLANEJADA'] } },
+        orderBy: { created_at: 'desc' },
       },
     },
     orderBy: [{ placa: 'asc' }],
   });
 
-  // Contagem de comentários ativos por truck — uma única query agrupada
-  const counts = await prisma.truckOperationalComment.groupBy({
+  // Agrega contadores por truck — 1 query group
+  const activityCounts = await prisma.truckActivityEvent.groupBy({
     by: ['truck_id'],
     where: { truck_id: { in: trucks.map(t => t.id) }, deleted_at: null },
     _count: { _all: true },
     _max:   { created_at: true },
   });
-  const byTruck = Object.fromEntries(counts.map(c => [c.truck_id, c]));
+  const byTruckActivity = Object.fromEntries(activityCounts.map(c => [c.truck_id, c]));
 
-  return trucks.map(t => ({
-    truck: {
-      id: t.id, placa: t.placa, modelo: t.modelo, motorista: t.motorista,
-      carreta_placa: t.carreta_placa, carreta_modelo: t.carreta_modelo,
-    },
-    state: t.operational_state || virtualState(t.id),
-    comments_count: byTruck[t.id]?._count?._all || 0,
-    last_comment_at: byTruck[t.id]?._max?.created_at || null,
-  }));
+  let maxColumn = 0;
+  let maxActivity = 0;
+
+  const board = trucks.map(t => {
+    const col = t.column || virtualColumn(t.id);
+    const colTs = col.updated_at ? new Date(col.updated_at).getTime() : 0;
+    const actTs = byTruckActivity[t.id]?._max?.created_at
+      ? new Date(byTruckActivity[t.id]._max.created_at).getTime() : 0;
+    if (colTs > maxColumn) maxColumn = colTs;
+    if (actTs > maxActivity) maxActivity = actTs;
+
+    const viagemEmCurso = t.viagens.find(v => v.status_viagem === 'EM_CURSO') || null;
+    const planejadasCount = t.viagens.filter(v => v.status_viagem === 'PLANEJADA').length;
+
+    return {
+      truck: {
+        id: t.id, placa: t.placa, modelo: t.modelo, motorista: t.motorista,
+        carreta_placa: t.carreta_placa, carreta_modelo: t.carreta_modelo,
+      },
+      column: col,
+      viagem_em_curso: viagemEmCurso,
+      viagens_planejadas_count: planejadasCount,
+      activity_count: byTruckActivity[t.id]?._count?._all || 0,
+      last_activity_at: byTruckActivity[t.id]?._max?.created_at || null,
+    };
+  });
+
+  return { board, fingerprint: `${board.length}-${maxColumn}-${maxActivity}` };
 }
 
-async function getDetail(truckId, empresaId, { commentsLimit = 50 } = {}) {
+async function getTruckDetail(truckId, empresaId) {
   const truck = await prisma.truck.findFirst({
     where: { id: truckId, empresa_id: empresaId, deleted_at: null },
     select: {
       id: true, placa: true, modelo: true, motorista: true,
       carreta_placa: true, carreta_modelo: true,
-      operational_state: {
-        include: {
-          updated_by: { select: { id: true, nome: true, email: true } },
-        },
+      column: {
+        include: { updated_by: { select: { id: true, nome: true, email: true } } },
+      },
+      viagens: {
+        where: { deleted_at: null },
+        orderBy: [{ status_viagem: 'asc' }, { created_at: 'desc' }],
       },
     },
   });
   if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
 
-  const comments = await prisma.truckOperationalComment.findMany({
-    where: { truck_id: truckId, deleted_at: null },
-    orderBy: { created_at: 'desc' },
-    take: Math.min(commentsLimit, 200),
-  });
+  const events = await activity.list({ truckId, empresaId, limit: 50 });
 
   return {
     truck: {
@@ -92,126 +107,106 @@ async function getDetail(truckId, empresaId, { commentsLimit = 50 } = {}) {
       motorista: truck.motorista,
       carreta_placa: truck.carreta_placa, carreta_modelo: truck.carreta_modelo,
     },
-    state: truck.operational_state || virtualState(truck.id),
-    comments,
+    column: truck.column || virtualColumn(truck.id),
+    viagens: truck.viagens,
+    activity: events,
   };
 }
 
-async function upsertState(truckId, empresaId, req, payload) {
+async function updateColumn(truckId, empresaId, req, body) {
   const truck = await prisma.truck.findFirst({
     where: { id: truckId, empresa_id: empresaId, deleted_at: null },
     select: { id: true },
   });
   if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
 
-  if (payload.status !== undefined) {
-    if (!payload.status || !VALID_STATUS.includes(payload.status)) {
-      throw ApiError.badRequest('Status inválido.');
-    }
+  if (body.coluna && !VALID_COLUMNS.includes(body.coluna)) {
+    throw ApiError.badRequest('Coluna inválida.');
   }
 
-  const before = await prisma.truckOperationalState.findUnique({ where: { truck_id: truckId } });
+  const before = await prisma.truckColumn.findUnique({ where: { truck_id: truckId } });
+  const oldColuna = before?.coluna || DEFAULT_COLUMN;
+  const oldManut  = before?.manutencao_descricao || null;
+  const oldDesc   = before?.descricao_geral || null;
 
-  // Whitelist + normalização de datas. Campos não enviados ficam intactos
-  // (preservação histórica entre mudanças de status, ver spec §4).
   const data = { updated_by_id: req.user.id };
-  if (payload.status !== undefined) data.status = payload.status;
-  if (payload.contexto_atual !== undefined) data.contexto_atual = payload.contexto_atual || null;
-  if (payload.carga_descricao !== undefined) data.carga_descricao = payload.carga_descricao || null;
-  if (payload.descricao !== undefined) data.descricao = payload.descricao || null;
-  if (payload.data_coleta !== undefined) {
-    data.data_coleta = payload.data_coleta ? new Date(payload.data_coleta) : null;
+  if (body.coluna !== undefined) data.coluna = body.coluna;
+  if (body.manutencao_descricao !== undefined) {
+    data.manutencao_descricao = (body.manutencao_descricao || '').trim() || null;
   }
-  if (payload.data_agendamento_entrega !== undefined) {
-    data.data_agendamento_entrega = payload.data_agendamento_entrega ? new Date(payload.data_agendamento_entrega) : null;
+  if (body.descricao_geral !== undefined) {
+    data.descricao_geral = (body.descricao_geral || '').trim() || null;
   }
 
-  const after = await prisma.truckOperationalState.upsert({
-    where: { truck_id: truckId },
-    create: { truck_id: truckId, status: payload.status || DEFAULT_STATUS, ...data },
-    update: data,
-    include: { updated_by: { select: { id: true, nome: true, email: true } } },
+  const after = await prisma.$transaction(async (tx) => {
+    const u = await tx.truckColumn.upsert({
+      where: { truck_id: truckId },
+      create: { truck_id: truckId, coluna: body.coluna || DEFAULT_COLUMN, ...data },
+      update: data,
+      include: { updated_by: { select: { id: true, nome: true, email: true } } },
+    });
+
+    // Eventos: COLUMN_MOVED se mudou coluna; COLUMN_FIELD_EDITED pros outros campos.
+    if (body.coluna && body.coluna !== oldColuna) {
+      await activity.record({
+        tx, truckId, tipo: 'COLUMN_MOVED',
+        payload: { from: oldColuna, to: body.coluna },
+        author: req.user,
+      });
+    }
+    if (body.manutencao_descricao !== undefined && (data.manutencao_descricao !== oldManut)) {
+      await activity.record({
+        tx, truckId, tipo: 'COLUMN_FIELD_EDITED',
+        payload: { field: 'manutencao_descricao', before: oldManut, after: data.manutencao_descricao },
+        author: req.user,
+      });
+    }
+    if (body.descricao_geral !== undefined && (data.descricao_geral !== oldDesc)) {
+      await activity.record({
+        tx, truckId, tipo: 'COLUMN_FIELD_EDITED',
+        payload: { field: 'descricao_geral', before: oldDesc, after: data.descricao_geral },
+        author: req.user,
+      });
+    }
+    return u;
   });
 
-  await audit.log({
-    req, empresaId, entity: 'TRUCK', action: 'UPDATE',
-    entityId: truckId,
-    before: before ? { operational_state: before } : null,
-    after:  { operational_state: after },
-  });
-
+  await audit.log({ req, empresaId, entity: 'TRUCK', action: 'UPDATE', entityId: truckId,
+    before: before ? { column: before } : null,
+    after:  { column: after } });
   return after;
 }
 
-async function listComments(truckId, empresaId, { limit = 50, before } = {}) {
+async function addComment(truckId, empresaId, req, body) {
   const truck = await prisma.truck.findFirst({
     where: { id: truckId, empresa_id: empresaId, deleted_at: null },
     select: { id: true },
   });
   if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
 
-  const where = { truck_id: truckId, deleted_at: null };
-  if (before) {
-    const d = new Date(before);
-    if (!isNaN(d.getTime())) where.created_at = { lt: d };
+  const texto = (body?.texto || '').trim();
+  if (!texto) throw ApiError.badRequest('Texto do comentário não pode ser vazio.');
+  if (texto.length > 4000) throw ApiError.badRequest('Comentário muito longo (máx 4000).');
+
+  // Se veio viagem_id, valida que pertence ao mesmo truck
+  let viagemId = null;
+  if (body?.viagem_id) {
+    const v = await prisma.truckViagem.findFirst({
+      where: { id: body.viagem_id, truck_id: truckId, deleted_at: null },
+      select: { id: true },
+    });
+    if (!v) throw ApiError.notFound('Viagem do comentário não encontrada.');
+    viagemId = v.id;
   }
 
-  return prisma.truckOperationalComment.findMany({
-    where,
-    orderBy: { created_at: 'desc' },
-    take: Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200),
+  return activity.record({
+    truckId, viagemId, tipo: 'COMMENT',
+    payload: { texto },
+    author: req.user,
   });
-}
-
-async function addComment(truckId, empresaId, req, { texto }) {
-  const truck = await prisma.truck.findFirst({
-    where: { id: truckId, empresa_id: empresaId, deleted_at: null },
-    select: { id: true },
-  });
-  if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
-
-  const t = (texto || '').trim();
-  if (!t) throw ApiError.badRequest('Texto do comentário não pode ser vazio.');
-  if (t.length > 4000) throw ApiError.badRequest('Comentário muito longo (máx 4000).');
-
-  return prisma.truckOperationalComment.create({
-    data: {
-      truck_id:     truckId,
-      author_id:    req.user.id,
-      author_email: req.user.email,
-      author_nome:  req.user.nome,
-      texto:        t,
-    },
-  });
-}
-
-async function deleteComment(truckId, commentId, empresaId, req) {
-  const truck = await prisma.truck.findFirst({
-    where: { id: truckId, empresa_id: empresaId, deleted_at: null },
-    select: { id: true },
-  });
-  if (!truck) throw ApiError.notFound('Caminhão não encontrado.');
-
-  const c = await prisma.truckOperationalComment.findFirst({
-    where: { id: commentId, truck_id: truckId, deleted_at: null },
-  });
-  if (!c) throw ApiError.notFound('Comentário não encontrado.');
-
-  const isAuthor = c.author_id && c.author_id === req.user.id;
-  const isAdmin  = req.user.role === 'ADMIN';
-  if (!isAuthor && !isAdmin) {
-    throw ApiError.forbidden('Só o autor ou um ADMIN pode apagar este comentário.');
-  }
-
-  await prisma.truckOperationalComment.update({
-    where: { id: commentId },
-    data: { deleted_at: new Date(), deleted_by_id: req.user.id },
-  });
-  return { ok: true };
 }
 
 module.exports = {
-  getBoard, getDetail, upsertState,
-  listComments, addComment, deleteComment,
-  VALID_STATUS, DEFAULT_STATUS,
+  getBoard, getTruckDetail, updateColumn, addComment,
+  VALID_COLUMNS, DEFAULT_COLUMN,
 };
