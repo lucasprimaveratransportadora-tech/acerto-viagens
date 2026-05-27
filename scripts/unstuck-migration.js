@@ -23,18 +23,18 @@ const TARGET = '20260527130000_trip_numero';
       console.log(`[unstuck] Migration ${TARGET} não está registrada — nada a fazer.`);
     } else {
       const row = rows[0];
-      const failed = !row.finished_at && !row.rolled_back_at;
-      if (failed) {
-        console.log(`[unstuck] Migration ${TARGET} marcada como FAILED. Marcando como rolled-back…`);
-        await prisma.$executeRawUnsafe(
-          'UPDATE "_prisma_migrations" SET rolled_back_at = NOW() WHERE migration_name = $1 AND finished_at IS NULL',
-          TARGET,
-        );
-        console.log('[unstuck] Marcada como rolled-back ✓');
-      } else if (row.finished_at) {
+      if (row.finished_at) {
         console.log(`[unstuck] Migration ${TARGET} já aplicada com sucesso — nada a fazer.`);
       } else {
-        console.log(`[unstuck] Migration ${TARGET} já marcada como rolled-back — nada a fazer.`);
+        // Inclui o caso rolled-back: migrate deploy pula migrations rolled-back,
+        // então pra re-aplicar precisamos DELETAR o registro completo.
+        const reason = row.rolled_back_at ? 'rolled-back' : 'failed sem rollback';
+        console.log(`[unstuck] Migration ${TARGET} está ${reason}. Deletando o registro para re-aplicar…`);
+        await prisma.$executeRawUnsafe(
+          'DELETE FROM "_prisma_migrations" WHERE migration_name = $1 AND finished_at IS NULL',
+          TARGET,
+        );
+        console.log('[unstuck] Registro deletado — prisma migrate deploy vai re-aplicar do zero ✓');
       }
     }
 
