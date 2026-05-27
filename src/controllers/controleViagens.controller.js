@@ -1,33 +1,68 @@
 const service = require('../services/controleViagens.service');
+const viagens = require('../services/controleViagensViagens.service');
+const activity = require('../services/controleViagensActivity.service');
 const asyncHandler = require('../utils/asyncHandler');
 
 const getBoard = asyncHandler(async (req, res) => {
-  const board = await service.getBoard(req.empresaId);
-  // ETag-like: hash do maior updated_at + nº de cards. Permite ao client
-  // pular re-render quando nada mudou (ver controle-viagens.js no polling).
-  const maxUpdated = board.reduce((acc, row) => {
-    const u = row.state?.updated_at ? new Date(row.state.updated_at).getTime() : 0;
-    return Math.max(acc, u);
-  }, 0);
-  const maxComment = board.reduce((acc, row) => {
-    const u = row.last_comment_at ? new Date(row.last_comment_at).getTime() : 0;
-    return Math.max(acc, u);
-  }, 0);
-  res.json({ board, fingerprint: `${board.length}-${maxUpdated}-${maxComment}` });
-});
-
-const getDetail = asyncHandler(async (req, res) => {
-  const data = await service.getDetail(req.params.truckId, req.empresaId);
+  const data = await service.getBoard(req.empresaId);
   res.json(data);
 });
 
-const upsertState = asyncHandler(async (req, res) => {
-  const state = await service.upsertState(req.params.truckId, req.empresaId, req, req.body);
-  res.json(state);
+const getTruckDetail = asyncHandler(async (req, res) => {
+  const data = await service.getTruckDetail(req.params.truckId, req.empresaId);
+  res.json(data);
 });
 
-const listComments = asyncHandler(async (req, res) => {
-  const items = await service.listComments(req.params.truckId, req.empresaId, req.query);
+const updateColumn = asyncHandler(async (req, res) => {
+  const col = await service.updateColumn(req.params.truckId, req.empresaId, req, req.body);
+  res.json(col);
+});
+
+// Viagens
+const listViagens = asyncHandler(async (req, res) => {
+  const items = await viagens.listByTruck(req.params.truckId, req.empresaId, req.query);
+  res.json(items);
+});
+
+const createViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.create(req.params.truckId, req.empresaId, req, req.body);
+  res.status(201).json(v);
+});
+
+const updateViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.update(req.params.viagemId, req.empresaId, req, req.body);
+  res.json(v);
+});
+
+const startViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.start(req.params.viagemId, req.empresaId, req);
+  res.json(v);
+});
+
+const finalizeViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.finalize(req.params.viagemId, req.empresaId, req, req.body);
+  res.json(v);
+});
+
+const cancelViagem = asyncHandler(async (req, res) => {
+  const v = await viagens.cancel(req.params.viagemId, req.empresaId, req, req.body);
+  res.json(v);
+});
+
+const removeViagem = asyncHandler(async (req, res) => {
+  await viagens.remove(req.params.viagemId, req.empresaId, req);
+  res.json({ ok: true });
+});
+
+// Activity
+const listActivity = asyncHandler(async (req, res) => {
+  const items = await activity.list({
+    truckId: req.params.truckId,
+    empresaId: req.empresaId,
+    viagemId: req.query.viagem_id,
+    limit: req.query.limit,
+    before: req.query.before,
+  });
   res.json(items);
 });
 
@@ -37,8 +72,17 @@ const addComment = asyncHandler(async (req, res) => {
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
-  await service.deleteComment(req.params.truckId, req.params.id, req.empresaId, req);
+  await activity.deleteComment({
+    eventId: req.params.eventId,
+    empresaId: req.empresaId,
+    req,
+  });
   res.json({ ok: true });
 });
 
-module.exports = { getBoard, getDetail, upsertState, listComments, addComment, deleteComment };
+module.exports = {
+  getBoard, getTruckDetail, updateColumn,
+  listViagens, createViagem, updateViagem,
+  startViagem, finalizeViagem, cancelViagem, removeViagem,
+  listActivity, addComment, deleteComment,
+};
