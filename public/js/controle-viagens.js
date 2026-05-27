@@ -1,13 +1,12 @@
-// controle-viagens.js — Painel Kanban operacional.
-//
-// Cada caminhão da frota é um card. Movimentar entre colunas atualiza
-// o status no backend. Polling a cada 20s; pausado quando aba fora de
-// foco. Identidade visual idêntica ao restante do sistema (vide
-// public/css/controle-viagens.css).
+// controle-viagens.js — Painel Kanban operacional v2.
+// Board: cards arrastáveis, sort por coluna, busca global, polling 20s.
+// Modal + viagens + activity ficam em arquivos próprios.
 
 import { api } from './api.js';
 import { esc } from './utils.js';
 import * as modal from './controle-viagens.modal.js';
+import * as viagensPane from './controle-viagens.viagens.js';
+import * as activityPane from './controle-viagens.activity.js';
 
 const COLUMNS = [
   { key: 'VAZIO_AGUARDANDO_CARGA',   label: 'Vazio aguardando carga',  color: 'var(--cv-col-vazio)' },
@@ -18,66 +17,60 @@ const COLUMNS = [
   { key: 'EM_MANUTENCAO',            label: 'Em manutenção',           color: 'var(--cv-col-manutencao)' },
 ];
 
-const STATUS_LABEL = Object.fromEntries(COLUMNS.map(c => [c.key, c.label]));
+const SORT_OPTIONS = [
+  { key: 'default',          label: 'Padrão (placa)' },
+  { key: 'coleta_asc',       label: 'Coleta ↑' },
+  { key: 'coleta_desc',      label: 'Coleta ↓' },
+  { key: 'agend_asc',        label: 'Agendamento ↑' },
+  { key: 'agend_desc',       label: 'Agendamento ↓' },
+];
 
 const POLL_INTERVAL_MS = 20_000;
 
 const state = {
-  rows: [],           // [{ truck, state, comments_count, last_comment_at }]
+  rows: [],
   fingerprint: null,
   query: '',
+  sorts: loadSorts(),
   pollTimer: null,
-  detailTruckId: null,
-  lastSeen: loadLastSeen(),
   initialized: false,
   visibilityHandler: null,
+  lastSeen: loadLastSeen(),
 };
 
-/* ============================================================
-   LOCALSTORAGE — última visita por caminhão (badge "novo")
-   ============================================================ */
+function loadSorts() {
+  try { return JSON.parse(localStorage.getItem('cv_sorts') || '{}'); } catch { return {}; }
+}
+function saveSorts() {
+  try { localStorage.setItem('cv_sorts', JSON.stringify(state.sorts)); } catch {}
+}
 function loadLastSeen() {
-  try {
-    const raw = localStorage.getItem('cv_last_seen');
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem('cv_last_seen') || '{}'); } catch { return {}; }
 }
 function saveLastSeen() {
-  try { localStorage.setItem('cv_last_seen', JSON.stringify(state.lastSeen)); } catch { /* */ }
+  try { localStorage.setItem('cv_last_seen', JSON.stringify(state.lastSeen)); } catch {}
 }
 function markSeen(truckId) {
   state.lastSeen[truckId] = new Date().toISOString();
   saveLastSeen();
 }
 
-/* ============================================================
-   FORMATAÇÃO
-   ============================================================ */
 function fmtDate(s) {
   if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}`;
+  const d = new Date(s); if (isNaN(d)) return '';
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 function fmtTime(s) {
   if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d)) return '';
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mi}`;
+  const d = new Date(s); if (isNaN(d)) return '';
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-/* ============================================================
-   FETCH + POLLING
-   ============================================================ */
 async function fetchBoard() {
   try {
     const resp = await api.get('/api/controle-viagens/board');
     if (state.fingerprint === resp.fingerprint) {
-      updateRefreshInfo(); // só atualiza horário
+      updateRefreshInfo();
       return;
     }
     state.rows = resp.board;
@@ -85,9 +78,9 @@ async function fetchBoard() {
     renderBoard();
     updateRefreshInfo();
   } catch (e) {
-    console.error('[cv] falha ao carregar board:', e);
-    document.getElementById('cvBoard').innerHTML =
-      `<div class="cv-loading" style="color:var(--danger)">Erro: ${esc(e.message)}</div>`;
+    console.error('[cv] fetchBoard:', e);
+    const el = document.getElementById('cvBoard');
+    if (el) el.innerHTML = `<div class="cv-loading" style="color:var(--danger)">Erro: ${esc(e.message)}</div>`;
   }
 }
 
@@ -100,7 +93,6 @@ function startPolling() {
 function stopPolling() {
   if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
 }
-
 function updateRefreshInfo() {
   const el = document.getElementById('cvRefreshInfo');
   if (!el) return;
@@ -109,40 +101,67 @@ function updateRefreshInfo() {
   el.classList.toggle('paused', document.hidden);
 }
 
-/* ============================================================
-   RENDER
-   ============================================================ */
+function matchesQuery(row, q) {
+  const t = row.truck;
+  const v = row.viagem_em_curso || {};
+  const c = row.column || {};
+  return (
+    (t.placa || '').toLowerCase().includes(q) ||
+    (t.motorista || '').toLowerCase().includes(q) ||
+    (t.modelo || '').toLowerCase().includes(q) ||
+    (v.origem || '').toLowerCase().includes(q) ||
+    (v.destino || '').toLowerCase().includes(q) ||
+    (v.carga_descricao || '').toLowerCase().includes(q) ||
+    (v.fabrica || '').toLowerCase().includes(q) ||
+    (v.cliente_descarga || '').toLowerCase().includes(q) ||
+    (c.descricao_geral || '').toLowerCase().includes(q) ||
+    (c.manutencao_descricao || '').toLowerCase().includes(q)
+  );
+}
+
 function filteredRows() {
   const q = state.query.trim().toLowerCase();
   if (!q) return state.rows;
-  return state.rows.filter(r => {
-    const t = r.truck;
-    const s = r.state || {};
-    return (t.placa || '').toLowerCase().includes(q)
-        || (t.motorista || '').toLowerCase().includes(q)
-        || (t.modelo || '').toLowerCase().includes(q)
-        || (s.carga_descricao || '').toLowerCase().includes(q)
-        || (s.contexto_atual || '').toLowerCase().includes(q);
+  return state.rows.filter(r => matchesQuery(r, q));
+}
+
+function sortRows(rows, sortKey) {
+  if (!sortKey || sortKey === 'default') {
+    return [...rows].sort((a, b) => (a.truck.placa || '').localeCompare(b.truck.placa || ''));
+  }
+  const dir = sortKey.endsWith('_asc') ? 1 : -1;
+  const field = sortKey.startsWith('coleta') ? 'data_coleta' : 'data_agendamento_entrega';
+  return [...rows].sort((a, b) => {
+    const av = a.viagem_em_curso?.[field];
+    const bv = b.viagem_em_curso?.[field];
+    if (!av && !bv) return 0;
+    if (!av) return 1;  // sem data fica no fim
+    if (!bv) return -1;
+    return (new Date(av) - new Date(bv)) * dir;
   });
 }
 
 function renderBoard() {
   const board = document.getElementById('cvBoard');
   const rows = filteredRows();
-
   document.getElementById('cvTotal').textContent =
     `${rows.length} de ${state.rows.length} caminhões`;
 
   board.innerHTML = COLUMNS.map(col => {
-    const cards = rows.filter(r => (r.state?.status || 'VAZIO_AGUARDANDO_CARGA') === col.key);
+    const cards = rows.filter(r => (r.column?.coluna || 'VAZIO_AGUARDANDO_CARGA') === col.key);
+    const sortKey = state.sorts[col.key] || 'default';
+    const sorted = sortRows(cards, sortKey);
     return `
       <div class="cv-col" data-col-status="${col.key}" style="--col-color:${col.color}">
         <div class="cv-col-hdr">
           <span class="cv-col-title">${esc(col.label)}</span>
           <span class="cv-col-count">${cards.length}</span>
+          <select class="cv-col-sort" onchange="cv.setSort('${col.key}', this.value)" title="Ordenar coluna">
+            ${SORT_OPTIONS.map(o => `<option value="${o.key}" ${o.key === sortKey ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+          </select>
         </div>
         <div class="cv-col-body" data-col-body="${col.key}">
-          ${cards.map(renderCard).join('') || '<div class="cv-muted" style="text-align:center;padding:.5rem">—</div>'}
+          ${sorted.map(renderCard).join('') || '<div class="cv-muted" style="text-align:center;padding:.5rem">—</div>'}
         </div>
       </div>`;
   }).join('');
@@ -152,12 +171,14 @@ function renderBoard() {
 
 function renderCard(row) {
   const t = row.truck;
-  const s = row.state || {};
-  const status = s.status || 'VAZIO_AGUARDANDO_CARGA';
-  const col = COLUMNS.find(c => c.key === status);
-  const fields = miniFields(status, s);
+  const c = row.column || {};
+  const v = row.viagem_em_curso;
+  const col = COLUMNS.find(x => x.key === (c.coluna || 'VAZIO_AGUARDANDO_CARGA'));
+  const fields = miniFields(c.coluna, v, c);
+  const planejadas = row.viagens_planejadas_count || 0;
   const unread = isUnread(row);
-  const updated = s.updated_at ? fmtTime(s.updated_at) : '';
+  const updated = c.updated_at ? fmtTime(c.updated_at) : '';
+
   return `
     <div class="cv-card" draggable="true"
          data-truck-id="${esc(t.id)}"
@@ -168,83 +189,78 @@ function renderCard(row) {
       <div class="cv-model">${esc(t.modelo || '')}</div>
       ${fields ? `<div class="cv-divider"></div><div class="cv-fields-mini">${fields}</div>` : ''}
       <div class="cv-foot">
-        <span class="cv-comment-pill ${unread ? 'unread' : ''}">💬 ${row.comments_count || 0}</span>
+        <span>
+          <span class="cv-pill ${unread ? 'unread' : ''}">💬 ${row.activity_count || 0}</span>
+          ${planejadas > 0 ? `<span class="cv-pill" style="margin-left:.3rem">📋 ${planejadas}</span>` : ''}
+        </span>
         <span>${updated ? '⏱ ' + updated : ''}</span>
       </div>
     </div>`;
 }
 
-function miniFields(status, s) {
+function miniFields(coluna, viagem, column) {
   const parts = [];
-  if (status === 'INDO_CARREGAR') {
-    if (s.data_coleta)              parts.push(`🚚 <b>${fmtDate(s.data_coleta)}</b>`);
-    if (s.data_agendamento_entrega) parts.push(`📅 <b>${fmtDate(s.data_agendamento_entrega)}</b>`);
-    if (s.carga_descricao)          parts.push(esc(s.carga_descricao));
-  } else if (status === 'CARREGADO_EM_VIAGEM') {
-    if (s.data_agendamento_entrega) parts.push(`📅 <b>${fmtDate(s.data_agendamento_entrega)}</b>`);
-    if (s.carga_descricao)          parts.push(esc(s.carga_descricao));
-  } else if (s.contexto_atual) {
-    parts.push(`📍 ${esc(s.contexto_atual)}`);
+  const v = viagem || {};
+  if (coluna === 'INDO_CARREGAR' || coluna === 'NA_FABRICA') {
+    if (v.fabrica)                  parts.push(`🏭 ${esc(v.fabrica)}`);
+    if (v.data_coleta)              parts.push(`🚚 <b>${fmtDate(v.data_coleta)}</b>`);
+    if (v.data_agendamento_entrega) parts.push(`📅 <b>${fmtDate(v.data_agendamento_entrega)}</b>`);
+  } else if (coluna === 'CARREGADO_EM_VIAGEM') {
+    if (v.data_agendamento_entrega) parts.push(`📅 <b>${fmtDate(v.data_agendamento_entrega)}</b>`);
+    if (v.carga_descricao)          parts.push(esc(v.carga_descricao));
+  } else if (coluna === 'EM_DESCARGA_NO_CLIENTE') {
+    if (v.cliente_descarga) parts.push(`🏢 ${esc(v.cliente_descarga)}`);
+  } else if (coluna === 'EM_MANUTENCAO') {
+    if (column.manutencao_descricao) parts.push(`🔧 ${esc(column.manutencao_descricao)}`);
   }
   return parts.join(' · ');
 }
 
 function isUnread(row) {
-  if (!row.last_comment_at || (row.comments_count || 0) === 0) return false;
+  if (!row.last_activity_at || (row.activity_count || 0) === 0) return false;
   const seen = state.lastSeen[row.truck.id];
   if (!seen) return true;
-  return new Date(row.last_comment_at) > new Date(seen);
+  return new Date(row.last_activity_at) > new Date(seen);
 }
 
-/* ============================================================
-   SEARCH
-   ============================================================ */
 function applySearch() {
   state.query = document.getElementById('cvSearch').value;
   renderBoard();
 }
 
+function setSort(colKey, sortKey) {
+  state.sorts[colKey] = sortKey;
+  saveSorts();
+  renderBoard();
+}
+
 /* ============================================================
-   DRAG AND DROP
+   DRAG-AND-DROP — desktop + mobile (touch)
    ============================================================ */
 function wireDragAndDrop() {
   const cards = document.querySelectorAll('.cv-card');
   const cols  = document.querySelectorAll('.cv-col');
 
   cards.forEach(card => {
-    // Desktop: HTML5 native DnD
     card.addEventListener('dragstart', onDragStart);
     card.addEventListener('dragend',   onDragEnd);
 
-    // Mobile: long-press (350ms) arma um arrasto manual com touchmove tracking.
     let lpTimer = null;
-    let touchDrag = null; // { truckId, ghost, currentCol }
+    let touchDrag = null;
     card.addEventListener('touchstart', (e) => {
-      lpTimer = setTimeout(() => {
-        touchDrag = beginTouchDrag(card, e.touches[0]);
-      }, 350);
+      lpTimer = setTimeout(() => { touchDrag = beginTouchDrag(card, e.touches[0]); }, 350);
     }, { passive: true });
     card.addEventListener('touchmove', (e) => {
-      if (touchDrag) {
-        e.preventDefault();
-        moveTouchDrag(touchDrag, e.touches[0]);
-      } else {
-        clearTimeout(lpTimer);
-      }
+      if (touchDrag) { e.preventDefault(); moveTouchDrag(touchDrag, e.touches[0]); }
+      else clearTimeout(lpTimer);
     }, { passive: false });
     card.addEventListener('touchend', () => {
       clearTimeout(lpTimer);
-      if (touchDrag) {
-        endTouchDrag(touchDrag);
-        touchDrag = null;
-      }
+      if (touchDrag) { endTouchDrag(touchDrag); touchDrag = null; }
     });
     card.addEventListener('touchcancel', () => {
       clearTimeout(lpTimer);
-      if (touchDrag) {
-        cancelTouchDrag(touchDrag);
-        touchDrag = null;
-      }
+      if (touchDrag) { cancelTouchDrag(touchDrag); touchDrag = null; }
     });
   });
 
@@ -254,8 +270,6 @@ function wireDragAndDrop() {
     col.addEventListener('drop',      onDrop);
   });
 }
-
-/* ===== Desktop handlers ===== */
 function onDragStart(e) {
   const card = e.currentTarget;
   card.classList.add('dragging');
@@ -266,117 +280,85 @@ function onDragEnd(e) {
   e.currentTarget.classList.remove('dragging');
   document.querySelectorAll('.cv-col.drag-over').forEach(c => c.classList.remove('drag-over'));
 }
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  e.currentTarget.classList.add('drag-over');
-}
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.classList.add('drag-over'); }
 function onDragLeave(e) {
-  if (!e.currentTarget.contains(e.relatedTarget)) {
-    e.currentTarget.classList.remove('drag-over');
-  }
+  if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
 }
 async function onDrop(e) {
   e.preventDefault();
   const col = e.currentTarget;
   col.classList.remove('drag-over');
-  const newStatus = col.dataset.colStatus;
+  const newColuna = col.dataset.colStatus;
   const truckId   = e.dataTransfer.getData('text/plain');
-  await commitMove(truckId, newStatus);
+  await commitMove(truckId, newColuna);
 }
 
-/* ===== Touch handlers (mobile manual drag) ===== */
 function beginTouchDrag(card, touch) {
   card.classList.add('dragging');
   card.setAttribute('data-lp', '1');
-  if (navigator.vibrate) try { navigator.vibrate(20); } catch { /* */ }
-
-  // Ghost: clone visual que segue o dedo
+  if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
   const rect = card.getBoundingClientRect();
   const ghost = card.cloneNode(true);
   ghost.style.position = 'fixed';
   ghost.style.left = rect.left + 'px';
-  ghost.style.top = rect.top + 'px';
+  ghost.style.top  = rect.top  + 'px';
   ghost.style.width = rect.width + 'px';
   ghost.style.pointerEvents = 'none';
   ghost.style.zIndex = '1000';
   ghost.style.opacity = '0.85';
   ghost.classList.add('cv-touch-ghost');
   document.body.appendChild(ghost);
-
-  return {
-    truckId: card.dataset.truckId,
-    ghost,
-    offsetX: touch.clientX - rect.left,
-    offsetY: touch.clientY - rect.top,
-    currentCol: null,
-  };
+  return { truckId: card.dataset.truckId, ghost, offsetX: touch.clientX - rect.left, offsetY: touch.clientY - rect.top, currentCol: null };
 }
-
 function moveTouchDrag(drag, touch) {
   drag.ghost.style.left = (touch.clientX - drag.offsetX) + 'px';
   drag.ghost.style.top  = (touch.clientY - drag.offsetY) + 'px';
-
-  // Detecta coluna sob o dedo (esconde temporariamente o ghost pra não atrapalhar elementFromPoint)
   drag.ghost.style.display = 'none';
   const el = document.elementFromPoint(touch.clientX, touch.clientY);
   drag.ghost.style.display = '';
   const col = el?.closest?.('.cv-col');
-
   if (col !== drag.currentCol) {
     if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
     if (col) col.classList.add('drag-over');
     drag.currentCol = col;
   }
 }
-
 async function endTouchDrag(drag) {
   drag.ghost.remove();
   if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
   document.querySelectorAll(`.cv-card[data-truck-id="${drag.truckId}"]`).forEach(c => {
-    c.classList.remove('dragging');
-    c.removeAttribute('data-lp');
+    c.classList.remove('dragging'); c.removeAttribute('data-lp');
   });
-  if (drag.currentCol) {
-    const newStatus = drag.currentCol.dataset.colStatus;
-    await commitMove(drag.truckId, newStatus);
-  }
+  if (drag.currentCol) await commitMove(drag.truckId, drag.currentCol.dataset.colStatus);
 }
-
 function cancelTouchDrag(drag) {
   drag.ghost.remove();
   if (drag.currentCol) drag.currentCol.classList.remove('drag-over');
   document.querySelectorAll(`.cv-card[data-truck-id="${drag.truckId}"]`).forEach(c => {
-    c.classList.remove('dragging');
-    c.removeAttribute('data-lp');
+    c.classList.remove('dragging'); c.removeAttribute('data-lp');
   });
 }
 
-/* ===== Shared commit logic (desktop drop + touch end) ===== */
-async function commitMove(truckId, newStatus) {
-  if (!newStatus || !truckId) return;
+async function commitMove(truckId, newColuna) {
+  if (!newColuna || !truckId) return;
   const row = state.rows.find(r => r.truck.id === truckId);
   if (!row) return;
-  const oldStatus = row.state?.status || 'VAZIO_AGUARDANDO_CARGA';
-  if (oldStatus === newStatus) return;
+  const oldColuna = row.column?.coluna || 'VAZIO_AGUARDANDO_CARGA';
+  if (oldColuna === newColuna) return;
 
-  // Otimista: move localmente
-  row.state = { ...(row.state || {}), status: newStatus };
+  row.column = { ...(row.column || {}), coluna: newColuna };
   renderBoard();
 
   try {
-    await api.patch(`/api/controle-viagens/${truckId}/state`, { status: newStatus });
+    await api.patch(`/api/controle-viagens/truck/${truckId}/column`, { coluna: newColuna });
     await fetchBoard();
   } catch (err) {
     alert('Erro ao mover: ' + err.message);
-    row.state.status = oldStatus;
+    row.column.coluna = oldColuna;
     renderBoard();
   }
 }
 
-/* ============================================================
-   INIT
-   ============================================================ */
 async function manualRefresh() {
   state.fingerprint = null;
   await fetchBoard();
@@ -408,20 +390,34 @@ export function stopControleViagens() {
     document.removeEventListener('visibilitychange', state.visibilityHandler);
     state.visibilityHandler = null;
   }
-  state.initialized = false; // permite re-init quando voltar
+  state.initialized = false;
 }
 
-/* Exposto pro HTML inline (onclick) */
+/* Objeto exposto pro HTML inline */
 const cv = {
   manualRefresh,
   applySearch,
+  setSort,
+  markSeen,
   openDetail: modal.openDetail,
   closeDetail: modal.closeDetail,
   saveDetailFields: modal.saveDetailFields,
+  saveDescricao: modal.saveDescricao,
   switchModalTab: modal.switchModalTab,
-  submitComment: modal.submitComment,
-  deleteComment: modal.deleteComment,
-  markSeen,
+  toggleDetails: modal.toggleDetails,
+  submitComment: activityPane.submitComment,
+  deleteComment: activityPane.deleteComment,
+  openNewViagem: viagensPane.openNewViagem,
+  closeViagemForm: viagensPane.closeViagemForm,
+  saveViagemForm: viagensPane.saveViagemForm,
+  editViagem: viagensPane.editViagem,
+  startViagem: viagensPane.startViagem,
+  finalizeViagem: viagensPane.finalizeViagem,
+  cancelViagem: viagensPane.cancelViagem,
+  deleteViagem: viagensPane.deleteViagem,
+  toggleViagem: viagensPane.toggleCollapse,
+  // Helpers compartilhados expostos pra outros módulos
+  refreshAfterChange: async () => { state.fingerprint = null; await fetchBoard(); },
 };
 window.cv = cv;
 export { cv };
