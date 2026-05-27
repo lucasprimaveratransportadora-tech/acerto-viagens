@@ -212,7 +212,7 @@ export function buildDetail(tr) {
     <div class="acerto-line"><span class="al-label">Total Fretes (CTes)</span><span class="al-val" style="color:var(--success)">R$ ${fmt(frete)}</span></div>
     <div class="acerto-line"><span class="al-label">(-) Total Despesas</span><span class="al-val" style="color:var(--danger)">R$ ${fmt(despTotal)}</span></div>
     ${obs ? `<div class="acerto-line"><span class="al-label" style="font-size:.7rem;color:var(--muted)">Obs: ${esc(obs)}</span></div>` : ''}
-    <div class="acerto-line"><span class="al-label">SALDO ACERTO MOTORISTA</span><span class="al-val" style="color:${saldo >= 0 ? 'var(--success)' : 'var(--danger)'}">R$ ${fmt(saldo)}</span></div>
+    <div class="acerto-line"><span class="al-label">SALDO VIAGEM</span><span class="al-val" style="color:${saldo >= 0 ? 'var(--success)' : 'var(--danger)'}">R$ ${fmt(saldo)}</span></div>
     ${adto > 0 ? `<div style="margin-top:.5rem;padding:.4rem .5rem;background:rgba(227,6,19,.06);border:1px solid rgba(227,6,19,.2);border-radius:5px;font-size:.72rem;display:flex;justify-content:space-between"><span style="color:var(--muted)">&#x2139;&#xFE0F; Adiantamento motorista (informativo)</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--accent)">R$ ${fmt(adto)}</span></div>` : ''}
   </div>`;
 
