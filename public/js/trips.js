@@ -515,3 +515,31 @@ window.inlineAutoCalcFuel = function (tripId, field) {
     else if (preco > 0 && valor > 0) litEl.value = (valor / preco).toFixed(2);
   }
 };
+
+// ==================== STATUS CYCLE ====================
+
+const STATUS_NEXT = { PENDENTE: 'OK', OK: 'CANCELADA', CANCELADA: 'PENDENTE' };
+const STATUS_LABEL = {
+  OK:        ['status-ok',   '✅ Concluída'],
+  PENDENTE:  ['status-pend', '⏳ Pendente'],
+  CANCELADA: ['status-canc', '❌ Cancelada'],
+};
+
+window.cycleTripStatus = async function (tripId, badgeEl) {
+  const tr = state.trips.find(t => t.id === tripId);
+  if (!tr) return;
+  const next = STATUS_NEXT[tr.status] || 'PENDENTE';
+
+  badgeEl.classList.add('updating');
+  try {
+    await api.patch('/api/trips/' + tripId, { status: next });
+    tr.status = next;
+    const [cls, label] = STATUS_LABEL[next];
+    badgeEl.className = 'status-badge ' + cls + ' clickable';
+    badgeEl.textContent = label;
+  } catch (e) {
+    alert('Erro ao atualizar status: ' + e.message);
+  } finally {
+    badgeEl.classList.remove('updating');
+  }
+};
