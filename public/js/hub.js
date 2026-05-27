@@ -237,6 +237,7 @@ window.refreshPermissions = refreshAdminVisibility;
 
 function renderHubUser() {
   const u = getCurrentUser();
+  window.__currentUser = u;
   const el = document.getElementById('hubUserInfo');
   if (el && u) el.textContent = `${u.nome} · ${u.role}`;
 }

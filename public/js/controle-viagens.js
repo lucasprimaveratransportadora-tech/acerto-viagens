@@ -244,7 +244,8 @@ const cv = {
   closeDetail: modal.closeDetail,
   saveDetailFields: modal.saveDetailFields,
   switchModalTab: modal.switchModalTab,
-  submitComment: () => alert('Comentários: próxima task'),
+  submitComment: modal.submitComment,
+  deleteComment: modal.deleteComment,
   markSeen,
 };
 window.cv = cv;

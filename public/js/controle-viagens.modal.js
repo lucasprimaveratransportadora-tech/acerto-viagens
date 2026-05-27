@@ -185,3 +185,94 @@ export function switchModalTab(tab) {
   document.getElementById('cvDetailPane').classList.toggle('active', tab === 'detail');
   document.getElementById('cvCommentsPane').classList.toggle('active', tab === 'comments');
 }
+
+/* ============================================================
+   COMMENTS
+   ============================================================ */
+const commentsState = { truckId: null, items: [] };
+
+async function loadComments(truckId) {
+  commentsState.truckId = truckId;
+  try {
+    commentsState.items = await api.get(`/api/controle-viagens/${truckId}/comments?limit=200`);
+  } catch (e) {
+    commentsState.items = [];
+    console.error('[cv comments] load failed:', e);
+  }
+  renderComments();
+}
+
+function initial(name) {
+  return (name || '?').trim().charAt(0).toUpperCase();
+}
+
+function fmtPtBRFull(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d)) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+}
+
+function renderComments() {
+  const list = document.getElementById('cvCommentsList');
+  if (!commentsState.items.length) {
+    list.innerHTML = '<div class="cv-muted" style="text-align:center;padding:1rem">Nenhum comentário ainda. Seja o primeiro 💬</div>';
+    return;
+  }
+  const me = window.__currentUser || null;
+  const meId = me?.id || null;
+  const isAdmin = me?.role === 'ADMIN';
+
+  list.innerHTML = commentsState.items.map(c => {
+    const canDelete = isAdmin || (c.author_id && c.author_id === meId);
+    return `
+      <div class="cv-comment" data-comment-id="${esc(c.id)}">
+        <div class="cv-comment-avatar">${esc(initial(c.author_nome))}</div>
+        <div class="cv-comment-body">
+          <div class="cv-comment-head">
+            <b>${esc(c.author_nome)}</b> · ${fmtPtBRFull(c.created_at)}
+            ${canDelete ? `<button class="cv-comment-delete" onclick="cv.deleteComment('${esc(c.id)}')" title="Apagar">apagar</button>` : ''}
+          </div>
+          <div class="cv-comment-text">${esc(c.texto)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+export async function submitComment() {
+  if (!commentsState.truckId) return;
+  const input = document.getElementById('cvCommentInput');
+  const texto = (input.value || '').trim();
+  if (!texto) return;
+  try {
+    const c = await api.post(`/api/controle-viagens/${commentsState.truckId}/comments`, { texto });
+    commentsState.items = [c, ...commentsState.items];
+    input.value = '';
+    renderComments();
+    // Atualiza board pra incrementar contador 💬 + last_comment_at
+    if (window.cv?.manualRefresh) await window.cv.manualRefresh();
+  } catch (e) {
+    alert('Erro ao enviar comentário: ' + e.message);
+  }
+}
+
+export async function deleteComment(id) {
+  if (!commentsState.truckId) return;
+  if (!confirm('Apagar este comentário?')) return;
+  try {
+    await api.delete(`/api/controle-viagens/${commentsState.truckId}/comments/${id}`);
+    commentsState.items = commentsState.items.filter(c => c.id !== id);
+    renderComments();
+    if (window.cv?.manualRefresh) await window.cv.manualRefresh();
+  } catch (e) {
+    alert('Erro ao apagar: ' + e.message);
+  }
+}
+
+// Wire pro openDetail chamar quando abrir o modal
+window.cvComments = { loadFor: loadComments };
