@@ -155,6 +155,7 @@ model Empresa {
   updated_at       DateTime        @updatedAt
   users            User[]
   trucks           Truck[]
+  trips            Trip[]
   attachments      Attachment[]
   audit_logs       AuditLog[]
   login_events     LoginEvent[]
@@ -235,6 +236,13 @@ model Trip {
   id               String          @id @default(uuid())
   truck_id         String
   truck            Truck           @relation(fields: [truck_id], references: [id])
+  // Desnormalizado de truck.empresa_id pra permitir unique (empresa_id, numero).
+  // Prisma não suporta unique através de relação — daí a coluna direta.
+  empresa_id       String
+  empresa          Empresa         @relation(fields: [empresa_id], references: [id])
+  // Sequencial por empresa, gerado na criação (MAX(numero)+1).
+  // Números nunca são reaproveitados (soft-deleted também consomem).
+  numero           Int
   data_inicio      DateTime
   data_fim         DateTime?
   origem           String?
@@ -261,9 +269,11 @@ model Trip {
   trip_anexos      TripAnexo[]
   fretes_terceiros FreteTerceiro[]
 
+  @@unique([empresa_id, numero])
   @@index([truck_id])
   @@index([data_inicio])
   @@index([imported_batch])
+  @@index([empresa_id])
   @@map("trips")
 }
 

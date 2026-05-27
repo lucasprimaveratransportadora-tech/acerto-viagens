@@ -12,8 +12,11 @@ const TRIP_ANEXO_LIST_SELECT = {
 // Whitelist explícito do que o cliente pode editar via PATCH/POST.
 // Antes, `data` (= req.body) ia direto pro Prisma — abrindo brecha de
 // mass-assignment (cliente podia mandar truck_id e mover viagem entre tenants).
+// origem/destino sairam do whitelist: agora vem derivados do 1o CTE em runtime
+// (deriveOrigemDestino mais abaixo). Campos legados no banco permanecem como
+// fallback de display, mas nao podem mais ser editados via API.
 const TRIP_PATCH_FIELDS = [
-  'data_inicio', 'data_fim', 'origem', 'destino', 'carga', 'motorista',
+  'data_inicio', 'data_fim', 'carga', 'motorista',
   'km_total', 'status', 'adiantamento', 'observacoes',
   'km_inicial', 'km_final',
 ];
@@ -58,6 +61,35 @@ function normalizeFuel(f) {
   };
 }
 
+// Origem/destino exibidos no card vem do 1o CTE (data ASC, created_at ASC).
+// Fallback: campos legados origem/destino da Trip — viagens criadas antes
+// desta mudanca ainda tem origem/destino digitados; mantemos como display
+// quando nao ha CTE. Retorna { origem_calc, destino_calc } (nullable).
+function deriveOrigemDestino(trip) {
+  const ctes = Array.isArray(trip?.ctes) ? trip.ctes : [];
+  if (ctes.length > 0) {
+    const sorted = [...ctes].sort((a, b) => {
+      const da = a.data ? new Date(a.data).getTime() : 0;
+      const db = b.data ? new Date(b.data).getTime() : 0;
+      if (da !== db) return da - db;
+      const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ca - cb;
+    });
+    const first = sorted[0];
+    if (first?.origem || first?.destino) {
+      return {
+        origem_calc: first.origem || null,
+        destino_calc: first.destino || null,
+      };
+    }
+  }
+  return {
+    origem_calc: trip?.origem || null,
+    destino_calc: trip?.destino || null,
+  };
+}
+
 async function verifyTruckOwnership(truckId, empresaId) {
   const truck = await prisma.truck.findFirst({
     where: { id: truckId, empresa_id: empresaId, deleted_at: null },
@@ -81,7 +113,7 @@ async function verifyTripOwnership(tripId, empresaId) {
 async function listByTruck(truckId, empresaId) {
   await verifyTruckOwnership(truckId, empresaId);
 
-  return prisma.trip.findMany({
+  const trips = await prisma.trip.findMany({
     where: { truck_id: truckId, deleted_at: null },
     include: {
       ctes: true,
@@ -91,6 +123,7 @@ async function listByTruck(truckId, empresaId) {
     },
     orderBy: { data_inicio: 'desc' },
   });
+  return trips.map((t) => ({ ...t, ...deriveOrigemDestino(t) }));
 }
 
 async function getById(id, empresaId) {
@@ -113,7 +146,7 @@ async function getById(id, empresaId) {
     },
   });
   if (!trip) throw ApiError.notFound('Viagem não encontrada.');
-  return trip;
+  return { ...trip, ...deriveOrigemDestino(trip) };
 }
 
 async function create(truckId, empresaId, req, data) {
@@ -126,9 +159,25 @@ async function create(truckId, empresaId, req, data) {
   // Atomicidade: ou tudo entra, ou nada. Antes o front fazia N+M+1
   // requests separados — qualquer falha no meio deixava viagem
   // parcialmente preenchida.
+  // Numero sequencial por empresa: MAX(numero)+1 dentro da transacao com
+  // isolation Serializable pra dois creates concorrentes nao pegarem
+  // o mesmo numero (unique [empresa_id, numero] no banco e a rede final
+  // de seguranca).
   const trip = await prisma.$transaction(async (tx) => {
+    const last = await tx.trip.findFirst({
+      where: { empresa_id: empresaId },
+      orderBy: { numero: 'desc' },
+      select: { numero: true },
+    });
+    const proximoNumero = (last?.numero ?? 0) + 1;
+
     const created = await tx.trip.create({
-      data: { ...tripData, truck_id: truckId },
+      data: {
+        ...tripData,
+        truck_id: truckId,
+        empresa_id: empresaId,
+        numero: proximoNumero,
+      },
     });
     if (ctes && ctes.length > 0) {
       await tx.cte.createMany({
@@ -144,10 +193,12 @@ async function create(truckId, empresaId, req, data) {
       where: { id: created.id },
       include: { ctes: true, fuels: true, expenses: true },
     });
+  }, {
+    isolationLevel: 'Serializable',
   });
 
   await audit.log({ req, empresaId, entity: 'TRIP', action: 'CREATE', entityId: trip.id, before: null, after: trip });
-  return trip;
+  return { ...trip, ...deriveOrigemDestino(trip) };
 }
 
 async function update(id, empresaId, req, data) {
@@ -195,7 +246,7 @@ async function update(id, empresaId, req, data) {
   });
 
   await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id, before: result.before, after: result.after });
-  return result.after;
+  return { ...result.after, ...deriveOrigemDestino(result.after) };
 }
 
 async function remove(id, empresaId, req) {
