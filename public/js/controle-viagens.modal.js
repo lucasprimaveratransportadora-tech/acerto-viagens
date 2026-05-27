@@ -38,9 +38,25 @@ function populateStatusSelect() {
   const sel = document.getElementById('cvDetStatus');
   sel.innerHTML = Object.entries(COLUMNS_INFO)
     .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-  sel.onchange = () => {
+  sel.onchange = async () => {
     renderFields();
     sel.style.borderColor = COLUMNS_INFO[sel.value]?.color || 'var(--border)';
+    // Auto-save da troca de coluna (mesmo comportamento do drag-and-drop):
+    // muda no servidor instantaneamente e refresca o board, sem precisar clicar Salvar.
+    // O botão Salvar continua valendo pros campos da viagem (carga/datas/valor).
+    if (!state.truckId) return;
+    const newColuna = sel.value;
+    if (state.data?.column?.coluna === newColuna) return; // já estava nessa coluna
+    sel.disabled = true;
+    try {
+      await api.patch(`/api/controle-viagens/truck/${state.truckId}/column`, { coluna: newColuna });
+      if (window.cv?.refreshAfterChange) await window.cv.refreshAfterChange();
+      await reload();
+    } catch (e) {
+      alert('Erro ao mover: ' + e.message);
+    } finally {
+      sel.disabled = false;
+    }
   };
 }
 
@@ -241,6 +257,18 @@ export async function reload() {
   if (!state.truckId) return;
   try {
     state.data = await api.get(`/api/controle-viagens/truck/${state.truckId}`);
+    // Sincroniza dropdown, fields e descrição com o estado do servidor
+    const c = state.data.column || {};
+    const sel = document.getElementById('cvDetStatus');
+    if (sel) {
+      sel.value = c.coluna || 'VAZIO_AGUARDANDO_CARGA';
+      sel.style.borderColor = COLUMNS_INFO[sel.value]?.color || 'var(--border)';
+    }
+    const desc = document.getElementById('cvDetDescricao');
+    if (desc) desc.value = c.descricao_geral || '';
+    renderFields();
+    const upd = document.getElementById('cvDetUpdated');
+    if (upd) upd.textContent = c.updated_by ? `Última: ${c.updated_by.nome} · ${fmtPtBR(c.updated_at)}` : '';
     viagensPane.renderForTruck(state.data);
     activityPane.renderFor(state.data);
   } catch (e) {
