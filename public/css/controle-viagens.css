@@ -309,3 +309,8 @@
   .cv-detail-pane.active { display:block; }
   .cv-comment-form { position:sticky; bottom:0; }
 }
+
+.cv-card[data-lp="1"] {
+  touch-action: none;
+  outline: 2px solid var(--accent);
+}

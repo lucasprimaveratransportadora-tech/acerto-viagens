@@ -204,10 +204,82 @@ function applySearch() {
 }
 
 /* ============================================================
-   DRAG AND DROP — wire-up placeholder (Task 14 implementa)
+   DRAG AND DROP
    ============================================================ */
 function wireDragAndDrop() {
-  // Implementação real em Task 14.
+  const cards = document.querySelectorAll('.cv-card');
+  const cols  = document.querySelectorAll('.cv-col');
+
+  cards.forEach(card => {
+    card.addEventListener('dragstart', onDragStart);
+    card.addEventListener('dragend',   onDragEnd);
+    // Mobile: long-press habilita arrasto (350ms)
+    let lpTimer = null;
+    card.addEventListener('touchstart', (e) => {
+      lpTimer = setTimeout(() => {
+        card.classList.add('long-pressing');
+        card.setAttribute('data-lp', '1');
+        if (navigator.vibrate) try { navigator.vibrate(20); } catch { /* */ }
+      }, 350);
+    }, { passive: true });
+    card.addEventListener('touchend',   () => { clearTimeout(lpTimer); card.removeAttribute('data-lp'); });
+    card.addEventListener('touchmove',  () => { clearTimeout(lpTimer); });
+  });
+
+  cols.forEach(col => {
+    col.addEventListener('dragover',  onDragOver);
+    col.addEventListener('dragleave', onDragLeave);
+    col.addEventListener('drop',      onDrop);
+  });
+}
+
+function onDragStart(e) {
+  const card = e.currentTarget;
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', card.dataset.truckId);
+}
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.cv-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  // Só remove se realmente saiu (relatedTarget fora da coluna)
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+async function onDrop(e) {
+  e.preventDefault();
+  const col = e.currentTarget;
+  col.classList.remove('drag-over');
+  const newStatus = col.dataset.colStatus;
+  const truckId   = e.dataTransfer.getData('text/plain');
+  if (!newStatus || !truckId) return;
+
+  const row = state.rows.find(r => r.truck.id === truckId);
+  if (!row) return;
+  const oldStatus = row.state?.status || 'VAZIO_AGUARDANDO_CARGA';
+  if (oldStatus === newStatus) return;
+
+  // Otimista: move localmente
+  row.state = { ...(row.state || {}), status: newStatus };
+  renderBoard();
+
+  try {
+    await api.patch(`/api/controle-viagens/${truckId}/state`, { status: newStatus });
+    await fetchBoard(); // refresca contador, updated_by, etc.
+  } catch (err) {
+    alert('Erro ao mover: ' + err.message);
+    // Rollback
+    row.state.status = oldStatus;
+    renderBoard();
+  }
 }
 
 /* ============================================================
