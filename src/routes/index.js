@@ -14,5 +14,6 @@ router.use('/audit', require('./audit.routes'));
 router.use('/login-events', require('./loginEvents.routes'));
 router.use('/fretes-terceiros', require('./fretesTerceiros.routes'));
 router.use('/truck-ledger', require('./truckLedger.routes'));
+router.use('/controle-viagens', require('./controleViagens.routes'));
 
 module.exports = router;
