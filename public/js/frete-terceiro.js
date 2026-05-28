@@ -150,7 +150,17 @@ function onTruckChange() {
   if (!opt) return;
   const motoristaSugerido = opt.getAttribute('data-motorista') || '';
   const inp = document.getElementById('ftMotorista');
-  if (inp && !inp.value.trim() && motoristaSugerido) inp.value = motoristaSugerido;
+  if (!inp) return;
+
+  // Atualiza o motorista quando a placa muda, exceto se o usuário tiver
+  // digitado algo diferente do último sugerido (preserva edição manual).
+  const current = inp.value.trim();
+  const lastSuggested = inp.dataset.suggested || '';
+  const isUntouched = !current || current === lastSuggested;
+  if (motoristaSugerido && isUntouched) {
+    inp.value = motoristaSugerido;
+    inp.dataset.suggested = motoristaSugerido;
+  }
 }
 
 /* ---------- FILTERS ---------- */
@@ -176,7 +186,9 @@ function openNew() {
   document.getElementById('ftModalTitle').textContent = '+ Novo Frete Terceiro';
   document.getElementById('ftEmpresa').value   = '';
   document.getElementById('ftData').value      = dateISO();
-  document.getElementById('ftMotorista').value = '';
+  const mot = document.getElementById('ftMotorista');
+  mot.value = '';
+  mot.dataset.suggested = '';
   document.getElementById('ftTruck').value     = '';
   document.getElementById('ftOrigem').value    = '';
   document.getElementById('ftDestino').value   = '';
@@ -197,7 +209,10 @@ async function openEdit(id) {
   document.getElementById('ftModalTitle').textContent = 'Editar Frete Terceiro';
   document.getElementById('ftEmpresa').value   = f.empresa_pagadora || '';
   document.getElementById('ftData').value      = dateISO(f.data);
-  document.getElementById('ftMotorista').value = f.motorista || '';
+  const mot = document.getElementById('ftMotorista');
+  mot.value = f.motorista || '';
+  // Edição: trata o motorista existente como "sugerido", então trocar a placa atualiza.
+  mot.dataset.suggested = f.motorista || '';
   document.getElementById('ftTruck').value     = f.truck_id || '';
   document.getElementById('ftOrigem').value    = f.origem  || '';
   document.getElementById('ftDestino').value   = f.destino || '';
