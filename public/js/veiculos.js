@@ -3,7 +3,7 @@
 // Cada caminhão tem: placa, modelo, motorista, carreta (placa + modelo)
 // e uma pasta de anexos (GR aprovado, CRLV, CNH, contrato, etc).
 
-import { api } from './api.js';
+import { api, getToken, setToken } from './api.js';
 import { esc, fmtD } from './utils.js';
 
 const state = {
@@ -253,11 +253,26 @@ function renderAnexos(t) {
    ============================================================ */
 
 async function fetchAnexoBlob(anexoId) {
-  const tok = localStorage.getItem('token');
-  const res = await fetch(`/api/trucks/${state.detailsId}/anexos/${anexoId}/download`, {
-    headers: tok ? { Authorization: `Bearer ${tok}` } : {},
-    credentials: 'include',
-  });
+  const url = `/api/trucks/${state.detailsId}/anexos/${anexoId}/download`;
+  const doFetch = () => {
+    const tok = getToken();
+    return fetch(url, {
+      headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      credentials: 'include',
+    });
+  };
+  let res = await doFetch();
+  if (res.status === 401) {
+    // Tenta refresh (mesma estratégia do wrapper api.js)
+    try {
+      const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+      if (r.ok) {
+        const data = await r.json();
+        setToken(data.accessToken);
+        res = await doFetch();
+      }
+    } catch { /* ignore */ }
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar anexo`);
   return res.blob();
 }
