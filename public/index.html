@@ -1041,7 +1041,11 @@
     <div class="ft-det-section">
       <div class="ft-det-section-title">
         <span>📎 Documentos do Veículo</span>
-        <button class="btn btn-blue btn-sm" onclick="vc.openAddAnexo()">+ Adicionar Documento</button>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="vcDownloadAllBtn" onclick="vc.downloadAllAnexos()" style="display:none">⬇ Baixar todos (ZIP)</button>
+          <button class="btn btn-ghost btn-sm" id="vcCopyAllBtn" onclick="vc.copyAllAnexos()" style="display:none">📋 Copiar todos</button>
+          <button class="btn btn-blue btn-sm" onclick="vc.openAddAnexo()">+ Adicionar Documento</button>
+        </div>
       </div>
       <div id="vcDetAnexos"></div>
     </div>

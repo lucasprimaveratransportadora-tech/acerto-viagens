@@ -213,7 +213,16 @@ function renderDetails(t) {
 function renderAnexos(t) {
   const wrap = document.getElementById('vcDetAnexos');
   const anexos = t.truck_anexos || [];
-  if (!anexos.length) {
+  // Mostra/esconde botões de bulk no header
+  const dlBtn = document.getElementById('vcDownloadAllBtn');
+  const cpBtn = document.getElementById('vcCopyAllBtn');
+  const hasAnexos = anexos.length > 0;
+  if (dlBtn) dlBtn.style.display = hasAnexos ? '' : 'none';
+  // Copy só é viável pra uploads (a gente busca os bytes via API)
+  const hasUploads = anexos.some(a => !!(a.mime_type || a.tamanho) || (!a.url && !!a.id));
+  if (cpBtn) cpBtn.style.display = hasUploads ? '' : 'none';
+
+  if (!hasAnexos) {
     wrap.innerHTML = '<div class="ft-empty-mini">Nenhum documento. Envie o GR aprovado, CRLV, CNH ou contrato.</div>';
     return;
   }
@@ -225,6 +234,7 @@ function renderAnexos(t) {
     const sizeLbl = a.tamanho ? ` · ${fmtSize(a.tamanho)}` : '';
     const openLabel = isUpload ? 'Visualizar' : 'Abrir';
     const onclick = isUpload ? `onclick="vc.openAnexoFile(event, '${esc(a.id)}')"` : '';
+    const copyBtn = isUpload ? `<button onclick="vc.copyAnexo('${esc(a.id)}')" title="Copiar para área de transferência">📋 Copiar</button>` : '';
     return `
     <div class="ft-anexo-item">
       <span class="ico">${TIPO_ICON[a.tipo] || '📎'}</span>
@@ -233,9 +243,158 @@ function renderAnexos(t) {
         <div class="desc">${esc(a.descricao || '')}${sizeLbl}${a.created_by ? ((a.descricao || sizeLbl) ? ' · ' : '') + 'por ' + esc(a.created_by.nome) : ''}</div>
       </div>
       <a href="${esc(href)}" target="_blank" rel="noopener" ${onclick}>${openLabel}</a>
-      <div class="actions"><button onclick="vc.removeAnexo('${esc(a.id)}')">Excluir</button></div>
+      <div class="actions">${copyBtn}<button onclick="vc.removeAnexo('${esc(a.id)}')">Excluir</button></div>
     </div>`;
   }).join('') + '</div>';
+}
+
+/* ============================================================
+   Bulk download + Copy to clipboard
+   ============================================================ */
+
+async function fetchAnexoBlob(anexoId) {
+  const tok = localStorage.getItem('token');
+  const res = await fetch(`/api/trucks/${state.detailsId}/anexos/${anexoId}/download`, {
+    headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar anexo`);
+  return res.blob();
+}
+
+function sanitizeFilename(name) {
+  return (name || 'arquivo').replace(/[\\/:*?"<>|]/g, '_').trim() || 'arquivo';
+}
+
+function extFromMime(mime) {
+  if (!mime) return '';
+  if (mime.includes('pdf'))  return '.pdf';
+  if (mime.includes('jpeg')) return '.jpg';
+  if (mime.includes('jpg'))  return '.jpg';
+  if (mime.includes('png'))  return '.png';
+  if (mime.includes('webp')) return '.webp';
+  if (mime.includes('gif'))  return '.gif';
+  return '';
+}
+
+async function downloadAllAnexos() {
+  const anexos = (state.detailsItem?.truck_anexos || []).filter(a => !!(a.mime_type || a.tamanho) || (!a.url && !!a.id));
+  if (!anexos.length) { alert('Não há documentos enviados pra baixar.'); return; }
+
+  const btn = document.getElementById('vcDownloadAllBtn');
+  const original = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = `⬇ Compactando 0/${anexos.length}...`; }
+
+  try {
+    // JSZip — carrega sob demanda do CDN
+    if (!window.JSZip) {
+      await loadScript('/assets/vendor/jszip.min.js');
+    }
+    const zip = new window.JSZip();
+    const usedNames = new Set();
+    for (let i = 0; i < anexos.length; i++) {
+      const a = anexos[i];
+      if (btn) btn.textContent = `⬇ Compactando ${i+1}/${anexos.length}...`;
+      const blob = await fetchAnexoBlob(a.id);
+      let base = sanitizeFilename(a.nome);
+      // garante extensão
+      if (!/\.[a-z0-9]{2,5}$/i.test(base)) base += extFromMime(a.mime_type);
+      // dedupe se houver nomes iguais
+      let fname = base; let n = 1;
+      while (usedNames.has(fname)) {
+        const dot = base.lastIndexOf('.');
+        fname = dot > 0 ? `${base.slice(0,dot)} (${++n})${base.slice(dot)}` : `${base} (${++n})`;
+      }
+      usedNames.add(fname);
+      zip.file(fname, blob);
+    }
+    const placa = state.detailsItem?.placa || 'veiculo';
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `documentos_${sanitizeFilename(placa)}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    alert('Erro ao gerar ZIP: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function copyAnexo(anexoId) {
+  try {
+    const blob = await fetchAnexoBlob(anexoId);
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      throw new Error('Navegador não suporta clipboard API. Use Chrome/Edge atualizado.');
+    }
+    // Browsers só aceitam alguns mimes no clipboard (basicamente image/png).
+    // Pra PDFs e outros, convertemos pra dataURL e copiamos como texto/link.
+    if (blob.type.startsWith('image/png')) {
+      await navigator.clipboard.write([ new ClipboardItem({ [blob.type]: blob }) ]);
+      toast('Imagem copiada pra área de transferência');
+      return;
+    }
+    if (blob.type.startsWith('image/')) {
+      // Converte pra PNG (única imagem que clipboard aceita em todos browsers)
+      const pngBlob = await convertImageToPng(blob);
+      await navigator.clipboard.write([ new ClipboardItem({ 'image/png': pngBlob }) ]);
+      toast('Imagem copiada (convertida pra PNG)');
+      return;
+    }
+    // PDF/outro: cria um link temporário download + copia URL pra clipboard
+    const url = URL.createObjectURL(blob);
+    await navigator.clipboard.writeText(url);
+    toast('Link blob copiado (válido nesta aba)');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    alert('Erro ao copiar: ' + e.message);
+  }
+}
+
+function convertImageToPng(blob) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('Falha ao converter')), 'image/png');
+    };
+    img.onerror = () => reject(new Error('Imagem inválida'));
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+async function copyAllAnexos() {
+  const anexos = (state.detailsItem?.truck_anexos || []).filter(a => !!(a.mime_type || a.tamanho) || (!a.url && !!a.id));
+  if (!anexos.length) { alert('Não há documentos enviados pra copiar.'); return; }
+  // Clipboard só aceita 1 item por vez na maioria dos browsers.
+  // Solução: copia uma LISTA de nomes com botão "Copiar próximo" não é prático.
+  // Em vez disso, oferecemos baixar o ZIP — copy bulk é restringido.
+  if (anexos.length === 1) return copyAnexo(anexos[0].id);
+  if (confirm(`Navegadores só aceitam 1 arquivo no clipboard por vez.\n\nBaixar todos como ZIP em vez disso?`)) {
+    return downloadAllAnexos();
+  }
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:.6rem 1rem;border-radius:8px;z-index:9999;font-size:.85rem;box-shadow:0 8px 18px rgba(0,0,0,.3)';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
 }
 
 function openEditFromDetails() {
@@ -586,4 +745,5 @@ window.vc = {
   openDetails, openEditFromDetails, confirmRemoveFromDetails,
   openAddAnexo, saveAnexo, removeAnexo, openAnexoFile,
   switchAnexoMode,
+  downloadAllAnexos, copyAnexo, copyAllAnexos,
 };
