@@ -787,14 +787,18 @@
       <div class="form-group" style="flex:1">
         <label>Caminhão / Placa *</label>
         <select id="ftTruck"></select>
-        <small style="color:var(--muted);font-size:.66rem">Motorista padrão será sugerido abaixo.</small>
+        <small id="ftMotoristaHint" style="display:none;color:var(--muted);font-size:.66rem;margin-top:.3rem"></small>
       </div>
     </div>
 
     <div class="form-row">
       <div class="form-group" style="flex:1">
         <label>Motorista *</label>
-        <input type="text" id="ftMotorista" placeholder="Nome do motorista">
+        <input type="text" id="ftMotorista" placeholder="Nome do motorista" autocomplete="off">
+        <label id="ftUpdateCadastroRow" style="display:none;align-items:flex-start;gap:.45rem;margin-top:.45rem;font-size:.72rem;color:var(--muted);cursor:pointer;line-height:1.35">
+          <input type="checkbox" id="ftUpdateCadastro" style="margin-top:.15rem;flex:0 0 auto">
+          <span id="ftUpdateCadastroTxt">Esse motorista mudou de vez — <b style="color:var(--text)">atualizar no cadastro do caminhão</b> e trocar a CNH.</span>
+        </label>
       </div>
     </div>
 

@@ -131,6 +131,8 @@ async function openEdit(id) {
 }
 
 async function save() {
+  const editingId = state.editingId;
+  const before = editingId ? state.trucks.find(x => x.id === editingId) : null;
   const saldoRaw = document.getElementById('vcSaldoInicial').value.trim();
   const body = {
     placa:          document.getElementById('vcPlaca').value.trim(),
@@ -160,10 +162,42 @@ async function save() {
       // se estava editando pelo modal de detalhes, atualiza
       await openDetails(state.detailsId);
     }
+    // Mudou placa/motorista/carreta de um veículo já cadastrado?
+    // Oferece trocar o documento correspondente (CRLV / CNH).
+    if (editingId && before) maybeSuggestDocSwap(editingId, before, body);
   } catch (e) {
     alert('Erro: ' + e.message);
   } finally {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = originalLabel; }
+  }
+}
+
+function normDoc(v) { return (v || '').trim().toLowerCase(); }
+
+// Sugere trocar o documento anexado quando o dado-chave do veículo mudou.
+// Prioriza placa (CRLV veículo) > motorista (CNH) > carreta (CRLV carreta).
+function maybeSuggestDocSwap(truckId, before, body) {
+  const changes = [];
+  if (normDoc(before.placa) !== normDoc(body.placa)) {
+    changes.push({ tipo: 'CRLV_VEICULO', label: 'a CRLV do veículo', nome: `CRLV ${body.placa || ''}`.trim() });
+  }
+  if (body.motorista && normDoc(before.motorista) !== normDoc(body.motorista)) {
+    changes.push({ tipo: 'CNH_MOTORISTA', label: 'a CNH do motorista', nome: `CNH ${body.motorista}` });
+  }
+  if (body.carreta_placa && normDoc(before.carreta_placa) !== normDoc(body.carreta_placa)) {
+    changes.push({ tipo: 'CRLV_CARRETA', label: 'a CRLV da carreta', nome: `CRLV carreta ${body.carreta_placa}` });
+  }
+  if (!changes.length) return;
+  const first = changes[0];
+  const resto = changes.length > 1
+    ? `\n\n(Depois, se quiser, você atualiza também ${changes.slice(1).map(c => c.label).join(' e ')} pelo botão "+ Adicionar Documento".)`
+    : '';
+  const ok = confirm(`Você mudou dados do veículo. Quer atualizar ${first.label} anexada agora?${resto}`);
+  if (!ok) return;
+  if (state.detailsId === truckId) {
+    openAddAnexo(first.tipo, first.nome);
+  } else {
+    openDetails(truckId).then(() => openAddAnexo(first.tipo, first.nome));
   }
 }
 
@@ -485,10 +519,10 @@ function wireAnexoModal() {
   });
 }
 
-function openAddAnexo() {
+function openAddAnexo(tipoDefault, nomeDefault) {
   if (!state.detailsId) return;
-  document.getElementById('vcAnexoTipo').value = 'GR_APROVADO';
-  document.getElementById('vcAnexoNome').value = '';
+  document.getElementById('vcAnexoTipo').value = tipoDefault || 'GR_APROVADO';
+  document.getElementById('vcAnexoNome').value = nomeDefault || '';
   document.getElementById('vcAnexoUrl').value  = '';
   document.getElementById('vcAnexoDesc').value = '';
   document.getElementById('vcAnexoFile').value = '';
@@ -736,8 +770,22 @@ async function batchUploadAnexos(files, tipoDefault) {
   } catch { /* */ }
 }
 
+// Quando o usuário vem de outra tela (ex.: Frete Terceiro trocou o motorista
+// do caminhão), abrimos direto o caminhão + o envio do documento certo.
+async function consumePendingAnexo() {
+  const pending = window.__vcPendingAnexo;
+  if (!pending || !pending.truckId) return;
+  window.__vcPendingAnexo = null;
+  try {
+    await openDetails(pending.truckId);
+    openAddAnexo(pending.tipo, pending.nome);
+  } catch (e) {
+    console.error('Falha ao abrir troca de documento pendente:', e);
+  }
+}
+
 export async function initVeiculos() {
-  if (state.loaded) { await loadAll(); return; }
+  if (state.loaded) { await loadAll(); await consumePendingAnexo(); return; }
   state.loaded = true;
   const search = document.getElementById('vcSearch');
   if (search) search.addEventListener('input', applyFilter);
@@ -753,6 +801,7 @@ export async function initVeiculos() {
     }
   });
   await loadAll();
+  await consumePendingAnexo();
 }
 
 window.vc = {

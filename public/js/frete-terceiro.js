@@ -143,24 +143,74 @@ function renderTruckSelects() {
   });
 }
 
-function onTruckChange() {
+// Motorista NÃO é mais preenchido automaticamente ao trocar a placa.
+// Em vez disso mostramos o motorista do cadastro como DICA (com botão "usar")
+// e, se o usuário digitar um nome diferente, oferecemos atualizar o cadastro.
+function selectedTruckMotorista() {
   const sel = document.getElementById('ftTruck');
-  if (!sel) return;
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
-  const motoristaSugerido = opt.getAttribute('data-motorista') || '';
-  const inp = document.getElementById('ftMotorista');
-  if (!inp) return;
+  const opt = sel?.options[sel.selectedIndex];
+  return (opt?.getAttribute('data-motorista') || '').trim();
+}
 
-  // Atualiza o motorista quando a placa muda, exceto se o usuário tiver
-  // digitado algo diferente do último sugerido (preserva edição manual).
-  const current = inp.value.trim();
-  const lastSuggested = inp.dataset.suggested || '';
-  const isUntouched = !current || current === lastSuggested;
-  if (motoristaSugerido && isUntouched) {
-    inp.value = motoristaSugerido;
-    inp.dataset.suggested = motoristaSugerido;
+function refreshMotoristaUI() {
+  const sel  = document.getElementById('ftTruck');
+  const hint = document.getElementById('ftMotoristaHint');
+  const inp  = document.getElementById('ftMotorista');
+  const row  = document.getElementById('ftUpdateCadastroRow');
+  const chk  = document.getElementById('ftUpdateCadastro');
+  const txt  = document.getElementById('ftUpdateCadastroTxt');
+  if (!sel || !hint || !inp) return;
+
+  const truckId  = sel.value;
+  const cadastro = selectedTruckMotorista();
+
+  // DICA embaixo da placa
+  if (!truckId) {
+    hint.style.display = 'none';
+    hint.innerHTML = '';
+  } else if (cadastro) {
+    hint.style.display = '';
+    hint.innerHTML = `Motorista no cadastro: <b style="color:var(--text)">${esc(cadastro)}</b> ` +
+      `<button type="button" onclick="ft.usarMotoristaCadastro()" ` +
+      `style="background:none;border:1px solid var(--border);color:var(--accent);border-radius:4px;padding:1px 7px;font-size:.62rem;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-left:4px">usar</button>`;
+  } else {
+    hint.style.display = '';
+    hint.innerHTML = 'Sem motorista no cadastro deste caminhão.';
   }
+
+  // CHECKBOX "atualizar no cadastro" — só aparece quando o motorista digitado
+  // é diferente do que está no cadastro (troca de motorista do conjunto).
+  const typed = inp.value.trim();
+  const diff  = !!(truckId && typed && typed.toLowerCase() !== cadastro.toLowerCase());
+  if (row) {
+    row.style.display = diff ? 'flex' : 'none';
+    if (!diff && chk) chk.checked = false;
+    if (diff && txt) {
+      txt.innerHTML = cadastro
+        ? 'Esse motorista mudou de vez — <b style="color:var(--text)">atualizar no cadastro do caminhão</b> e trocar a CNH.'
+        : '<b style="color:var(--text)">Salvar esse motorista no cadastro do caminhão</b> e anexar a CNH.';
+    }
+  }
+}
+
+function onTruckChange() { refreshMotoristaUI(); }
+
+function usarMotoristaCadastro() {
+  const inp = document.getElementById('ftMotorista');
+  const cadastro = selectedTruckMotorista();
+  if (inp && cadastro) inp.value = cadastro;
+  refreshMotoristaUI();
+}
+
+// Handoff pro cadastro de Veículos pra trocar a CNH do novo motorista.
+function offerTrocarCNH(truckId, novoMot) {
+  const ok = confirm(
+    `Motorista do caminhão atualizado para "${novoMot}" no cadastro.\n\n` +
+    'Quer trocar a CNH anexada agora? Vou te levar pro cadastro do caminhão com o envio da CNH já aberto.'
+  );
+  if (!ok) return;
+  window.__vcPendingAnexo = { truckId, tipo: 'CNH_MOTORISTA', nome: `CNH ${novoMot}` };
+  if (typeof window.goToVeiculos === 'function') window.goToVeiculos();
 }
 
 /* ---------- FILTERS ---------- */
@@ -188,13 +238,15 @@ function openNew() {
   document.getElementById('ftData').value      = dateISO();
   const mot = document.getElementById('ftMotorista');
   mot.value = '';
-  mot.dataset.suggested = '';
   document.getElementById('ftTruck').value     = '';
   document.getElementById('ftOrigem').value    = '';
   document.getElementById('ftDestino').value   = '';
   document.getElementById('ftValor').value     = '';
   document.getElementById('ftAdi').value       = '';
   document.getElementById('ftObs').value       = '';
+  const chk = document.getElementById('ftUpdateCadastro');
+  if (chk) chk.checked = false;
+  refreshMotoristaUI();
   setPagamento('INTEGRAL');
   updateSaldoPreview();
   document.getElementById('ftFreteModal').classList.add('open');
@@ -211,14 +263,15 @@ async function openEdit(id) {
   document.getElementById('ftData').value      = dateISO(f.data);
   const mot = document.getElementById('ftMotorista');
   mot.value = f.motorista || '';
-  // Edição: trata o motorista existente como "sugerido", então trocar a placa atualiza.
-  mot.dataset.suggested = f.motorista || '';
   document.getElementById('ftTruck').value     = f.truck_id || '';
   document.getElementById('ftOrigem').value    = f.origem  || '';
   document.getElementById('ftDestino').value   = f.destino || '';
   document.getElementById('ftValor').value     = Number(f.valor_total) || '';
   document.getElementById('ftAdi').value       = Number(f.valor_adiantamento) || '';
   document.getElementById('ftObs').value       = f.observacoes || '';
+  const chk = document.getElementById('ftUpdateCadastro');
+  if (chk) chk.checked = false;
+  refreshMotoristaUI();
   setPagamento(f.forma_pagamento || 'INTEGRAL');
   updateSaldoPreview();
   document.getElementById('ftFreteModal').classList.add('open');
@@ -275,6 +328,13 @@ async function save() {
     return;
   }
 
+  // Intenção de propagar a troca de motorista pro cadastro do caminhão.
+  // Capturado antes do reload dos selects (que reescreve o data-motorista).
+  const wantUpdateCadastro = !!document.getElementById('ftUpdateCadastro')?.checked;
+  const cadastroMot = selectedTruckMotorista();
+  const doCadastroSync = wantUpdateCadastro && truckId && body.motorista &&
+    body.motorista.toLowerCase() !== cadastroMot.toLowerCase();
+
   // Trava o botão durante o save — evita double-submit duplicar frete.
   const saveBtn = document.querySelector('button[onclick*="ft.save"]');
   const originalLabel = saveBtn?.textContent;
@@ -286,8 +346,17 @@ async function save() {
     } else {
       await api.post('/api/fretes-terceiros', body);
     }
+    // Atualiza o motorista no cadastro do caminhão, se o usuário pediu.
+    if (doCadastroSync) {
+      try {
+        await api.patch(`/api/trucks/${truckId}`, { motorista: body.motorista });
+      } catch (e) {
+        alert('Frete salvo, mas não consegui atualizar o motorista no cadastro do caminhão: ' + e.message);
+      }
+    }
     document.getElementById('ftFreteModal').classList.remove('open');
     await loadAll();
+    if (doCadastroSync) offerTrocarCNH(truckId, body.motorista);
   } catch (e) {
     alert('Erro ao salvar: ' + e.message);
   } finally {
@@ -817,6 +886,8 @@ export async function initFreteTerceiro() {
   });
   const truckSel = document.getElementById('ftTruck');
   if (truckSel) truckSel.addEventListener('change', onTruckChange);
+  const motInp = document.getElementById('ftMotorista');
+  if (motInp) motInp.addEventListener('input', refreshMotoristaUI);
   wireAnexoModal();
   wirePreviewCleanup();
   wireDetailsDropzone();
@@ -931,6 +1002,7 @@ async function batchUploadAnexos(files, tipoDefault) {
 /* ---------- EXPORT ---------- */
 window.ft = {
   openNew, openEdit, openBaixa, save, confirmBaixa, confirmRemove,
+  usarMotoristaCadastro,
   applyFilters, clearFilters, setPagamento,
   openDetails, openBaixaFromDetails, openEditFromDetails,
   openAddAnexo, saveAnexo, removeAnexo, removeBaixa,
