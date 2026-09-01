@@ -1,5 +1,6 @@
 import { api, getToken, setToken } from '../api.js';
 import { esc } from '../utils.js';
+const attr = v => String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 export async function renderEmpresas(container) {
   try {
@@ -19,9 +20,9 @@ export async function renderEmpresas(container) {
 
 function showForm(host, empresa = null) {
   host.innerHTML = `<form class="admin-filters" id="empresaEditor">
-    <input name="nome" placeholder="Nome da transportadora" value="${esc(empresa?.nome || '')}" required maxlength="200">
-    <input name="cnpj" placeholder="CNPJ" value="${esc(empresa?.cnpj || '')}" maxlength="20">
-    <input name="cor_primaria" type="color" value="${esc(empresa?.cor_primaria || '#E30613')}">
+    <input name="nome" placeholder="Nome da transportadora" value="${attr(empresa?.nome || '')}" required maxlength="200">
+    <input name="cnpj" placeholder="CNPJ" value="${attr(empresa?.cnpj || '')}" maxlength="20">
+    <input name="cor_primaria" type="color" value="${attr(empresa?.cor_primaria || '#E30613')}">
     ${empresa ? '' : '<input name="admin_nome" placeholder="Nome do primeiro administrador" required><input name="admin_email" type="email" placeholder="Email do administrador" required><input name="admin_senha" type="password" placeholder="Senha (8+, letra e número)" required>'}
     <input name="logo" type="file" accept="image/png,image/jpeg,image/webp">
     <button class="primary" type="submit">Salvar</button><button type="button" id="cancelEmpresa">Cancelar</button>
