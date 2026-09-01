@@ -4,6 +4,7 @@
 
 import { api } from './api.js';
 import { esc, fmtD } from './utils.js';
+import { wireInlineFrete } from './frete-terceiro.inline.js';
 
 const state = {
   items: [],
@@ -106,18 +107,20 @@ function renderTable() {
     const linked = f.trip_id ? `<span class="ft-trip-badge">VIAGEM</span>` : '';
     const canBaixar = f.status === 'ABERTO' || f.status === 'PAGO_PARCIAL';
     const rota = (f.origem || f.destino) ? `<div class="ft-row-meta">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div>` : '';
-    return `<tr class="clickable ${f.trip_id ? 'linked' : ''}" onclick="ft.openDetails('${esc(f.id)}')">
-      <td class="mono" data-label="Data">${fmtDate(f.data)}</td>
-      <td data-label="Empresa"><div>${esc(f.empresa_pagadora)}</div>${rota}</td>
-      <td data-label="Motorista">${esc(f.motorista)}</td>
+    const adi = f.forma_pagamento === 'ADIANTAMENTO_SALDO' ? `<small data-inline-field="valor_adiantamento">Adiant.: ${fmtBRL(f.valor_adiantamento)}</small>` : '';
+    return `<tr data-frete-id="${esc(f.id)}" class="clickable ${f.trip_id ? 'linked' : ''}" onclick="ft.openDetails('${esc(f.id)}')">
+      <td class="mono ft-cell-edit" data-inline-field="data" data-label="Data">${fmtDate(f.data)}</td>
+      <td class="ft-cell-edit" data-inline-field="empresa_pagadora" data-label="Empresa"><div>${esc(f.empresa_pagadora)}</div>${rota}</td>
+      <td class="ft-cell-edit" data-inline-field="motorista" data-label="Motorista">${esc(f.motorista)}</td>
       <td class="mono" data-label="Veículo">${esc(f.veiculo)} ${linked}</td>
       <td class="mono" data-label="Pagto">${pagamentoLabel(f.forma_pagamento)}</td>
-      <td class="right mono" data-label="Valor">${fmtBRL(total)}</td>
+      <td class="right mono ft-cell-edit" data-inline-field="valor_total" data-label="Valor">${fmtBRL(total)}<br>${adi}</td>
       <td class="right mono" data-label="Saldo" style="color:${saldo > 0 ? '#f59e0b' : 'var(--success)'}">${fmtBRL(saldo)}</td>
       <td data-label="Status">${statusPill(f.status)}</td>
       <td data-label="Ações" onclick="event.stopPropagation()">
         <div class="actions">
           ${canBaixar ? `<button class="green" onclick="ft.openBaixa('${esc(f.id)}')" title="Dar baixa de pagamento">✓ Baixar</button>` : ''}
+          <button onclick="ft.openDetails('${esc(f.id)}')" title="Detalhes">⋯</button>
           <button onclick="ft.openEdit('${esc(f.id)}')" title="Editar">Editar</button>
           <button class="danger" onclick="ft.confirmRemove('${esc(f.id)}')" title="Remover">×</button>
         </div>
@@ -891,6 +894,7 @@ export async function initFreteTerceiro() {
   wireAnexoModal();
   wirePreviewCleanup();
   wireDetailsDropzone();
+  wireInlineFrete({ state, renderTable, loadAll, showErrorBanner });
   await loadAll();
 }
 

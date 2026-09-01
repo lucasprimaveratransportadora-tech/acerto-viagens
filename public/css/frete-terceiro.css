@@ -774,3 +774,5 @@ body.has-global-pdf-pane {
   .ft-table tbody td { display: block; padding: .35rem .8rem; border-bottom: 0; }
   .ft-table tbody tr  { display: block; border-bottom: 1px solid var(--border); padding: .6rem 0; }
 }
+.ft-cell-edit{cursor:text;border-bottom:1px dashed transparent}.ft-cell-edit:hover{background:rgba(255,255,255,.06);border-bottom-color:var(--muted)}
+.ft-inline-input{width:100%;box-sizing:border-box;font:inherit;color:var(--text);background:var(--surface3);border:1px solid var(--accent);border-radius:4px;padding:4px 6px}.ft-inline-input:focus{outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}

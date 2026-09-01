@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   GESTOR
 }
@@ -49,6 +50,7 @@ enum AttachmentType {
 }
 
 enum AuditEntity {
+  EMPRESA
   TRIP
   CTE
   FUEL
@@ -169,6 +171,10 @@ model Empresa {
   nome             String
   cnpj             String?         @unique
   logo_url         String?
+  cor_primaria     String          @default("#E30613")
+  logo_dados       Bytes?
+  logo_mime        String?
+  logo_tamanho     Int?
   ativo            Boolean         @default(true)
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
@@ -217,6 +223,7 @@ model RefreshToken {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   expires_at DateTime
   created_at DateTime @default(now())
+  impersonated_empresa_id String?
 
   @@index([user_id])
   @@map("refresh_tokens")
@@ -226,7 +233,7 @@ model Truck {
   id               String               @id @default(uuid())
   empresa_id       String
   empresa          Empresa              @relation(fields: [empresa_id], references: [id])
-  placa            String               @unique
+  placa            String
   modelo           String?
   motorista        String?
   // Carreta acoplada (placa + modelo) — opcional, alguns são truck simples
@@ -244,6 +251,8 @@ model Truck {
   attachments      Attachment[]
   fretes_terceiros FreteTerceiro[]
   truck_anexos     TruckAnexo[]
+
+  @@unique([empresa_id, placa])
   truck_ledger     TruckLedgerEntry[]
   column           TruckColumn?
   viagens          TruckViagem[]

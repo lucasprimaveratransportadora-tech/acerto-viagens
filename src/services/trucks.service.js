@@ -49,7 +49,7 @@ async function getById(id, empresaId, options = {}) {
 
 async function create(empresaId, req, data) {
   const { placa, modelo, motorista, carreta_placa, carreta_modelo, saldo_inicial, observacoes } = data;
-  const existing = await prisma.truck.findUnique({ where: { placa } });
+  const existing = await prisma.truck.findFirst({ where: { empresa_id: empresaId, placa } });
   if (existing && existing.deleted_at === null) {
     throw ApiError.conflict('Placa já cadastrada.');
   }
@@ -76,7 +76,7 @@ async function update(id, empresaId, req, data) {
   if (!before) throw ApiError.notFound('Caminhão não encontrado.');
 
   if (data.placa && data.placa !== before.placa) {
-    const existing = await prisma.truck.findUnique({ where: { placa: data.placa } });
+    const existing = await prisma.truck.findFirst({ where: { empresa_id: empresaId, placa: data.placa } });
     if (existing && existing.deleted_at === null) {
       throw ApiError.conflict('Placa já cadastrada.');
     }

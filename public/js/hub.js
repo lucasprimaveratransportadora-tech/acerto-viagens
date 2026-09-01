@@ -204,6 +204,7 @@ export function hasModuleAccess(moduleName) {
   const u = getCurrentUser();
   if (!u) return false;
   if (u.role === 'ADMIN') return true;
+  if (u.role === 'SUPER_ADMIN') return false; // opera módulos somente após "Entrar como"
   // Fallback: se permissoes não veio no payload (ex.: cache antigo, deploy
   // em transição), assume acesso total. Só restringe se for um array
   // explicitamente populado.
@@ -227,7 +228,7 @@ function applyPermissions() {
 
 function refreshAdminVisibility() {
   const u = getCurrentUser();
-  const show = u && u.role === 'ADMIN';
+  const show = u && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
   document.querySelectorAll('.admin-trigger').forEach(b => {
     b.style.display = show ? '' : 'none';
   });

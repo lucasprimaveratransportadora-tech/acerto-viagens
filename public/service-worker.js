@@ -14,7 +14,7 @@
  * Para invalidar todo o cache após mudanças incompatíveis: bumpe CACHE_VERSION.
  */
 
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const CACHE_NAME = `prima-acerto-${CACHE_VERSION}`;
 const NAV_TIMEOUT_MS = 6000;
 
@@ -24,7 +24,6 @@ const PRECACHE_URLS = [
   '/manifest.webmanifest',
   '/assets/icons/icon-192.png',
   '/assets/icons/icon-512.png',
-  '/assets/images/logo-full.png',
   '/assets/images/logo-icon.png',
 ];
 

@@ -123,8 +123,17 @@ async function refresh(refreshTokenValue, reqMeta) {
     throw ApiError.unauthorized('Refresh token já rotacionado (race entre abas).');
   }
 
-  const accessToken = generateAccessToken(stored.user);
-  const newRefreshToken = await generateRefreshToken(stored.user.id);
+  if (stored.impersonated_empresa_id) {
+    const target = await prisma.empresa.findFirst({
+      where: { id: stored.impersonated_empresa_id, ativo: true }, select: { id: true },
+    });
+    if (!target || stored.user.role !== 'SUPER_ADMIN') {
+      throw ApiError.unauthorized('Impersonação inválida ou empresa inativa.');
+    }
+  }
+
+  const accessToken = generateAccessToken(stored.user, stored.impersonated_empresa_id);
+  const newRefreshToken = await generateRefreshToken(stored.user.id, stored.impersonated_empresa_id);
 
   return { accessToken, refreshToken: newRefreshToken };
 }
@@ -147,20 +156,23 @@ async function logout(refreshTokenValue, reqMeta) {
   }
 }
 
-function generateAccessToken(user) {
+function generateAccessToken(user, impersonatedEmpresaId = null) {
   return jwt.sign(
-    { id: user.id, empresa_id: user.empresa_id, role: user.role, email: user.email },
+    {
+      id: user.id, empresa_id: user.empresa_id, role: user.role, email: user.email,
+      ...(impersonatedEmpresaId ? { su_empresa: impersonatedEmpresaId } : {}),
+    },
     config.jwt.secret,
     { expiresIn: config.jwt.accessExpiresIn }
   );
 }
 
-async function generateRefreshToken(userId) {
+async function generateRefreshToken(userId, impersonatedEmpresaId = null) {
   const token = crypto.randomBytes(48).toString('hex');
   const expiresAt = new Date(Date.now() + config.jwt.refreshExpiresMs);
 
   await prisma.refreshToken.create({
-    data: { token, user_id: userId, expires_at: expiresAt },
+    data: { token, user_id: userId, expires_at: expiresAt, impersonated_empresa_id: impersonatedEmpresaId },
   });
 
   // Cleanup: remove expired tokens for this user
@@ -171,8 +183,29 @@ async function generateRefreshToken(userId) {
   return token;
 }
 
+async function switchImpersonation(userId, currentRefreshToken, empresaId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.role !== 'SUPER_ADMIN') throw ApiError.forbidden('Apenas SUPER_ADMIN pode entrar em outra empresa.');
+  const empresa = await prisma.empresa.findFirst({
+    where: { id: empresaId, ativo: true },
+    select: { id: true, nome: true, logo_url: true, cor_primaria: true, logo_mime: true },
+  });
+  if (!empresa) throw ApiError.notFound('Empresa ativa não encontrada.');
+  if (currentRefreshToken) await prisma.refreshToken.deleteMany({ where: { token: currentRefreshToken, user_id: userId } });
+  const refreshToken = await generateRefreshToken(user.id, empresa.id);
+  return { accessToken: generateAccessToken(user, empresa.id), refreshToken, empresa };
+}
+
+async function stopImpersonation(userId, currentRefreshToken) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.role !== 'SUPER_ADMIN') throw ApiError.forbidden('Impersonação inválida.');
+  if (currentRefreshToken) await prisma.refreshToken.deleteMany({ where: { token: currentRefreshToken, user_id: userId } });
+  const refreshToken = await generateRefreshToken(user.id);
+  return { accessToken: generateAccessToken(user), refreshToken };
+}
+
 async function hashPassword(senha) {
   return bcrypt.hash(senha, config.bcryptRounds);
 }
 
-module.exports = { login, refresh, logout, hashPassword };
+module.exports = { login, refresh, logout, hashPassword, switchImpersonation, stopImpersonation };

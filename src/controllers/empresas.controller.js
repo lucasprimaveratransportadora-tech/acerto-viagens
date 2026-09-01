@@ -26,4 +26,13 @@ const remove = asyncHandler(async (req, res) => {
   res.json({ message: 'Empresa desativada.' });
 });
 
-module.exports = { list, getById, create, update, remove };
+const uploadLogo = asyncHandler(async (req, res) => res.json(await empresasService.saveLogo(req.params.id, req, req.file)));
+const logo = asyncHandler(async (req, res) => {
+  const item = await empresasService.getLogo(req.params.id);
+  res.set('Content-Type', item.logo_mime);
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(item.logo_dados);
+});
+const setStatus = asyncHandler(async (req, res) => res.json(await empresasService.setStatus(req.params.id, req, req.body.ativo === true)));
+
+module.exports = { list, getById, create, update, remove, uploadLogo, logo, setStatus };

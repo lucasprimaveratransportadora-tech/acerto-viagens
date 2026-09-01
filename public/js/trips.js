@@ -644,8 +644,9 @@ window.printAcerto = function (tripId) {
   const modelo = truck.modelo ? ' · ' + truck.modelo : '';
   const numero = tr.numero != null ? tr.numero : '—';
 
+  const brandLogo = document.querySelector('img.logo-img')?.src || '/assets/images/logo-full.png';
   header.innerHTML = `
-    <img src="/assets/images/logo-full.png" class="print-logo" alt="Prima Transportes">
+    <img src="${esc(brandLogo)}" class="print-logo" alt="Logo da transportadora">
     <div class="print-titulo">ACERTO Nº ${esc(String(numero))}</div>
     <div class="print-subtitulo">
       <div>Placa: <strong>${esc(placa)}${esc(modelo)}</strong></div>
