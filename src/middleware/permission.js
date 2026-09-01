@@ -8,7 +8,7 @@ function requirePermission(moduleName) {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado.' });
     }
-    if (req.user.role === 'ADMIN') return next();
+    if (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN') return next();
     const perms = Array.isArray(req.user.permissoes) ? req.user.permissoes : [];
     if (!perms.includes(moduleName)) {
       return res.status(403).json({ error: `Acesso negado ao módulo '${moduleName}'.` });

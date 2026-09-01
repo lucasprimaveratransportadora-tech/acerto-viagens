@@ -63,6 +63,10 @@
 
 <!-- APP CONTAINER -->
 <div id="appContainer" style="display:none">
+  <div id="impersonationBanner" style="display:none;background:#f59e0b;color:#111;padding:.55rem 1rem;text-align:center;font-weight:700;position:sticky;top:0;z-index:10000">
+    Você está operando dentro de <span id="impersonationEmpresa"></span>
+    <button onclick="sairImpersonacao()" style="margin-left:1rem">Sair da empresa</button>
+  </div>
 
   <!-- ============================================================
        HUB — landing page (default após login)
@@ -639,6 +643,7 @@
     <div style="padding:1rem 1.4rem 3rem">
       <div class="admin-header">
         <div class="admin-tabs">
+          <button class="admin-tab" data-tab="empresas" id="adminEmpresasTab" onclick="switchAdminTab('empresas')" style="display:none">Empresas</button>
           <button class="admin-tab active" data-tab="users"  onclick="switchAdminTab('users')">Usuários</button>
           <button class="admin-tab"        data-tab="audit"  onclick="switchAdminTab('audit')">Auditoria</button>
           <button class="admin-tab"        data-tab="logins" onclick="switchAdminTab('logins')">Logins (48h)</button>

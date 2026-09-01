@@ -26,8 +26,8 @@ async function log({ req, empresaId, entity, action, entityId, before, after }) 
     await prisma.auditLog.create({
       data: {
         empresa_id: empresaId,
-        actor_id: req.user?.id || null,
-        actor_email: req.user?.email || 'system',
+        actor_id: (req.realUser || req.user)?.id || null,
+        actor_email: (req.realUser || req.user)?.email || 'system',
         entity_type: entity,
         entity_id: entityId,
         action,
