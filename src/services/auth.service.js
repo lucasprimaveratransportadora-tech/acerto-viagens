@@ -208,4 +208,28 @@ async function hashPassword(senha) {
   return bcrypt.hash(senha, config.bcryptRounds);
 }
 
-module.exports = { login, refresh, logout, hashPassword, switchImpersonation, stopImpersonation };
+async function changePassword(userId, senhaAtual, novaSenha) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, senha_hash: true, ativo: true },
+  });
+  if (!user || !user.ativo) {
+    throw ApiError.unauthorized('Usuário inativo ou não encontrado.');
+  }
+
+  const senhaAtualConfere = await bcrypt.compare(senhaAtual, user.senha_hash);
+  if (!senhaAtualConfere) {
+    throw ApiError.unauthorized('Senha atual incorreta.');
+  }
+
+  const senha_hash = await hashPassword(novaSenha);
+  const sessions_revoked = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: userId }, data: { senha_hash } });
+    const revoked = await tx.refreshToken.deleteMany({ where: { user_id: userId } });
+    return revoked.count;
+  });
+
+  return { sessions_revoked };
+}
+
+module.exports = { login, refresh, logout, hashPassword, changePassword, switchImpersonation, stopImpersonation };

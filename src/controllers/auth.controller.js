@@ -53,6 +53,15 @@ const me = asyncHandler(async (req, res) => {
   res.json({ user, impersonating: Boolean(req.impersonating) });
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+  const { senha_atual, nova_senha } = req.body;
+  const result = await authService.changePassword(req.realUser?.id || req.user.id, senha_atual, nova_senha);
+  res.json({
+    message: 'Senha alterada com sucesso. As outras sessões foram encerradas.',
+    ...result,
+  });
+});
+
 function setRefreshCookie(res, refreshToken) {
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true, secure: config.nodeEnv === 'production', sameSite: 'strict',
@@ -72,4 +81,4 @@ const stopImpersonation = asyncHandler(async (req, res) => {
   res.json({ accessToken: result.accessToken });
 });
 
-module.exports = { login, refresh, logout, me, impersonate, stopImpersonation };
+module.exports = { login, refresh, logout, me, changePassword, impersonate, stopImpersonation };

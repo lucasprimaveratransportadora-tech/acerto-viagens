@@ -91,6 +91,10 @@
 
       <div class="hub-hdr-actions">
         <span class="hub-hdr-user" id="hubUserInfo"></span>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="toggleCurrentUserMenu(event)">Minha conta</button>
+        <div id="currentUserMenu" style="display:none;position:absolute;top:72px;right:16px;min-width:220px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.45rem;box-shadow:0 18px 40px rgba(0,0,0,.25);z-index:10020">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="openAccountModal()" style="width:100%;justify-content:flex-start">Minha conta / Alterar senha</button>
+        </div>
         <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
         <button class="btn btn-ghost btn-sm" data-theme-toggle onclick="toggleTheme()" title="Alternar tema">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" style="color:var(--danger)">Sair</button>
@@ -332,6 +336,7 @@
       <div style="display:flex;align-items:center;gap:12px">
         <span id="userInfo" style="font-size:.7rem;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
         <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="openAccountModal()">Minha conta</button>
           <button class="btn btn-ghost" id="hdrTruckBtn" onclick="openTruckModal()">+ Caminhão</button>
           <button class="btn btn-accent" id="hdrTripBtn" onclick="openTripModal()">+ Nova Viagem</button>
           <button class="btn btn-ghost btn-sm admin-trigger" onclick="goToAdmin()" style="display:none">⚙️ Admin</button>
@@ -1611,6 +1616,39 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="accountModal">
+  <div class="modal" style="width:460px;max-width:96vw">
+    <div class="modal-title">Minha conta / Alterar senha</div>
+    <div id="accountUserSummary" style="font-size:.75rem;color:var(--muted);margin-bottom:.8rem"></div>
+    <div style="background:rgba(227,6,19,.08);border:1px solid rgba(227,6,19,.24);border-radius:8px;padding:.7rem .8rem;font-size:.72rem;color:var(--text);margin-bottom:.9rem">
+      As outras sessões serão encerradas. Esta sessão continua até o próximo refresh exigir login novamente.
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Senha atual *</label>
+        <input type="password" id="accountCurrentPassword" placeholder="Digite sua senha atual">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nova senha *</label>
+        <input type="password" id="accountNewPassword" placeholder="8+ caracteres, letra e número">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Confirmar nova senha *</label>
+        <input type="password" id="accountConfirmPassword" placeholder="Repita a nova senha">
+      </div>
+    </div>
+    <div id="accountError" style="color:var(--danger);font-size:.75rem;min-height:1rem"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" type="button" onclick="closeAccountModal()">Cancelar</button>
+      <button class="btn btn-accent" type="button" id="accountSaveBtn" onclick="submitAccountPasswordChange()">Alterar senha</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========================================================
      PAINEL LATERAL GLOBAL: folha de acerto visível enquanto
      edita inline na view de resumo. Fica fixo à direita;
@@ -1642,6 +1680,7 @@
   </div>
 </div>
 
+<script type="module" src="/js/account.js"></script>
 <script type="module" src="/js/app.js"></script>
 <script src="/js/pwa-install.js" defer></script>
 <script src="/js/mobile-gestures.js" defer></script>

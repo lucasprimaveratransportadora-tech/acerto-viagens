@@ -30,4 +30,12 @@ const refreshLimiter = rateLimit({
   message: { error: 'Muitas requisições de refresh. Aguarde alguns minutos.' },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter };
+const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de alteração de senha. Aguarde 15 minutos.' },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, passwordChangeLimiter };
