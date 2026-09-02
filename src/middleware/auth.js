@@ -24,7 +24,7 @@ async function auth(req, res, next) {
       where: { id: decoded.id },
       select: {
         id: true, empresa_id: true, nome: true, email: true, role: true, permissoes: true, ativo: true,
-        empresa: { select: { id: true, nome: true, ativo: true, logo_url: true, logo_mime: true, cor_primaria: true, capa_mime: true, capa_tamanho: true, capa_posicao: true } },
+        empresa: { select: { id: true, nome: true, ativo: true, logo_url: true, logo_mime: true, logo_tamanho: true, cor_primaria: true, capa_mime: true, capa_tamanho: true, capa_posicao: true } },
       },
     });
 
@@ -36,7 +36,7 @@ async function auth(req, res, next) {
     if (context.impersonating) {
       const target = await prisma.empresa.findFirst({
         where: { id: context.user.empresa_id, ativo: true },
-        select: { id: true, nome: true, ativo: true, logo_url: true, logo_mime: true, cor_primaria: true, capa_mime: true, capa_tamanho: true, capa_posicao: true },
+        select: { id: true, nome: true, ativo: true, logo_url: true, logo_mime: true, logo_tamanho: true, cor_primaria: true, capa_mime: true, capa_tamanho: true, capa_posicao: true },
       });
       if (!target) throw ApiError.unauthorized('Empresa impersonada inativa ou não encontrada.');
       context.user.empresa = target;

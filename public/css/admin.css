@@ -99,3 +99,30 @@
 .diff-line.changed { background: rgba(234,179,8,.1); border-radius: 3px; }
 
 #adminView { padding: 1rem; }
+
+.empresas-shell { max-width: 1280px; margin: 0 auto; }
+.empresas-hero { display:flex; align-items:end; justify-content:space-between; gap:1rem; margin:1.2rem 0 1.5rem; padding:1.5rem; border:1px solid var(--border); border-radius:14px; background:linear-gradient(125deg, rgba(255,255,255,.045), rgba(255,255,255,.012)); }
+.admin-kicker { display:block; color:var(--accent); font:600 .66rem/1 'IBM Plex Mono',monospace; letter-spacing:2px; text-transform:uppercase; margin-bottom:.5rem; }
+.empresas-hero h2 { margin:0; font:400 2.2rem/1 'Bebas Neue',sans-serif; letter-spacing:2px; }
+.empresas-hero p { margin:.35rem 0 0; color:var(--muted); font-size:.82rem; }
+.empresa-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem; }
+.empresa-card { position:relative; overflow:hidden; padding:1.1rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.empresa-card::before { content:''; position:absolute; left:0; top:0; right:0; height:3px; background:var(--empresa-cor); }
+.empresa-card:hover { transform:translateY(-3px); border-color:color-mix(in srgb,var(--empresa-cor) 55%,var(--border)); box-shadow:0 14px 34px rgba(0,0,0,.2); }
+.empresa-card-top,.empresa-card-actions,.empresa-metrics,.empresa-brand-meta { display:flex; align-items:center; }
+.empresa-card-top { justify-content:space-between; min-height:48px; }
+.empresa-mark { width:96px; height:48px; display:flex; align-items:center; justify-content:flex-start; }
+.empresa-mark img { max-width:96px; max-height:48px; object-fit:contain; }
+.empresa-mark span { width:42px; height:42px; display:grid; place-items:center; border-radius:10px; background:color-mix(in srgb,var(--empresa-cor) 16%,transparent); color:var(--empresa-cor); font-weight:800; }
+.empresa-status { padding:.28rem .55rem; border:1px solid; border-radius:999px; font:600 .63rem 'IBM Plex Mono',monospace; letter-spacing:.5px; text-transform:uppercase; }
+.empresa-status.is-active { color:var(--success); border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.08); }
+.empresa-status.is-blocked { color:var(--danger); border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.08); }
+.empresa-card h3 { margin:1rem 0 .2rem; font-size:1rem; }
+.empresa-cnpj { margin:0; min-height:1.1rem; color:var(--muted); font:.68rem 'IBM Plex Mono',monospace; }
+.empresa-metrics { gap:1rem; margin:1rem 0; padding:.8rem 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); color:var(--muted); font-size:.72rem; }
+.empresa-metrics b { color:var(--text); margin-right:.2rem; }
+.empresa-brand-meta { gap:.45rem; color:var(--muted); font:.65rem 'IBM Plex Mono',monospace; }
+.empresa-brand-meta i { display:block; width:10px; height:10px; border-radius:50%; background:var(--empresa-cor); }.empresa-brand-meta em { margin-left:auto; font-style:normal; }
+.empresa-card-actions { flex-wrap:wrap; gap:.45rem; margin-top:1rem; }.empresa-card-actions .btn:first-child { border-color:color-mix(in srgb,var(--empresa-cor) 50%,var(--border)); color:var(--empresa-cor); }.empresa-status-btn { margin-left:auto; }
+.empresa-editor { margin:-.25rem 0 1.2rem; padding:1.25rem; border:1px solid var(--border); border-top:3px solid var(--accent); border-radius:12px; background:var(--surface); }.empresa-editor-head,.empresa-editor-actions { display:flex; align-items:center; justify-content:space-between; gap:1rem; }.empresa-editor h3 { margin:0; font-size:1.1rem; }.empresa-editor-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; margin:1.15rem 0; }.empresa-editor label { display:flex; flex-direction:column; gap:.35rem; color:var(--text); font-size:.72rem; font-weight:600; }.empresa-editor label span { color:var(--muted); font-size:.62rem; font-weight:400; }.empresa-editor input { min-width:0; }.empresa-upload { grid-column:span 2; }.empresa-editor-actions { justify-content:flex-end; padding-top:1rem; border-top:1px solid var(--border); }
+@media (max-width:720px) { .empresas-hero { align-items:flex-start; flex-direction:column; }.empresas-new { width:100%; justify-content:center; }.empresa-editor-grid { grid-template-columns:1fr; }.empresa-upload { grid-column:auto; }.empresa-status-btn { margin-left:0; } }

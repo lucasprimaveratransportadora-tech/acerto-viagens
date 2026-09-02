@@ -16,4 +16,12 @@ function resolveBrandCover(empresa = {}) {
   return { url: null, position, fallback: hasOwnLogo && !name.includes('prima') };
 }
 
-module.exports = { normalizeBrandColor, darkenHex, resolveBrandCover };
+function resolveBrandIcon(empresa = {}) {
+  if (empresa.id && empresa.logo_mime) {
+    const version = Number.isInteger(empresa.logo_tamanho) ? `?v=${empresa.logo_tamanho}` : '';
+    return `/api/empresas/${empresa.id}/logo${version}`;
+  }
+  return empresa.logo_url || '/assets/images/logo-icon.png';
+}
+
+module.exports = { normalizeBrandColor, darkenHex, resolveBrandCover, resolveBrandIcon };
