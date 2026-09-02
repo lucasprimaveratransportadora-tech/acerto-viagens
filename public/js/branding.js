@@ -27,19 +27,31 @@ function brandIcon(empresa = {}) {
   return empresa.logo_url || '/assets/images/logo-icon.png';
 }
 
+function brandLogo(empresa = {}) {
+  if (empresa.id && empresa.logo_mime) return brandIcon(empresa);
+  return empresa.logo_url || '/assets/images/logo-full.png';
+}
+
+function shortBrandName(name) {
+  const cleaned = String(name || '').trim()
+    .replace(/\s+(transportadora|log[ií]stica)$/i, '')
+    .trim();
+  return cleaned || 'Sua empresa';
+}
+
 export function applyBranding(empresa) {
   if (!empresa) return;
   const color = safeColor(empresa.cor_primaria);
   document.documentElement.style.setProperty('--accent', color);
   document.documentElement.style.setProperty('--accent2', darken(color));
-  const logo = brandIcon(empresa);
-  if (logo) document.querySelectorAll('img.logo-img').forEach(img => { img.src = logo; img.alt = empresa.nome; });
+  const logo = brandLogo(empresa);
+  document.querySelectorAll('img.logo-img').forEach(img => { img.src = logo; img.alt = empresa.nome; });
   document.title = `${empresa.nome} — Acerto de Viagens`;
   const icon = brandIcon(empresa);
   document.querySelectorAll('link[rel="icon"]').forEach(link => { link.href = icon; });
   document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', empresa.nome);
   document.querySelectorAll('[data-brand-name]').forEach(el => { el.textContent = empresa.nome; });
-  document.querySelectorAll('[data-brand-hub-name]').forEach(el => { el.textContent = empresa.nome; });
+  document.querySelectorAll('[data-brand-hub-name]').forEach(el => { el.textContent = shortBrandName(empresa.nome); });
   document.querySelectorAll('[data-brand-hub-badge]').forEach(el => { el.textContent = empresa.nome.toUpperCase(); });
 
   const cover = coverDetails(empresa);

@@ -24,4 +24,16 @@ function resolveBrandIcon(empresa = {}) {
   return empresa.logo_url || '/assets/images/logo-icon.png';
 }
 
-module.exports = { normalizeBrandColor, darkenHex, resolveBrandCover, resolveBrandIcon };
+function resolveBrandLogo(empresa = {}) {
+  if (empresa.id && empresa.logo_mime) return resolveBrandIcon(empresa);
+  return empresa.logo_url || '/assets/images/logo-full.png';
+}
+
+function shortBrandName(name) {
+  const cleaned = String(name || '').trim()
+    .replace(/\s+(transportadora|log[ií]stica)$/i, '')
+    .trim();
+  return cleaned || 'Sua empresa';
+}
+
+module.exports = { normalizeBrandColor, darkenHex, resolveBrandCover, resolveBrandIcon, resolveBrandLogo, shortBrandName };
