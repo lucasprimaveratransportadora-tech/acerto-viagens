@@ -1,6 +1,8 @@
 import { api } from './api.js';
 import { getCurrentUser } from './auth.js';
 
+let previouslyFocusedElement = null;
+
 function byId(id) {
   return document.getElementById(id);
 }
@@ -21,7 +23,19 @@ window.toggleCurrentUserMenu = function toggleCurrentUserMenu(event) {
   menu.style.display = menu.style.display === 'none' || !menu.style.display ? 'block' : 'none';
 };
 
-window.openAccountModal = function openAccountModal() {
+function getFocusableElements() {
+  const modal = byId('accountModal');
+  if (!modal) return [];
+  return Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter((element) => !element.disabled && element.tabIndex !== -1 && element.offsetParent !== null);
+}
+
+function focusInitialField() {
+  byId('accountCurrentPassword')?.focus();
+}
+
+window.openAccountModal = function openAccountModal(event) {
+  previouslyFocusedElement = event?.currentTarget || document.activeElement;
   closeMenu();
   const user = getCurrentUser();
   const summary = byId('accountUserSummary');
@@ -33,11 +47,16 @@ window.openAccountModal = function openAccountModal() {
   byId('accountConfirmPassword').value = '';
   byId('accountError').textContent = '';
   byId('accountModal').style.display = 'flex';
-  byId('accountCurrentPassword').focus();
+  byId('accountModal').setAttribute('aria-hidden', 'false');
+  focusInitialField();
 };
 
 window.closeAccountModal = function closeAccountModal() {
   byId('accountModal').style.display = 'none';
+  byId('accountModal').setAttribute('aria-hidden', 'true');
+  const elementToRestore = previouslyFocusedElement;
+  previouslyFocusedElement = null;
+  elementToRestore?.focus?.();
 };
 
 window.submitAccountPasswordChange = async function submitAccountPasswordChange() {
@@ -51,14 +70,17 @@ window.submitAccountPasswordChange = async function submitAccountPasswordChange(
 
   if (!currentPassword) {
     errorEl.textContent = 'Informe sua senha atual.';
+    focusInitialField();
     return;
   }
   if (!validateNewPassword(newPassword)) {
     errorEl.textContent = 'A nova senha precisa ter 8+ caracteres, letra e número.';
+    byId('accountNewPassword')?.focus();
     return;
   }
   if (newPassword !== confirmPassword) {
     errorEl.textContent = 'A confirmação da nova senha não confere.';
+    byId('accountConfirmPassword')?.focus();
     return;
   }
 
@@ -79,6 +101,12 @@ window.submitAccountPasswordChange = async function submitAccountPasswordChange(
   }
 };
 
+byId('accountModal')?.addEventListener('mousedown', (event) => {
+  if (event.target === event.currentTarget) {
+    window.closeAccountModal();
+  }
+});
+
 document.addEventListener('click', (event) => {
   const menu = byId('currentUserMenu');
   if (!menu || menu.style.display !== 'block') return;
@@ -88,10 +116,33 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  const modal = byId('accountModal');
+  const modalOpen = modal?.style.display === 'flex';
+
   if (event.key === 'Escape') {
     closeMenu();
-    if (byId('accountModal')?.style.display === 'flex') {
+    if (modalOpen) {
+      event.preventDefault();
       window.closeAccountModal();
     }
+  }
+
+  if (!modalOpen || event.key !== 'Tab') return;
+
+  const focusableElements = getFocusableElements();
+  if (!focusableElements.length) return;
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+    return;
+  }
+
+  if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
   }
 });

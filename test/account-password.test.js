@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const authServicePath = require.resolve('../src/services/auth.service');
 const prismaPath = require.resolve('../src/config/database');
@@ -151,4 +153,19 @@ test('revoga somente as sessoes do proprio usuario na mesma transacao', async ()
   } finally {
     restore();
   }
+});
+
+test('modal de conta expõe semântica acessível e suporte de teclado', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const accountJs = fs.readFileSync(path.join(__dirname, '../public/js/account.js'), 'utf8');
+
+  assert.match(html, /id="accountModal"[\s\S]*role="dialog"/);
+  assert.match(html, /id="accountModal"[\s\S]*aria-modal="true"/);
+  assert.match(html, /id="accountModal"[\s\S]*aria-labelledby="accountModalTitle"/);
+  assert.match(html, /id="accountModalTitle"/);
+  assert.match(html, /id="accountError"[\s\S]*aria-live="assertive"/);
+  assert.match(accountJs, /focus\(\)/);
+  assert.match(accountJs, /previouslyFocusedElement/);
+  assert.match(accountJs, /Tab/);
+  assert.match(accountJs, /Escape/);
 });
