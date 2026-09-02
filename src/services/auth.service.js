@@ -9,7 +9,7 @@ const loginEvents = require('./loginEvents.service');
 async function login(email, senha, reqMeta) {
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { empresa: { select: { id: true, nome: true, ativo: true } } },
+    include: { empresa: { select: { id: true, nome: true, ativo: true, logo_url: true, logo_mime: true, cor_primaria: true, capa_mime: true, capa_tamanho: true, capa_posicao: true } } },
   });
 
   if (!user || !user.ativo) {
@@ -188,7 +188,7 @@ async function switchImpersonation(userId, currentRefreshToken, empresaId) {
   if (!user || user.role !== 'SUPER_ADMIN') throw ApiError.forbidden('Apenas SUPER_ADMIN pode entrar em outra empresa.');
   const empresa = await prisma.empresa.findFirst({
     where: { id: empresaId, ativo: true },
-    select: { id: true, nome: true, logo_url: true, cor_primaria: true, logo_mime: true },
+    select: { id: true, nome: true, logo_url: true, cor_primaria: true, logo_mime: true, capa_mime: true, capa_tamanho: true, capa_posicao: true },
   });
   if (!empresa) throw ApiError.notFound('Empresa ativa não encontrada.');
   if (currentRefreshToken) await prisma.refreshToken.deleteMany({ where: { token: currentRefreshToken, user_id: userId } });

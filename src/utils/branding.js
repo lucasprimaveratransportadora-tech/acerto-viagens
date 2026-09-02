@@ -8,4 +8,12 @@ function darkenHex(value, factor = 0.7) {
   return `#${parts.map(n => n.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
-module.exports = { normalizeBrandColor, darkenHex };
+function resolveBrandCover(empresa = {}) {
+  const position = ['top', 'center', 'bottom'].includes(empresa.capa_posicao) ? empresa.capa_posicao : 'center';
+  if (empresa.id && empresa.capa_mime) return { url: `/api/empresas/${empresa.id}/capa`, position, fallback: false };
+  const name = String(empresa.nome || '').trim().toLocaleLowerCase('pt-BR');
+  const hasOwnLogo = Boolean(empresa.logo_mime || empresa.logo_url);
+  return { url: null, position, fallback: hasOwnLogo && !name.includes('prima') };
+}
+
+module.exports = { normalizeBrandColor, darkenHex, resolveBrandCover };

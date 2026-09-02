@@ -175,6 +175,10 @@ model Empresa {
   logo_dados       Bytes?
   logo_mime        String?
   logo_tamanho     Int?
+  capa_dados       Bytes?
+  capa_mime        String?
+  capa_tamanho     Int?
+  capa_posicao     String          @default("center")
   ativo            Boolean         @default(true)
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt

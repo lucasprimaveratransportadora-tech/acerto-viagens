@@ -145,6 +145,35 @@
   animation: hubHeroDrift 26s ease-in-out infinite alternate;
 }
 
+.hub-hero.has-brand-cover .hub-hero-bg {
+  background-image: var(--brand-cover-url);
+  background-position: center var(--brand-cover-position);
+  filter: grayscale(8%) contrast(1.08) brightness(.58) saturate(.9);
+}
+
+.hub-hero.has-brand-fallback .hub-hero-bg {
+  background-image:
+    linear-gradient(125deg, rgba(5, 6, 8, .97) 0%, rgba(5, 6, 8, .72) 50%, color-mix(in srgb, var(--accent) 42%, transparent) 100%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 1px, transparent 1px 9px),
+    radial-gradient(ellipse at 88% 20%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 46%);
+  background-position: center;
+  filter: none;
+}
+
+.hub-brand-mark {
+  position: absolute;
+  right: clamp(2rem, 10vw, 12rem);
+  top: 50%;
+  width: min(34vw, 420px);
+  max-height: 210px;
+  object-fit: contain;
+  transform: translateY(-50%);
+  z-index: 3;
+  filter: drop-shadow(0 20px 30px rgba(0,0,0,.55));
+  opacity: .92;
+  pointer-events: none;
+}
+
 @keyframes hubHeroDrift {
   0%   { transform: scale(1.04) translate3d(0,0,0); }
   100% { transform: scale(1.08) translate3d(-2%, -1%, 0); }
@@ -778,6 +807,7 @@
 }
 
 @media (max-width: 560px) {
+  .hub-brand-mark { width: min(52vw, 250px); right: 1rem; top: 32%; opacity: .55; }
   .hub-hero-content { left: 1rem; bottom: 3rem; padding-right: 1rem; }
   .hub-tac { font-size: .58rem; letter-spacing: 2px; }
   .hub-tac.tl { top: 1rem; left: 1rem; }

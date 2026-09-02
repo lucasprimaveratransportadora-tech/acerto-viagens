@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
+const { empresaBrandSelect, normalizeCoverPosition, validateCoverFile } = require('./empresa-brand');
 
 // audit_logs.empresa_id é NOT NULL no schema. Se req.user.empresa_id for
 // undefined (SUPER_ADMIN detached, edge cases), o insert no audit falha
@@ -27,7 +28,7 @@ function pick(src, fields) {
 async function list() {
   return prisma.empresa.findMany({
     orderBy: { nome: 'asc' },
-    select: { id: true, nome: true, cnpj: true, logo_url: true, logo_mime: true, logo_tamanho: true, cor_primaria: true, ativo: true, created_at: true, _count: { select: { users: true, trucks: true } } },
+    select: { ...empresaBrandSelect(), cnpj: true, ativo: true, created_at: true, _count: { select: { users: true, trucks: true } } },
   });
 }
 
@@ -79,6 +80,29 @@ async function getLogo(id) {
   return e;
 }
 
+async function saveCapa(id, req, file, position) {
+  const validation = validateCoverFile(file);
+  if (!validation.ok) throw ApiError.badRequest(validation.error);
+  const before = await prisma.empresa.findUnique({ where: { id } });
+  if (!before) throw ApiError.notFound('Empresa não encontrada.');
+  const capa_posicao = normalizeCoverPosition(position);
+  const after = await prisma.empresa.update({ where: { id }, data: {
+    capa_dados: file.buffer, capa_mime: file.mimetype, capa_tamanho: file.size, capa_posicao,
+  }});
+  await audit.log({
+    req, empresaId: id, entity: 'EMPRESA', action: 'UPDATE', entityId: id,
+    before: { capa_mime: before.capa_mime, capa_tamanho: before.capa_tamanho, capa_posicao: before.capa_posicao },
+    after: { capa_mime: after.capa_mime, capa_tamanho: after.capa_tamanho, capa_posicao: after.capa_posicao },
+  });
+  return { capa_url: `/api/empresas/${id}/capa`, capa_mime: after.capa_mime, capa_tamanho: after.capa_tamanho, capa_posicao: after.capa_posicao };
+}
+
+async function getCapa(id) {
+  const e = await prisma.empresa.findUnique({ where: { id }, select: { capa_dados: true, capa_mime: true } });
+  if (!e?.capa_dados) throw ApiError.notFound('Capa não encontrada.');
+  return e;
+}
+
 async function update(id, req, data) {
   const before = await prisma.empresa.findUnique({ where: { id } });
   if (!before) throw ApiError.notFound('Empresa não encontrada.');
@@ -124,4 +148,4 @@ async function setStatus(id, req, ativo) {
   return after;
 }
 
-module.exports = { list, getById, create, update, remove, saveLogo, getLogo, setStatus };
+module.exports = { list, getById, create, update, remove, saveLogo, getLogo, saveCapa, getCapa, setStatus };

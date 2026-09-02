@@ -33,6 +33,13 @@ const logo = asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
   res.send(item.logo_dados);
 });
+const uploadCapa = asyncHandler(async (req, res) => res.json(await empresasService.saveCapa(req.params.id, req, req.file, req.body.posicao)));
+const capa = asyncHandler(async (req, res) => {
+  const item = await empresasService.getCapa(req.params.id);
+  res.set('Content-Type', item.capa_mime);
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(item.capa_dados);
+});
 const setStatus = asyncHandler(async (req, res) => res.json(await empresasService.setStatus(req.params.id, req, req.body.ativo === true)));
 
-module.exports = { list, getById, create, update, remove, uploadLogo, logo, setStatus };
+module.exports = { list, getById, create, update, remove, uploadLogo, logo, uploadCapa, capa, setStatus };
