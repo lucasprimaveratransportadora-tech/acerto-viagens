@@ -18,6 +18,13 @@ function fmtDate(s) { return s ? new Date(s).toLocaleDateString('pt-BR') : '—'
 let pullingForTripId = null;
 let pullingForTruckId = null;
 
+async function searchAvailableCteFretes(query = '') {
+  const qs = new URLSearchParams();
+  const normalized = String(query || '').trim();
+  if (normalized) qs.set('q', normalized);
+  return api.get(`/api/ctes/fretes-disponiveis?${qs.toString()}`);
+}
+
 async function refreshTripFreteLinked(tripId) {
   const wrap = document.getElementById('tripFreteLinked_' + tripId);
   if (!wrap) return;
@@ -105,3 +112,4 @@ window.unlinkFreteFromTrip = async function (freteId, tripId) {
 };
 
 window.refreshTripFreteLinked = refreshTripFreteLinked;
+window.searchAvailableCteFretes = searchAvailableCteFretes;

@@ -1597,10 +1597,10 @@
 <!-- =============================================================
      MODAL: Puxar Frete Retorno (vincular FreteTerceiro à Viagem)
      ============================================================= -->
-<div class="modal-overlay" id="tripPullFreteModal">
+<div class="modal-overlay" id="tripPullFreteModal" role="dialog" aria-modal="true" aria-labelledby="tripPullFreteModalTitle" aria-describedby="tripPullFreteModalHint">
   <div class="modal" style="width:580px;max-width:96vw">
-    <div class="modal-title">🔁 Puxar Frete Retorno</div>
-    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+    <div class="modal-title" id="tripPullFreteModalTitle">🔁 Puxar Frete Retorno</div>
+    <p id="tripPullFreteModalHint" style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
       Fretes terceiros em aberto disponíveis para vincular a esta viagem. A lista
       prioriza fretes do mesmo caminhão / placa.
     </p>

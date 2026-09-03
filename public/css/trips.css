@@ -324,6 +324,15 @@
   padding: .28rem .45rem;
   background: rgba(0,0,0,.15);
   border-radius: 5px;
+  flex-wrap: wrap;
+}
+
+.cte-main {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex: 1 1 280px;
+  min-width: 0;
 }
 
 .cte-date {
@@ -349,6 +358,162 @@
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 600;
   color: var(--success);
+}
+
+.cte-linked-frete {
+  width: 100%;
+  padding-left: 84px;
+  font-size: .68rem;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.cte-creator {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  padding: .45rem .8rem .8rem;
+}
+
+.cte-creator-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.cte-frete-selector {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: .7rem;
+  background: rgba(56,189,248,.05);
+  border: 1px solid rgba(56,189,248,.18);
+  border-radius: 8px;
+}
+
+.cte-frete-search-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cte-frete-search-row {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+.cte-frete-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cte-frete-feedback {
+  font-size: .72rem;
+  color: var(--muted);
+}
+
+.cte-frete-feedback.error {
+  color: var(--danger);
+}
+
+.cte-frete-results {
+  display: grid;
+  gap: .45rem;
+}
+
+.cte-frete-card {
+  width: 100%;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 8px;
+  padding: .7rem;
+  text-align: left;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: .28rem;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s, background .15s;
+}
+
+.cte-frete-card:hover {
+  border-color: rgba(227,6,19,.4);
+  background: rgba(255,255,255,.03);
+}
+
+.cte-frete-card.selected {
+  border-color: var(--accent);
+  background: rgba(227,6,19,.08);
+}
+
+.cte-frete-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  align-items: baseline;
+}
+
+.cte-frete-card-top strong {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--accent);
+}
+
+.cte-frete-card-meta {
+  font-size: .7rem;
+  color: var(--muted);
+}
+
+.cte-frete-card-value {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.cte-frete-selected {
+  display: flex;
+  gap: .6rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: .65rem .7rem;
+  border-radius: 8px;
+  background: rgba(227,6,19,.08);
+  border: 1px solid rgba(227,6,19,.2);
+}
+
+.cte-frete-selected-copy {
+  display: flex;
+  flex-direction: column;
+  gap: .18rem;
+  min-width: 0;
+}
+
+.cte-frete-selected-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cte-creator-fields {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(3, minmax(110px, 1fr)) minmax(120px, 1fr) auto;
+  gap: .5rem;
+  align-items: center;
+}
+
+.cte-creator-fields .inline-input,
+.cte-frete-search-row .inline-input {
+  width: 100%;
+}
+
+.cte-frete-card:focus-visible,
+.cte-frete-search:focus-visible,
+.cte-creator-fields .inline-input:focus-visible {
+  outline: 2px solid rgba(56,189,248,.55);
+  outline-offset: 2px;
 }
 
 /* ============ Anexos inline (folha de acerto na view inline) ============ */

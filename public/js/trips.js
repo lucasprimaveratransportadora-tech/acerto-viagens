@@ -4,6 +4,157 @@ import { api } from './api.js';
 import { state, DESP } from './state.js';
 import { fmt, fmtD, esc, calcFrete, calcDesp } from './utils.js';
 
+const cteComposerState = new Map();
+const cteSearchTimers = new Map();
+
+function ensureCteComposer(tripId) {
+  if (!cteComposerState.has(tripId)) {
+    cteComposerState.set(tripId, {
+      open: false,
+      query: '',
+      loading: false,
+      error: '',
+      results: [],
+      selected: null,
+      data: '',
+      numero: '',
+      origem: '',
+      destino: '',
+      valor: '',
+    });
+  }
+  return cteComposerState.get(tripId);
+}
+
+function resetCteComposer(tripId) {
+  cteComposerState.set(tripId, {
+    open: false,
+    query: '',
+    loading: false,
+    error: '',
+    results: [],
+    selected: null,
+    data: '',
+    numero: '',
+    origem: '',
+    destino: '',
+    valor: '',
+  });
+}
+
+function describeLinkedFrete(frete) {
+  if (!frete) return '';
+  const parts = [
+    frete.numero ? `Frete ${esc(frete.numero)}` : 'Frete vinculado',
+    esc(frete.empresa_pagadora || 'Sem pagadora'),
+    esc(frete.motorista || 'Sem motorista'),
+    esc(frete.veiculo || 'Sem veículo'),
+    `R$ ${fmt(frete.valor_total || 0)}`,
+  ];
+  return `<div class="cte-linked-frete">${parts.join(' · ')}</div>`;
+}
+
+function buildCteResults(tripId, ui) {
+  if (!ui.open) return '';
+  if (ui.loading) return `<div class="cte-frete-feedback" aria-live="polite">Buscando fretes livres…</div>`;
+  if (ui.error) return `<div class="cte-frete-feedback error" aria-live="polite">${esc(ui.error)}</div>`;
+  if (ui.query && !ui.results.length) {
+    return `<div class="cte-frete-feedback" aria-live="polite">Nenhum frete disponível encontrado para essa busca.</div>`;
+  }
+  if (!ui.results.length) {
+    return `<div class="cte-frete-feedback" aria-live="polite">Digite o número do frete para buscar um vínculo disponível.</div>`;
+  }
+  return `<div class="cte-frete-results" aria-live="polite">${ui.results.map(f => `
+    <button type="button" class="cte-frete-card ${ui.selected?.id === f.id ? 'selected' : ''}" onclick="event.stopPropagation();selectCteFrete('${esc(tripId)}','${esc(f.id)}')">
+      <span class="cte-frete-card-top">
+        <strong>${esc(f.numero || 'Sem número')}</strong>
+        <span>${esc(f.empresa_pagadora || 'Sem pagadora')}</span>
+      </span>
+      <span class="cte-frete-card-meta">${esc(f.motorista || 'Sem motorista')} · ${esc(f.veiculo || 'Sem veículo')}</span>
+      <span class="cte-frete-card-meta">${esc(f.origem || 'Origem pendente')}${f.destino ? ' → ' + esc(f.destino) : ''}</span>
+      <span class="cte-frete-card-value">R$ ${fmt(f.valor_total || 0)}</span>
+    </button>
+  `).join('')}</div>`;
+}
+
+function buildCteCreator(tr) {
+  const tripId = tr.id;
+  const ui = ensureCteComposer(tripId);
+  const selected = ui.selected;
+  const selectedMarkup = selected ? `
+    <div class="cte-frete-selected">
+      <div class="cte-frete-selected-copy">
+        <span class="cte-frete-selected-label">Frete selecionado</span>
+        <strong>${esc(selected.numero || 'Sem número')} · ${esc(selected.empresa_pagadora || 'Sem pagadora')}</strong>
+        <span>${esc(selected.motorista || 'Sem motorista')} · ${esc(selected.veiculo || 'Sem veículo')} · R$ ${fmt(selected.valor_total || 0)}</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();clearCteFreteSelection('${esc(tripId)}')">Trocar frete</button>
+    </div>
+  ` : '';
+  return `
+    <div class="cte-creator">
+      <div class="cte-creator-actions">
+        <button type="button" class="btn btn-accent btn-sm" aria-expanded="${ui.open ? 'true' : 'false'}" onclick="event.stopPropagation();toggleInlineCteCreator('${esc(tripId)}')">
+          ${ui.open ? 'Fechar Criar CT-e' : 'Criar CT-e'}
+        </button>
+      </div>
+      ${ui.open ? `
+        <div class="cte-frete-selector">
+          <label class="cte-frete-search-label" for="inCteFreteQuery_${esc(tripId)}">Buscar frete por número</label>
+          <div class="cte-frete-search-row">
+            <input type="search" id="inCteFreteQuery_${esc(tripId)}" class="inline-input cte-frete-search" value="${esc(ui.query)}" placeholder="Ex: FT-1024" oninput="queueCteFreteSearch('${esc(tripId)}', this.value)">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();runCteFreteSearch('${esc(tripId)}')">Buscar</button>
+          </div>
+          <input type="hidden" id="inCteFreteId_${esc(tripId)}" value="${esc(selected?.id || '')}">
+          ${selectedMarkup}
+          ${buildCteResults(tripId, ui)}
+        </div>
+        <div class="cte-creator-fields">
+          <input type="date" id="inCteDate_${esc(tripId)}" class="inline-input" aria-label="Data do CT-e" value="${esc(ui.data)}" onchange="syncCteComposerField('${esc(tripId)}','data',this.value)">
+          <input type="text" id="inCteNum_${esc(tripId)}" class="inline-input" aria-label="Número do CT-e" value="${esc(ui.numero)}" placeholder="Nº CT-e" oninput="syncCteComposerField('${esc(tripId)}','numero',this.value)">
+          <input type="text" id="inCteOri_${esc(tripId)}" class="inline-input" aria-label="Origem do CT-e" value="${esc(ui.origem)}" placeholder="Origem" oninput="syncCteComposerField('${esc(tripId)}','origem',this.value)">
+          <input type="text" id="inCteDst_${esc(tripId)}" class="inline-input" aria-label="Destino do CT-e" value="${esc(ui.destino)}" placeholder="Destino" oninput="syncCteComposerField('${esc(tripId)}','destino',this.value)">
+          <input type="number" id="inCteVal_${esc(tripId)}" class="inline-input" aria-label="Valor do CT-e" value="${esc(ui.valor)}" placeholder="Valor" step="0.01" oninput="syncCteComposerField('${esc(tripId)}','valor',this.value)">
+          <button class="btn btn-accent btn-sm" onclick="event.stopPropagation();inlineSaveCte('${esc(tripId)}')">Salvar CT-e</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderCteSection(tripId) {
+  const trip = state.trips.find(item => item.id === tripId);
+  const section = document.getElementById('cteSection_' + tripId);
+  if (!trip || !section) return;
+  section.innerHTML = buildCteSection(trip);
+}
+
+function buildCteSection(tr) {
+  const tid = esc(tr.id);
+  let html = `<div class="detail-section"><div class="detail-section-hdr"><span class="detail-section-title">&#x1F4C4; CTes / Fretes</span><span class="detail-section-total val pos">R$ ${fmt(calcFrete(tr))}</span></div>`;
+  if (tr.ctes && tr.ctes.length) {
+    html += `<div class="cte-list">`;
+    tr.ctes.forEach(c => {
+      html += `<div class="cte-row">
+        <div class="cte-main">
+          <span class="cte-date">${fmtD(c.data)}</span>
+          <span class="cte-num">${esc(c.numero || '\u2014')}</span>
+          <span class="cte-route-lbl">${esc(c.origem || '')}${c.destino ? ' \u2192 ' + esc(c.destino) : ''}</span>
+        </div>
+        <span class="cte-val">R$ ${fmt(c.valor)}</span>
+        <button class="inline-del" onclick="event.stopPropagation();inlineRemoveCte('${tid}','${esc(c.id)}')" title="Remover">\u2715</button>
+        ${describeLinkedFrete(c.frete_terceiro)}
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div style="padding:.6rem;text-align:center;font-size:.72rem;color:var(--muted)">Nenhum CTE registrado</div>`;
+  }
+  html += buildCteCreator(tr);
+  html += `</div>`;
+  return html;
+}
+
 // ==================== DETAIL BUILD ====================
 
 export function buildDetail(tr) {
@@ -69,31 +220,7 @@ export function buildDetail(tr) {
   </div>`;
 
   // ---- CTEs ----
-  h += `<div class="detail-section"><div class="detail-section-hdr"><span class="detail-section-title">&#x1F4C4; CTes / Fretes</span><span class="detail-section-total val pos">R$ ${fmt(frete)}</span></div>`;
-  if (tr.ctes && tr.ctes.length) {
-    h += `<div class="cte-list">`;
-    tr.ctes.forEach(c => {
-      h += `<div class="cte-row">
-        <span class="cte-date">${fmtD(c.data)}</span>
-        <span class="cte-num">${esc(c.numero || '\u2014')}</span>
-        <span class="cte-route-lbl">${esc(c.origem || '')}${c.destino ? ' \u2192 ' + esc(c.destino) : ''}</span>
-        <span class="cte-val">R$ ${fmt(c.valor)}</span>
-        <button class="inline-del" onclick="event.stopPropagation();inlineRemoveCte('${esc(tr.id)}','${esc(c.id)}')" title="Remover">\u2715</button>
-      </div>`;
-    });
-    h += `</div>`;
-  } else {
-    h += `<div style="padding:.6rem;text-align:center;font-size:.72rem;color:var(--muted)">Nenhum CTE registrado</div>`;
-  }
-  h += `<div class="inline-add-row">
-    <input type="date" id="inCteDate_${esc(tr.id)}" class="inline-input" style="width:110px">
-    <input type="text" id="inCteNum_${esc(tr.id)}" class="inline-input" placeholder="N\u00BA CTE" style="width:85px">
-    <input type="text" id="inCteOri_${esc(tr.id)}" class="inline-input" placeholder="Origem" style="width:85px">
-    <input type="text" id="inCteDst_${esc(tr.id)}" class="inline-input" placeholder="Destino" style="width:85px">
-    <input type="number" id="inCteVal_${esc(tr.id)}" class="inline-input" placeholder="Valor" step="0.01" style="width:85px">
-    <button class="btn btn-accent btn-sm" onclick="event.stopPropagation();inlineSaveCte('${esc(tr.id)}')">+ CTE</button>
-  </div>`;
-  h += `</div>`;
+  h += `<div id="cteSection_${esc(tr.id)}">${buildCteSection(tr)}</div>`;
 
   // ---- Abastecimentos ----
   h += `<div class="detail-section"><div class="detail-section-hdr"><span class="detail-section-title">&#x26FD; Abastecimentos</span><span class="detail-section-total" style="color:var(--info)">R$ ${fmt(totFuelVal)} \u00B7 ${totL.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}L</span></div>`;
@@ -491,6 +618,7 @@ window.inlineSaveCte = async function (tripId) {
   const origin = document.getElementById('inCteOri_' + tripId)?.value || '';
   const dest = document.getElementById('inCteDst_' + tripId)?.value || '';
   const valor = document.getElementById('inCteVal_' + tripId)?.value || '';
+  const freteId = (document.getElementById('inCteFreteId_' + tripId)?.value || '').trim();
   if (!num && !valor) { alert('Informe pelo menos o N\u00BA CTE ou valor.'); return; }
   try {
     await api.post('/api/ctes/trip/' + tripId, {
@@ -499,9 +627,10 @@ window.inlineSaveCte = async function (tripId) {
       origem: origin,
       destino: dest,
       valor: parseFloat(valor) || 0,
+      frete_terceiro_id: freteId || null,
     });
-    // Limpa o input row pra pr\u00F3xima entrada
-    ['inCteDate_', 'inCteNum_', 'inCteOri_', 'inCteDst_', 'inCteVal_'].forEach(p => {
+    resetCteComposer(tripId);
+    ['inCteDate_', 'inCteNum_', 'inCteOri_', 'inCteDst_', 'inCteVal_', 'inCteFreteId_', 'inCteFreteQuery_'].forEach(p => {
       const el = document.getElementById(p + tripId);
       if (el) el.value = '';
     });
@@ -509,6 +638,77 @@ window.inlineSaveCte = async function (tripId) {
   } catch (e) {
     alert('Erro ao adicionar CTE: ' + e.message);
   }
+};
+
+window.toggleInlineCteCreator = function (tripId) {
+  const ui = ensureCteComposer(tripId);
+  ui.open = !ui.open;
+  if (!ui.open) {
+    ui.loading = false;
+    ui.error = '';
+    ui.results = [];
+  }
+  renderCteSection(tripId);
+};
+
+window.syncCteComposerField = function (tripId, field, value) {
+  const ui = ensureCteComposer(tripId);
+  ui[field] = value;
+};
+
+window.queueCteFreteSearch = function (tripId, value) {
+  const ui = ensureCteComposer(tripId);
+  ui.query = value;
+  ui.error = '';
+  const previous = cteSearchTimers.get(tripId);
+  if (previous) clearTimeout(previous);
+  cteSearchTimers.set(tripId, setTimeout(() => {
+    window.runCteFreteSearch(tripId);
+  }, 250));
+};
+
+window.runCteFreteSearch = async function (tripId) {
+  const ui = ensureCteComposer(tripId);
+  const query = String(ui.query || '').trim();
+  if (!query) {
+    ui.results = [];
+    ui.error = '';
+    ui.loading = false;
+    renderCteSection(tripId);
+    return;
+  }
+  ui.loading = true;
+  ui.error = '';
+  renderCteSection(tripId);
+  try {
+    const items = await window.searchAvailableCteFretes?.(query);
+    ui.results = Array.isArray(items) ? items : [];
+  } catch (error) {
+    ui.results = [];
+    ui.error = error?.message || 'Não foi possível buscar os fretes disponíveis.';
+  } finally {
+    ui.loading = false;
+    renderCteSection(tripId);
+  }
+};
+
+window.selectCteFrete = function (tripId, freteId) {
+  const ui = ensureCteComposer(tripId);
+  const selected = ui.results.find(item => item.id === freteId);
+  if (!selected) return;
+  ui.selected = selected;
+  if (!ui.origem) ui.origem = selected.origem || '';
+  if (!ui.destino) ui.destino = selected.destino || '';
+  if (!ui.valor) ui.valor = selected.valor_total != null ? String(selected.valor_total) : '';
+  renderCteSection(tripId);
+};
+
+window.clearCteFreteSelection = function (tripId) {
+  const ui = ensureCteComposer(tripId);
+  ui.selected = null;
+  const freteField = document.getElementById('inCteFreteId_' + tripId);
+  if (freteField) freteField.value = '';
+  renderCteSection(tripId);
 };
 
 window.inlineRemoveCte = async function (tripId, cteId) {

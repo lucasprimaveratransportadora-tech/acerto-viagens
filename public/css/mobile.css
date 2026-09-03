@@ -164,6 +164,28 @@
   .tab { padding: 6px 10px; font-size: .72rem; flex: 1 1 calc(50% - 4px); text-align: center; }
   .entry-table { font-size: .7rem; }
   .entry-table th, .entry-table td { padding: 3px 4px; }
+  .cte-frete-search-row,
+  .cte-frete-selected,
+  .cte-creator-fields {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cte-frete-search-row .btn,
+  .cte-frete-selected .btn,
+  .cte-creator-fields .btn,
+  .cte-creator-fields .inline-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .cte-linked-frete {
+    padding-left: 0;
+  }
+  .cte-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .2rem;
+  }
 
   /* === DROPZONE ANEXO === */
   .ft-anexo-dropzone { padding: 1.2rem .8rem; }
