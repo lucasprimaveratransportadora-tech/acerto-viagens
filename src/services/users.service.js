@@ -17,7 +17,22 @@ function sanitizePermissoes(arr) {
   return unique;
 }
 
-async function list(empresaId) {
+function canAssignAdmin(req) {
+  return req.realUser?.role === 'SUPER_ADMIN' || req.user?.role === 'SUPER_ADMIN';
+}
+
+function assertAdmin(req, action = 'gerenciar usuários') {
+  if (req.user?.role !== 'ADMIN') {
+    throw ApiError.forbidden(`Apenas ADMIN pode ${action}.`);
+  }
+}
+
+function getEmpresaId(req) {
+  return req.user?.empresa_id;
+}
+
+async function list(req) {
+  const empresaId = getEmpresaId(req);
   return prisma.user.findMany({
     where: { empresa_id: empresaId },
     select: USER_SELECT,
@@ -25,15 +40,18 @@ async function list(empresaId) {
   });
 }
 
-async function create(empresaId, req, { nome, email, senha, role, permissoes }) {
+async function create(req, { nome, email, senha, role, permissoes }) {
+  assertAdmin(req, 'criar usuários');
+  const empresaId = getEmpresaId(req);
   const senha_hash = await hashPassword(senha);
   const perms = sanitizePermissoes(permissoes);
+  const resolvedRole = role === 'ADMIN' && canAssignAdmin(req) ? 'ADMIN' : 'GESTOR';
   const user = await prisma.user.create({
     data: {
       nome,
       email,
       senha_hash,
-      role: role || 'GESTOR',
+      role: resolvedRole,
       permissoes: perms && perms.length ? perms : DEFAULT_PERMISSOES,
       empresa_id: empresaId,
     },
@@ -48,7 +66,9 @@ async function create(empresaId, req, { nome, email, senha, role, permissoes }) 
   return user;
 }
 
-async function update(id, empresaId, req, { nome, role, ativo, permissoes }) {
+async function update(id, req, { nome, role, ativo, permissoes }) {
+  assertAdmin(req);
+  const empresaId = getEmpresaId(req);
   if (req.user.id === id) {
     throw ApiError.forbidden('Você não pode alterar a própria conta por aqui.');
   }
@@ -60,7 +80,7 @@ async function update(id, empresaId, req, { nome, role, ativo, permissoes }) {
 
   const data = {};
   if (nome !== undefined) data.nome = nome;
-  if (role !== undefined) data.role = role;
+  if (role !== undefined) data.role = role === 'ADMIN' && canAssignAdmin(req) ? 'ADMIN' : 'GESTOR';
   if (ativo !== undefined) data.ativo = ativo;
   if (permissoes !== undefined) {
     const perms = sanitizePermissoes(permissoes);
@@ -80,14 +100,16 @@ async function update(id, empresaId, req, { nome, role, ativo, permissoes }) {
   return after;
 }
 
-async function deactivate(id, empresaId, req) {
+async function deactivate(id, req) {
   if (req.user.id === id) {
     throw ApiError.forbidden('Você não pode desativar a própria conta.');
   }
-  return update(id, empresaId, req, { ativo: false });
+  return update(id, req, { ativo: false });
 }
 
-async function resetPassword(id, empresaId, req, novaSenha) {
+async function resetPassword(id, req, novaSenha) {
+  assertAdmin(req);
+  const empresaId = getEmpresaId(req);
   if (req.user.id === id) {
     throw ApiError.forbidden('Você não pode resetar a própria senha por aqui.');
   }
@@ -115,7 +137,9 @@ async function resetPassword(id, empresaId, req, novaSenha) {
   return { sessions_revoked };
 }
 
-async function revokeSessions(id, empresaId, req) {
+async function revokeSessions(id, req) {
+  assertAdmin(req);
+  const empresaId = getEmpresaId(req);
   if (req.user.id === id) {
     throw ApiError.forbidden('Você não pode encerrar suas próprias sessões por aqui.');
   }
