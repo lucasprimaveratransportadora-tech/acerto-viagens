@@ -3,16 +3,17 @@ const path = require('node:path');
 
 function buildProductionPatch({
   oldEmail = 'ney@vidallogistica.com.br',
+  oldEmails = ['ney@vidallogistica.com.br', 'ney@vidallogistica.com'],
   newEmail = 'aneilhomar@icloud.com',
   rpmName = 'RPM',
   capaPath = path.join(__dirname, '..', 'public', 'assets', 'images', 'rpm-capa.png'),
 } = {}) {
-  return { oldEmail, newEmail, rpmName, capaPath };
+  return { oldEmail, oldEmails: [...new Set([oldEmail, ...oldEmails])], newEmail, rpmName, capaPath };
 }
 
 async function applyProductionPatch(prisma, options = {}) {
   const patch = buildProductionPatch(options);
-  const oldUser = await prisma.user.findUnique({ where: { email: patch.oldEmail } });
+  const oldUser = await prisma.user.findFirst({ where: { email: { in: patch.oldEmails } } });
   const newUser = await prisma.user.findUnique({ where: { email: patch.newEmail } });
 
   if (oldUser && !newUser) {
@@ -23,6 +24,10 @@ async function applyProductionPatch(prisma, options = {}) {
     console.log(`Usuário atualizado: ${patch.oldEmail} -> ${patch.newEmail}`);
   } else if (oldUser && newUser && oldUser.id !== newUser.id) {
     console.warn(`Troca de e-mail ignorada: ${patch.newEmail} já pertence a outro usuário.`);
+  } else if (!oldUser && newUser) {
+    console.log(`Usuário já está atualizado: ${patch.newEmail}`);
+  } else if (!oldUser) {
+    console.warn(`Usuário antigo não encontrado: ${patch.oldEmails.join(', ')}`);
   }
 
   if (!fs.existsSync(patch.capaPath)) {
