@@ -97,7 +97,7 @@ function buildCteCreator(tr) {
     <div class="cte-creator">
       <div class="cte-creator-actions">
         <button type="button" class="btn btn-accent btn-sm" aria-expanded="${ui.open ? 'true' : 'false'}" onclick="event.stopPropagation();toggleInlineCteCreator('${esc(tripId)}')">
-          ${ui.open ? 'Fechar Criar CT-e' : 'Criar CT-e'}
+          ${ui.open ? 'Fechar CT-e · Criar CT-e / Puxar frete terceiro' : 'Criar CT-e / Puxar frete terceiro'}
         </button>
       </div>
       ${ui.open ? `
@@ -326,14 +326,6 @@ export function buildDetail(tr) {
     h += `<div style="padding:.5rem .7rem;font-size:.72rem;color:var(--muted)">Sem folha anexada. Use <b>+ Anexar folha</b> pra mandar o PDF/imagem digitalizado.</div>`;
   }
   h += `</div>`;
-
-  // ---- Frete Retorno (Terceiro) ----
-  h += `<div class="detail-section" style="grid-column:1/-1"><div class="detail-section-hdr">
-    <span class="detail-section-title">&#x1F501; Frete Retorno (Terceiro)</span>
-    <button class="btn btn-blue btn-sm" onclick="event.stopPropagation();window.openPullFreteModal('${tid}','${esc(tr.truck_id || '')}')">+ Puxar Frete Retorno</button>
-  </div>
-  <div id="tripFreteLinked_${tid}" style="padding:.5rem .7rem;font-size:.72rem;color:var(--muted)">Carregando...</div>
-  </div>`;
 
   // ---- Acerto ----
   const obs = tr.observacoes || '';

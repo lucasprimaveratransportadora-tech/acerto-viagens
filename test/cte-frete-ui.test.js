@@ -120,6 +120,25 @@ test('formulario de Criar CT-e exibe busca de frete, card selecionado e vinculo 
   assert.match(html, /FT-77/);
 });
 
+test('botão do CT-e deixa explícito que pode puxar um frete terceiro', () => {
+  const document = createDocument();
+  const window = {};
+  const trip = { id: 'trip-2', ctes: [], expenses: [], fuels: [] };
+  const { buildDetail } = loadTripsModule({ api: {}, state: { trips: [trip] }, document, window });
+
+  const html = buildDetail(trip);
+  assert.match(html, /Puxar frete terceiro/i);
+});
+
+test('detalhe da viagem não exibe um bloco separado de frete terceiro', () => {
+  const document = createDocument();
+  const window = {};
+  const trip = { id: 'trip-3', ctes: [], expenses: [], fuels: [] };
+  const { buildDetail } = loadTripsModule({ api: {}, state: { trips: [trip] }, document, window });
+
+  assert.doesNotMatch(buildDetail(trip), /Frete Retorno \(Terceiro\)|Puxar Frete Retorno/i);
+});
+
 test('inlineSaveCte envia frete_terceiro_id selecionado para a API existente', async () => {
   const calls = [];
   const elements = {

@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const { applyProductionPatch } = require('../scripts/production-patch');
 
 const prisma = new PrismaClient();
 
@@ -40,6 +41,9 @@ async function main() {
     },
   });
   console.log(`Admin user created: ${admin.email} (${admin.role})`);
+
+  // Correções de dados operacionais autorizadas pelo proprietário, idempotentes.
+  await applyProductionPatch(prisma);
 
   console.log('\nSeed completed successfully!');
   console.log(`\nLogin with:\n  Email: ${adminEmail}\n  Senha: ${adminSenha}`);
