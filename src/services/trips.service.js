@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
+const { lockForLink, withLinkTransaction } = require('./fretesTerceiros.service');
 
 // Campos do anexo de viagem que NÃO podem voltar em listagens (Bytes pesado)
 const TRIP_ANEXO_LIST_SELECT = {
@@ -47,6 +48,83 @@ function normalizeCte(c) {
     destino: c?.destino ?? null,
     valor: c?.valor ?? 0,
   };
+}
+
+function normalizeCtePatch(cte) {
+  if (!cte || typeof cte !== 'object' || Array.isArray(cte)
+      || (cte.id !== undefined && typeof cte.id !== 'string')
+      || (cte.frete_terceiro_id != null && typeof cte.frete_terceiro_id !== 'string')) {
+    throw ApiError.badRequest('CT-e e identificadores inválidos.');
+  }
+  return { ...normalizeCte(cte), id: cte.id, frete_terceiro_id: cte.frete_terceiro_id };
+}
+
+async function replaceCtes(tx, trip, empresaId, incoming) {
+  // O snapshot Serializable delimita o conjunto de CT-es desta substituição.
+  // Sempre fretes (ordenados por id) -> CT-es, inclusive para as exclusões.
+  const freteIds = [...new Set([
+    ...trip.ctes.map(cte => cte.frete_terceiro_id),
+    ...incoming.map(cte => cte.frete_terceiro_id),
+  ].filter(id => id != null))].sort();
+  const fretes = new Map();
+  for (const freteId of freteIds) {
+    fretes.set(freteId, await lockForLink(tx, freteId, empresaId));
+  }
+  await tx.$queryRaw`
+    SELECT c.id FROM ctes c JOIN trips t ON t.id = c.trip_id
+    WHERE c.trip_id = ${trip.id} AND t.empresa_id = ${empresaId}
+    ORDER BY c.id FOR UPDATE OF c
+  `;
+
+  const byId = new Map(trip.ctes.map(cte => [cte.id, cte]));
+  const byFrete = new Map(trip.ctes.filter(cte => cte.frete_terceiro_id)
+    .map(cte => [cte.frete_terceiro_id, cte]));
+  const retained = new Set();
+  const usedFretes = new Set();
+  const rows = incoming.map(cte => {
+    const existing = cte.id !== undefined ? byId.get(cte.id) : byFrete.get(cte.frete_terceiro_id);
+    if (cte.id !== undefined && !existing) throw ApiError.notFound('CT-e não encontrado nesta viagem.');
+    // Trocar/desfazer um vínculo existente usa a operação explícita de unlink.
+    // Omitir o campo no PATCH nunca apaga a referência que está no banco.
+    if (existing && cte.frete_terceiro_id !== undefined
+        && cte.frete_terceiro_id !== existing.frete_terceiro_id) {
+      throw ApiError.conflict('Desvincule o frete antes de alterar o vínculo do CT-e.');
+    }
+    const freteId = existing ? existing.frete_terceiro_id : (cte.frete_terceiro_id ?? null);
+    if (existing && retained.has(existing.id)) throw ApiError.conflict('CT-e repetido na viagem.');
+    if (freteId) {
+      const frete = fretes.get(freteId);
+      if (usedFretes.has(freteId)) throw ApiError.conflict('Frete repetido na viagem.');
+      if (existing) {
+        if (frete.trip_id !== trip.id || frete.cte?.id !== existing.id) {
+          throw ApiError.conflict('O vínculo do frete mudou. Atualize a viagem.');
+        }
+      } else if (frete.trip_id || frete.cte || frete.status === 'CANCELADO') {
+        throw ApiError.conflict('Frete indisponível para vínculo.');
+      }
+      usedFretes.add(freteId);
+    }
+    if (existing) retained.add(existing.id);
+    return { id: existing?.id, freteId, data: normalizeCte(cte) };
+  });
+
+  const removedIds = trip.ctes.filter(cte => !retained.has(cte.id)).map(cte => cte.id);
+  if (removedIds.length) {
+    await tx.cte.deleteMany({ where: { id: { in: removedIds }, trip_id: trip.id } });
+  }
+  for (const row of rows) {
+    if (row.id) {
+      // Mantém a identidade, o FK e eventuais anexos do CT-e sobrevivente.
+      await tx.cte.update({ where: { id: row.id, trip_id: trip.id }, data: row.data });
+    } else {
+      if (row.freteId) {
+        await tx.freteTerceiro.update({
+          where: { id: row.freteId, empresa_id: empresaId }, data: { trip_id: trip.id },
+        });
+      }
+      await tx.cte.create({ data: { ...row.data, trip_id: trip.id, frete_terceiro_id: row.freteId } });
+    }
+  }
 }
 
 function normalizeFuel(f) {
@@ -202,31 +280,26 @@ async function create(truckId, empresaId, req, data) {
 }
 
 async function update(id, empresaId, req, data) {
+  if (!empresaId) throw ApiError.unauthorized('Empresa não identificada.');
   await verifyTripOwnership(id, empresaId);
 
   const tripPatch = normalizeTripFields(pick(data, TRIP_PATCH_FIELDS));
   // Semântica: se a chave `ctes`/`fuels` vier no body, é a lista COMPLETA
   // nova (replace all). Se não vier, não toca nas linhas existentes.
-  const ctes = Array.isArray(data?.ctes) ? data.ctes.map(normalizeCte) : null;
+  const ctes = Array.isArray(data?.ctes) ? data.ctes.map(normalizeCtePatch) : null;
   const fuels = Array.isArray(data?.fuels) ? data.fuels.map(normalizeFuel) : null;
 
-  const result = await prisma.$transaction(async (tx) => {
-    const before = await tx.trip.findUnique({
-      where: { id },
+  const result = await withLinkTransaction(async (tx) => {
+    const before = await tx.trip.findFirst({
+      where: { id, empresa_id: empresaId, deleted_at: null, truck: { empresa_id: empresaId, deleted_at: null } },
       include: { ctes: true, fuels: true, expenses: true },
     });
+    if (!before) throw ApiError.notFound('Viagem não encontrada.');
+
+    if (ctes !== null) await replaceCtes(tx, before, empresaId, ctes);
 
     if (Object.keys(tripPatch).length > 0) {
       await tx.trip.update({ where: { id }, data: tripPatch });
-    }
-
-    if (ctes !== null) {
-      await tx.cte.deleteMany({ where: { trip_id: id } });
-      if (ctes.length > 0) {
-        await tx.cte.createMany({
-          data: ctes.map((c) => ({ ...c, trip_id: id })),
-        });
-      }
     }
 
     if (fuels !== null) {
@@ -243,9 +316,10 @@ async function update(id, empresaId, req, data) {
       include: { ctes: true, fuels: true, expenses: true },
     });
     return { before, after };
-  });
+  }, { isolationLevel: 'Serializable' });
 
-  await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id, before: result.before, after: result.after });
+  await audit.log({ req, empresaId, entity: 'TRIP', action: 'UPDATE', entityId: id,
+    before: JSON.parse(JSON.stringify(result.before)), after: JSON.parse(JSON.stringify(result.after)) });
   return { ...result.after, ...deriveOrigemDestino(result.after) };
 }
 

@@ -9,16 +9,23 @@ const { createCte } = require('../src/validators/cte.validator');
 const databaseUrl = process.env.TEST_CTE_DATABASE_URL;
 const integration = { skip: databaseUrl ? false : 'Set TEST_CTE_DATABASE_URL to a migrated local task3_cte_test_final database.' };
 let db;
+const queryTrace = [];
 if (databaseUrl) {
   const url = new URL(databaseUrl);
   assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
   assert.ok(['/task3_cte_test', '/task3_cte_test_final'].includes(url.pathname));
   process.env.DATABASE_URL = databaseUrl;
-  db = require('../src/config/database');
+  // Real Prisma/PostgreSQL; query events let us verify actual lock order.
+  const { PrismaClient } = require('@prisma/client');
+  db = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] });
+  db.$on('query', event => queryTrace.push(event));
+  const databasePath = require.resolve('../src/config/database');
+  require.cache[databasePath] = { id: databasePath, filename: databasePath, loaded: true, exports: db };
   test.after(() => db.$disconnect());
 }
 const ctes = require('../src/services/ctes.service');
 const fretes = require('../src/services/fretesTerceiros.service');
+const trips = require('../src/services/trips.service');
 
 async function fixture(t) {
   const empresas = [];
@@ -68,6 +75,28 @@ test('validator aceita criacao manual, null ou UUID valido', async () => {
     for (const rule of createCte) await rule.run(req);
     assert.equal(validationResult(req).isEmpty(), true);
   }
+});
+
+for (const [label, value] of [
+  ['array unitario', [randomUUID()]],
+  ['array multiplo', [randomUUID(), randomUUID()]],
+  ['array aninhado', [[randomUUID()]]],
+  ['array vazio', []],
+]) {
+  test(`validator rejeita frete_terceiro_id ${label}`, async () => {
+    const req = { body: { valor: 10, frete_terceiro_id: value } };
+    for (const rule of createCte) await rule.run(req);
+    assert.ok(validationResult(req).array().some(error => error.path === 'frete_terceiro_id'));
+  });
+}
+
+test('validator de PATCH viagem rejeita frete/id como arrays em CTes aninhados', async () => {
+  const { updateTrip } = require('../src/validators/trip.validator');
+  const req = { body: { ctes: [{ id: [randomUUID()], frete_terceiro_id: [randomUUID()], valor: 10 }] } };
+  for (const rule of updateTrip) await rule.run(req);
+  const errors = validationResult(req).array().map(error => error.path);
+  assert.ok(errors.includes('ctes[0].frete_terceiro_id'));
+  assert.ok(errors.includes('ctes[0].id'));
 });
 
 test('lista apenas fretes livres ativos da empresa, sem vinculo legado ou CTe', integration, async t => {
@@ -308,4 +337,228 @@ test('GET fretes-disponiveis exige sessao e ignora empresa_id da query', integra
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).map(row => row.id), [livre.id]);
   assert.equal((await fetch(`${url}?q[x]=bad`, { headers })).status, 400);
+});
+
+test('PATCH viagem preserva CTes e vinculos 1:1 em round-trip do payload', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  const before = await trips.getById(f.a.trip.id, f.a.empresa.id);
+  const payload = JSON.parse(JSON.stringify({ ctes: before.ctes, observacoes: 'ajuste' }));
+  payload.ctes[0].numero = 'CT-EDITADO';
+  const after = await trips.update(f.a.trip.id, f.a.empresa.id, f.req, payload);
+  assert.equal(after.ctes[0].frete_terceiro_id, frete.id);
+  assert.equal(after.ctes[0].id, created.id);
+  assert.equal(after.ctes[0].numero, 'CT-EDITADO');
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).trip_id, f.a.trip.id);
+  assert.deepEqual(await ctes.listFretesDisponiveis(f.a.empresa.id), []);
+  await assert.rejects(() => f.create(frete.id), { statusCode: 409 });
+});
+
+test('PATCH viagem preserva frete omitido quando o id do CTe identifica a linha', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  const after = await trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ id: created.id, numero: 'CT-MANTIDO', valor: 1600 }],
+  });
+  assert.equal(after.ctes[0].frete_terceiro_id, frete.id);
+  assert.equal(after.ctes[0].id, created.id);
+});
+
+test('PATCH viagem identifica CTe pelo frete quando o payload nao tem id do CTe', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  const after = await trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ frete_terceiro_id: frete.id, numero: 'CT-MANTIDO', valor: 1600 }],
+  });
+  assert.equal(after.ctes[0].frete_terceiro_id, frete.id);
+  assert.equal(after.ctes[0].id, created.id);
+});
+
+test('PATCH viagem recusa frete duplicado sem alterar vinculo ou viagem', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  await assert.rejects(() => trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    observacoes: 'nao gravar', ctes: [created, { frete_terceiro_id: frete.id, valor: 10 }],
+  }), { statusCode: 409 });
+  assert.equal((await trips.getById(f.a.trip.id, f.a.empresa.id)).observacoes, null);
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).cte.id, created.id);
+});
+
+test('PATCH viagem recusa CTe externo e frete cross-tenant', integration, async t => {
+  const f = await fixture(t);
+  const foreign = await f.makeFrete({ empresa_id: f.b.empresa.id });
+  const foreignCte = await db.cte.create({ data: { trip_id: f.b.trip.id, valor: 200 } });
+  await assert.rejects(() => trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ frete_terceiro_id: foreign.id, valor: 10 }],
+  }), { statusCode: 404 });
+  await assert.rejects(() => trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ id: foreignCte.id, valor: 10 }],
+  }), { statusCode: 404 });
+});
+
+test('PATCH viagem nao rouba frete vinculado em outra viagem da mesma empresa', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  const another = await db.trip.create({ data: {
+    empresa_id: f.a.empresa.id, truck_id: f.a.truck.id, numero: 2, data_inicio: new Date(),
+  } });
+  await assert.rejects(() => trips.update(another.id, f.a.empresa.id, f.req, {
+    ctes: [{ frete_terceiro_id: frete.id, valor: 10 }],
+  }), { statusCode: 409 });
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).cte.id, created.id);
+});
+
+test('PATCH viagem remove so CTes omitidos e libera somente seus fretes', integration, async t => {
+  const f = await fixture(t);
+  const first = await f.makeFrete();
+  const second = await f.makeFrete();
+  const kept = await f.create(first.id);
+  await f.create(second.id);
+  const after = await trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: [kept] });
+  assert.equal(after.ctes.length, 1);
+  assert.equal(after.ctes[0].frete_terceiro_id, first.id);
+  assert.equal((await fretes.getById(first.id, f.a.empresa.id)).trip_id, f.a.trip.id);
+  assert.equal((await fretes.getById(second.id, f.a.empresa.id)).trip_id, null);
+});
+
+test('PATCH viagem trava fretes em ordem antes de travar ou alterar CTes', integration, async t => {
+  const f = await fixture(t);
+  const first = await f.makeFrete();
+  const second = await f.makeFrete();
+  const payload = [await f.create(first.id), await f.create(second.id)];
+  queryTrace.length = 0;
+  await trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: payload });
+  const freightLocks = queryTrace.map((event, index) => ({ ...event, index }))
+    .filter(event => /fretes_terceiros/i.test(event.query) && /FOR UPDATE/i.test(event.query));
+  const firstCteWrite = queryTrace.findIndex(event =>
+    /ctes/i.test(event.query) && /FOR UPDATE|^UPDATE|^DELETE|^INSERT/i.test(event.query));
+  assert.equal(freightLocks.length, 2, 'cada frete precisa ser travado antes dos CTes');
+  assert.ok(freightLocks.every(event => event.index < firstCteWrite));
+  assert.deepEqual(freightLocks.map(event => JSON.parse(event.params)[0]), [first.id, second.id].sort());
+});
+
+for (const operation of ['createCte', 'updateCte', 'removeCte', 'linkTrip', 'unlinkTrip', 'removeFrete', 'updateTrip']) {
+  test(`${operation} traduz P2034 para conflito 409`, integration, async t => {
+    const f = await fixture(t);
+    const frete = await f.makeFrete();
+    const cte = await f.create(frete.id);
+    // Fault injection at the database boundary: exercise the real error handler,
+    // without depending on a nondeterministic PostgreSQL victim choice.
+    const replacement = t.mock.method(db, '$transaction', async () => {
+      throw Object.assign(new Error('write conflict'), { code: 'P2034' });
+    });
+    try {
+      const operations = {
+        createCte: () => f.create(frete.id),
+        updateCte: () => ctes.update(cte.id, f.a.empresa.id, f.req, { numero: 'CT-novo' }),
+        removeCte: () => ctes.remove(cte.id, f.a.empresa.id, f.req),
+        linkTrip: () => fretes.linkTrip(frete.id, f.a.trip.id, f.a.empresa.id, f.req),
+        unlinkTrip: () => fretes.unlinkTrip(frete.id, f.a.empresa.id, f.req),
+        removeFrete: () => fretes.remove(frete.id, f.a.empresa.id, f.req),
+        updateTrip: () => trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: [cte] }),
+      };
+      await assert.rejects(operations[operation], { statusCode: 409 });
+    } finally {
+      replacement.mock.restore();
+    }
+  });
+}
+
+test('PATCH viagem sob disputa de lock retorna 409 e preserva unlink vencedor', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const cte = await f.create(frete.id);
+  let release;
+  let ready;
+  const released = new Promise(resolve => { release = resolve; });
+  const locked = new Promise(resolve => { ready = resolve; });
+  const holder = db.$transaction(async tx => {
+    const [{ pid }] = await tx.$queryRaw`SELECT pg_backend_pid() AS pid`;
+    await tx.$queryRaw`SELECT id FROM fretes_terceiros WHERE id = ${frete.id} FOR UPDATE`;
+    ready(pid);
+    await released;
+    await tx.cte.update({ where: { id: cte.id }, data: { frete_terceiro_id: null } });
+    await tx.freteTerceiro.update({ where: { id: frete.id }, data: { trip_id: null } });
+  }, { timeout: 10000 });
+  const holderPid = await locked;
+  const patch = trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: [cte] })
+    .then(value => ({ value }), error => ({ error }));
+  try {
+    let waiting = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const [{ blocked }] = await db.$queryRaw`
+        SELECT count(*)::int AS blocked FROM pg_stat_activity
+        WHERE ${holderPid}::int = ANY(pg_blocking_pids(pid))
+      `;
+      if (blocked > 0) { waiting = true; break; }
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(waiting, true, 'PATCH deve estar esperando o lock do frete');
+  } finally {
+    release();
+    await holder;
+  }
+  const result = await patch;
+  assert.equal(result.error?.statusCode, 409,
+    `code=${result.error?.code}, SQLSTATE=${result.error?.meta?.code}`);
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).trip_id, null);
+  assert.equal((await db.cte.findUnique({ where: { id: cte.id } })).frete_terceiro_id, null);
+});
+
+test('transacao de vinculo traduz deadlock SQL mas preserva outros erros SQL', integration, async t => {
+  for (const [sqlState, status] of [['40P01', 409], ['42P01', undefined]]) {
+    const error = Object.assign(new Error('database error'), { code: 'P2010', meta: { code: sqlState } });
+    const replacement = t.mock.method(db, '$transaction', async () => { throw error; });
+    try {
+      await assert.rejects(() => fretes.withLinkTransaction(async () => {}),
+        status ? { statusCode: status } : caught => caught === error);
+    } finally {
+      replacement.mock.restore();
+    }
+  }
+});
+
+test('PATCH viagem vincula frete livre e faz rollback de criacao invalida', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  await assert.rejects(() => trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ frete_terceiro_id: frete.id, valor: 'invalido' }],
+  }));
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).trip_id, null);
+  const result = await trips.update(f.a.trip.id, f.a.empresa.id, f.req, {
+    ctes: [{ frete_terceiro_id: frete.id, numero: 'CT-NOVO', valor: 1600 }],
+  });
+  assert.equal(result.ctes[0].frete_terceiro_id, frete.id);
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).trip_id, f.a.trip.id);
+});
+
+test('PATCH viagem sem CTes preserva e lista vazia desfaz os vinculos', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const created = await f.create(frete.id);
+  await trips.update(f.a.trip.id, f.a.empresa.id, f.req, { observacoes: 'sem mudar CTes' });
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).cte.id, created.id);
+  await trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: [] });
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).trip_id, null);
+  assert.equal(await db.cte.count({ where: { trip_id: f.a.trip.id } }), 0);
+});
+
+test('PATCH viagem nao troca FK existente nem replica id de CTe', integration, async t => {
+  const f = await fixture(t);
+  const frete = await f.makeFrete();
+  const other = await f.makeFrete();
+  const created = await f.create(frete.id);
+  for (const payload of [
+    [{ ...created, frete_terceiro_id: null }],
+    [{ ...created, frete_terceiro_id: other.id }],
+    [created, created],
+  ]) {
+    await assert.rejects(() => trips.update(f.a.trip.id, f.a.empresa.id, f.req, { ctes: payload }), { statusCode: 409 });
+  }
+  assert.equal((await fretes.getById(frete.id, f.a.empresa.id)).cte.id, created.id);
 });

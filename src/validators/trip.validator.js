@@ -6,6 +6,11 @@ const { body } = require('express-validator');
 // service (normalizeCte/normalizeFuel), então aqui só validamos shape.
 const NESTED_ARRAYS = [
   body('ctes').optional().isArray().withMessage('ctes deve ser um array.'),
+  body('ctes.*.id').optional().isString().withMessage('ID do CT-e deve ser uma string.').bail()
+    .isUUID().withMessage('CT-e inválido.'),
+  body('ctes.*.frete_terceiro_id').optional({ nullable: true })
+    .isString().withMessage('Frete terceiro deve ser uma string.').bail()
+    .isUUID().withMessage('Frete terceiro inválido.'),
   body('fuels').optional().isArray().withMessage('fuels deve ser um array.'),
 ];
 

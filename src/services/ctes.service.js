@@ -1,7 +1,7 @@
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
-const { lockForLink } = require('./fretesTerceiros.service');
+const { lockForLink, withLinkTransaction } = require('./fretesTerceiros.service');
 
 // Só os dados necessários para identificar o frete; nunca usuários/baixas/anexos.
 const FRETE_SELECT = {
@@ -95,33 +95,25 @@ async function listByTrip(tripId, empresaId) {
 
 async function create(tripId, empresaId, req, { data, numero, origem, destino, valor, frete_terceiro_id }) {
   requireEmpresa(empresaId);
-  let cte;
-  try {
-    cte = await prisma.$transaction(async tx => {
-      await verifyTripOwnership(tripId, empresaId, tx);
-      if (frete_terceiro_id != null) {
-        const frete = await lockForLink(tx, frete_terceiro_id, empresaId);
-        if (frete.trip_id || frete.cte || frete.status === 'CANCELADO') {
-          throw ApiError.conflict('Frete indisponível para vínculo.');
-        }
-        await tx.freteTerceiro.update({
-          where: { id: frete.id, empresa_id: empresaId }, data: { trip_id: tripId },
-        });
+  const cte = await withLinkTransaction(async tx => {
+    await verifyTripOwnership(tripId, empresaId, tx);
+    if (frete_terceiro_id != null) {
+      const frete = await lockForLink(tx, frete_terceiro_id, empresaId);
+      if (frete.trip_id || frete.cte || frete.status === 'CANCELADO') {
+        throw ApiError.conflict('Frete indisponível para vínculo.');
       }
-      return tx.cte.create({
-        data: {
-          trip_id: tripId, frete_terceiro_id: frete_terceiro_id ?? null,
-          data: data ? new Date(data) : null, numero, origem, destino, valor,
-        },
-        include: CTE_INCLUDE,
+      await tx.freteTerceiro.update({
+        where: { id: frete.id, empresa_id: empresaId }, data: { trip_id: tripId },
       });
-    });
-  } catch (error) {
-    if (error.code === 'P2002' || error.code === 'P2034') {
-      throw ApiError.conflict('Frete indisponível para vínculo. Atualize a lista e tente novamente.');
     }
-    throw error;
-  }
+    return tx.cte.create({
+      data: {
+        trip_id: tripId, frete_terceiro_id: frete_terceiro_id ?? null,
+        data: data ? new Date(data) : null, numero, origem, destino, valor,
+      },
+      include: CTE_INCLUDE,
+    });
+  });
   await audit.log({ req, empresaId, entity: 'CTE', action: 'CREATE', entityId: cte.id, before: null, after: cteAudit(cte) });
   if (cte.frete_terceiro_id) {
     await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: cte.frete_terceiro_id,
@@ -131,22 +123,26 @@ async function create(tripId, empresaId, req, { data, numero, origem, destino, v
 }
 
 async function update(id, empresaId, req, data) {
-  const before = await verifyCteOwnership(id, empresaId);
-
   const patch = pick(data, CTE_PATCH_FIELDS);
   if (patch.data) patch.data = new Date(patch.data);
 
-  const after = await prisma.cte.update({
-    where: { id, trip: { empresa_id: empresaId } },
-    data: patch,
-    include: CTE_INCLUDE,
+  const { before, after } = await withLinkTransaction(async tx => {
+    let before = await verifyCteOwnership(id, empresaId, tx);
+    if (before.frete_terceiro_id) {
+      await lockForLink(tx, before.frete_terceiro_id, empresaId);
+      before = await verifyCteOwnership(id, empresaId, tx);
+    }
+    const after = await tx.cte.update({
+      where: { id, trip: { empresa_id: empresaId } }, data: patch, include: CTE_INCLUDE,
+    });
+    return { before, after };
   });
   await audit.log({ req, empresaId, entity: 'CTE', action: 'UPDATE', entityId: id, before: cteAudit(before), after: cteAudit(after) });
   return after;
 }
 
 async function remove(id, empresaId, req) {
-  const { before, after } = await prisma.$transaction(async tx => {
+  const { before, after } = await withLinkTransaction(async tx => {
     let before = await verifyCteOwnership(id, empresaId, tx);
     if (before.frete_terceiro_id) {
       await lockForLink(tx, before.frete_terceiro_id, empresaId);

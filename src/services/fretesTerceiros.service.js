@@ -382,8 +382,22 @@ async function removeBaixa(freteId, baixaId, empresaId, req) {
   return { ok: true };
 }
 
-// Todas as operações de vínculo usam a mesma trava, inclusive a rota legada.
-// O client deve ser o tx de uma transação interativa; os parâmetros são bindados.
+// Uma tradução de conflitos para todos os caminhos que alteram o vínculo.
+async function withLinkTransaction(work, options) {
+  try {
+    return await prisma.$transaction(work, options);
+  } catch (error) {
+    // Queries SQL de lock retornam P2010 + SQLSTATE, não P2034.
+    const sqlConflict = error.code === 'P2010' && ['40001', '40P01'].includes(error.meta?.code);
+    if (error.code === 'P2002' || error.code === 'P2034' || sqlConflict) {
+      throw ApiError.conflict('Conflito no vínculo do frete. Atualize os dados e tente novamente.');
+    }
+    throw error;
+  }
+}
+
+// Todas as operações travam frete antes de CT-e, inclusive a rota legada.
+// tx deve ser uma transação interativa; os parâmetros são bindados.
 async function lockForLink(tx, id, empresaId) {
   if (!empresaId) throw ApiError.unauthorized('Empresa não identificada.');
   const rows = await tx.$queryRaw`
@@ -403,7 +417,7 @@ function linkAudit(frete) {
 }
 
 async function linkTrip(id, tripId, empresaId, req) {
-  const { before, after } = await prisma.$transaction(async tx => {
+  const { before, after } = await withLinkTransaction(async tx => {
     const before = await lockForLink(tx, id, empresaId);
     const trip = await tx.trip.findFirst({
       where: { id: tripId, empresa_id: empresaId, deleted_at: null, truck: { empresa_id: empresaId, deleted_at: null } },
@@ -424,7 +438,7 @@ async function linkTrip(id, tripId, empresaId, req) {
 }
 
 async function clearLink(id, empresaId, req, removing) {
-  const { before, after } = await prisma.$transaction(async tx => {
+  const { before, after } = await withLinkTransaction(async tx => {
     const before = await lockForLink(tx, id, empresaId);
     // O CT-e permanece na viagem com seus dados; só a referência ao frete é limpa.
     await tx.cte.updateMany({
@@ -459,5 +473,5 @@ module.exports = {
   list, summary, getById, create, update,
   baixar, removeBaixa,
   addAnexo, addAnexoFile, getAnexoFile, removeAnexo,
-  linkTrip, unlinkTrip, remove, lockForLink,
+  linkTrip, unlinkTrip, remove, lockForLink, withLinkTransaction,
 };

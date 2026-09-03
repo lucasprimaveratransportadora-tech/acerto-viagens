@@ -6,7 +6,9 @@ const listFretesDisponiveis = [
 ];
 
 const createCte = [
-  body('frete_terceiro_id').optional({ nullable: true }).isUUID().withMessage('Frete terceiro inválido.'),
+  body('frete_terceiro_id').optional({ nullable: true })
+    .isString().withMessage('Frete terceiro deve ser uma string.').bail()
+    .isUUID().withMessage('Frete terceiro inválido.'),
   body('data').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Data inválida.'),
   body('numero').optional({ nullable: true }),
   body('origem').optional({ nullable: true }),
