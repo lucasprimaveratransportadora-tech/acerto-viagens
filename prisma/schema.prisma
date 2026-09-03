@@ -315,6 +315,8 @@ model Cte {
   id          String       @id @default(uuid())
   trip_id     String
   trip        Trip         @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  frete_terceiro_id String? @unique
+  frete_terceiro FreteTerceiro? @relation(fields: [frete_terceiro_id], references: [id], onDelete: SetNull)
   data        DateTime?
   numero      String?
   origem      String?
@@ -435,6 +437,7 @@ model FreteTerceiro {
 
   trip_id String?
   trip    Trip?   @relation(fields: [trip_id], references: [id])
+  cte     Cte?
 
   observacoes String?
 

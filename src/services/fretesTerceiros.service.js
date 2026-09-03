@@ -11,8 +11,10 @@ function computeStatus({ valor_total, valor_pago }) {
   return 'ABERTO';
 }
 
-async function getById(id, empresaId, options = {}) {
+async function getById(id, empresaId, options = {}, client = prisma) {
+  if (!empresaId) throw ApiError.unauthorized('Empresa não identificada.');
   const include = {
+    cte: { select: { id: true, trip_id: true, numero: true, valor: true } },
     truck: { select: { id: true, placa: true, modelo: true, motorista: true } },
     trip:  { select: { id: true, data_inicio: true, origem: true, destino: true } },
     created_by: { select: { id: true, nome: true, email: true } },
@@ -33,7 +35,7 @@ async function getById(id, empresaId, options = {}) {
       },
     };
   }
-  const frete = await prisma.freteTerceiro.findFirst({
+  const frete = await client.freteTerceiro.findFirst({
     where: { id, empresa_id: empresaId, deleted_at: null },
     include,
   });
@@ -45,7 +47,7 @@ async function getById(id, empresaId, options = {}) {
     const anexoUserIds = [...new Set(frete.anexos.map(a => a.created_by_id).filter(Boolean))];
     const allIds = [...new Set([...userIds, ...anexoUserIds])];
     const users = allIds.length
-      ? await prisma.user.findMany({ where: { id: { in: allIds } }, select: { id: true, nome: true, email: true } })
+      ? await client.user.findMany({ where: { id: { in: allIds } }, select: { id: true, nome: true, email: true } })
       : [];
     const byId = Object.fromEntries(users.map(u => [u.id, u]));
     frete.baixas = frete.baixas.map(b => ({ ...b, baixou_por: b.baixou_por_id ? byId[b.baixou_por_id] || null : null }));
@@ -55,6 +57,7 @@ async function getById(id, empresaId, options = {}) {
 }
 
 async function list(empresaId, filters = {}) {
+  if (!empresaId) throw ApiError.unauthorized('Empresa não identificada.');
   const where = { empresa_id: empresaId, deleted_at: null };
   if (filters.status)    where.status = filters.status;
   if (filters.truck_id)  where.truck_id = filters.truck_id;
@@ -75,6 +78,7 @@ async function list(empresaId, filters = {}) {
   return prisma.freteTerceiro.findMany({
     where,
     include: {
+      cte: { select: { id: true, trip_id: true, numero: true, valor: true } },
       truck: { select: { id: true, placa: true, modelo: true } },
       trip:  { select: { id: true, data_inicio: true } },
       created_by: { select: { id: true, nome: true } },
@@ -378,58 +382,82 @@ async function removeBaixa(freteId, baixaId, empresaId, req) {
   return { ok: true };
 }
 
+// Todas as operações de vínculo usam a mesma trava, inclusive a rota legada.
+// O client deve ser o tx de uma transação interativa; os parâmetros são bindados.
+async function lockForLink(tx, id, empresaId) {
+  if (!empresaId) throw ApiError.unauthorized('Empresa não identificada.');
+  const rows = await tx.$queryRaw`
+    SELECT id FROM fretes_terceiros
+    WHERE id = ${id} AND empresa_id = ${empresaId} AND deleted_at IS NULL
+    FOR UPDATE
+  `;
+  if (!rows.length) throw ApiError.notFound('Frete terceiro não encontrado.');
+  return getById(id, empresaId, {}, tx);
+}
+
+function linkAudit(frete) {
+  return {
+    trip_id: frete.trip_id, cte_id: frete.cte?.id || null, truck_id: frete.truck_id,
+    deleted_at: frete.deleted_at ? frete.deleted_at.toISOString() : null,
+  };
+}
+
 async function linkTrip(id, tripId, empresaId, req) {
-  const before = await getById(id, empresaId);
-  // Garante que a viagem existe E pertence à mesma empresa via truck.empresa_id
-  const trip = await prisma.trip.findFirst({
-    where: { id: tripId, deleted_at: null, truck: { empresa_id: empresaId, deleted_at: null } },
-    include: { truck: { select: { id: true, empresa_id: true } } },
+  const { before, after } = await prisma.$transaction(async tx => {
+    const before = await lockForLink(tx, id, empresaId);
+    const trip = await tx.trip.findFirst({
+      where: { id: tripId, empresa_id: empresaId, deleted_at: null, truck: { empresa_id: empresaId, deleted_at: null } },
+    });
+    if (!trip) throw ApiError.notFound('Viagem não encontrada.');
+    if (before.trip_id || before.cte || before.status === 'CANCELADO') {
+      throw ApiError.conflict('Frete indisponível para vínculo.');
+    }
+    await tx.freteTerceiro.update({
+      where: { id, empresa_id: empresaId },
+      data: { trip_id: tripId, truck_id: before.truck_id || trip.truck_id },
+    });
+    return { before, after: await getById(id, empresaId, {}, tx) };
   });
-  if (!trip) throw ApiError.notFound('Viagem não encontrada.');
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: id,
+    before: linkAudit(before), after: linkAudit(after) });
+  return after;
+}
 
-  // Se o frete ainda não tem truck e a viagem tem, herda — mas só se for da mesma empresa
-  let truck_id_final = before.truck_id;
-  if (!truck_id_final && trip.truck_id && trip.truck?.empresa_id === empresaId) {
-    truck_id_final = trip.truck_id;
+async function clearLink(id, empresaId, req, removing) {
+  const { before, after } = await prisma.$transaction(async tx => {
+    const before = await lockForLink(tx, id, empresaId);
+    // O CT-e permanece na viagem com seus dados; só a referência ao frete é limpa.
+    await tx.cte.updateMany({
+      where: { frete_terceiro_id: id, trip: { empresa_id: empresaId } },
+      data: { frete_terceiro_id: null },
+    });
+    const after = await tx.freteTerceiro.update({
+      where: { id, empresa_id: empresaId },
+      data: { trip_id: null, ...(removing ? { deleted_at: new Date() } : {}) },
+      include: { cte: true, truck: { select: { id: true, placa: true } } },
+    });
+    return { before, after };
+  });
+  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: removing ? 'DELETE' : 'UPDATE', entityId: id,
+    before: linkAudit(before), after: linkAudit(after) });
+  if (before.cte) {
+    await audit.log({ req, empresaId, entity: 'CTE', action: 'UPDATE', entityId: before.cte.id,
+      before: { frete_terceiro_id: id }, after: { frete_terceiro_id: null } });
   }
-
-  const after = await prisma.freteTerceiro.update({
-    where: { id },
-    data: { trip_id: tripId, truck_id: truck_id_final },
-    include: {
-      truck: { select: { id: true, placa: true } },
-      trip:  { select: { id: true, data_inicio: true, origem: true, destino: true } },
-    },
-  });
-  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: id, before, after });
   return after;
 }
 
 async function unlinkTrip(id, empresaId, req) {
-  const before = await getById(id, empresaId);
-  if (!before.trip_id) return before;
-  const after = await prisma.freteTerceiro.update({
-    where: { id },
-    data: { trip_id: null },
-    include: { truck: { select: { id: true, placa: true } } },
-  });
-  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'UPDATE', entityId: id, before, after });
-  return after;
+  return clearLink(id, empresaId, req, false);
 }
 
 async function remove(id, empresaId, req) {
-  const before = await getById(id, empresaId);
-  const after = await prisma.freteTerceiro.update({
-    where: { id },
-    data: { deleted_at: new Date() },
-  });
-  await audit.log({ req, empresaId, entity: 'FRETE_TERCEIRO', action: 'DELETE', entityId: id, before, after });
-  return after;
+  return clearLink(id, empresaId, req, true);
 }
 
 module.exports = {
   list, summary, getById, create, update,
   baixar, removeBaixa,
   addAnexo, addAnexoFile, getAnexoFile, removeAnexo,
-  linkTrip, unlinkTrip, remove,
+  linkTrip, unlinkTrip, remove, lockForLink,
 };
