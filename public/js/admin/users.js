@@ -101,6 +101,7 @@ function showUserModal(u) {
   const isNew = !u.id;
   const actor = getCurrentUser();
   const canAssignAdmin = actor?.role === 'SUPER_ADMIN' || actor?.realUser?.role === 'SUPER_ADMIN';
+  const isLockedAdmin = !isNew && u.role === 'ADMIN' && !canAssignAdmin;
   const userPerms = Array.isArray(u.permissoes) ? u.permissoes : ALL_MODULES.map(m => m.key);
   const permsCheckboxes = ALL_MODULES.map(m => `
     <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);cursor:pointer">
@@ -124,18 +125,20 @@ function showUserModal(u) {
         </div></div>` : ''}
         <div class="form-row"><div class="form-group">
           <label>Tipo de acesso</label>
-          <select id="uRole" onchange="adminTogglePermsBlock()">
-            <option value="GESTOR" ${(u.role !== 'ADMIN' || !canAssignAdmin) ? 'selected' : ''}>GESTOR (módulos selecionados)</option>
-            <option value="ADMIN" ${u.role === 'ADMIN' && canAssignAdmin ? 'selected' : ''} ${canAssignAdmin ? '' : 'disabled'}>ADMIN (acesso total)</option>
+          <select id="uRole" onchange="adminTogglePermsBlock()" ${isLockedAdmin ? 'disabled' : ''}>
+            <option value="GESTOR" ${(u.role === 'GESTOR' || (isNew && !canAssignAdmin)) ? 'selected' : ''}>GESTOR (módulos selecionados)</option>
+            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''} ${(canAssignAdmin || isLockedAdmin) ? '' : 'disabled'}>ADMIN (acesso total)</option>
           </select>
           <p style="font-size:.7rem;color:var(--muted);margin-top:6px">
             ${canAssignAdmin
               ? 'GESTOR acessa somente os módulos marcados. ADMIN herda acesso total da empresa.'
-              : 'Neste ambiente você pode criar e editar gestores. Promoção para ADMIN exige superadmin.'}
+              : (isLockedAdmin
+                  ? 'Este usuário já é ADMIN da empresa. O papel fica visível, mas bloqueado neste ambiente.'
+                  : 'Neste ambiente você pode criar e editar gestores. Promoção para ADMIN exige superadmin.')}
           </p>
         </div></div>
 
-        <div id="uPermsBlock" class="form-row" style="display:${u.role === 'ADMIN' && canAssignAdmin ? 'none' : ''};flex-direction:column">
+        <div id="uPermsBlock" class="form-row" style="display:${u.role === 'ADMIN' ? 'none' : ''};flex-direction:column">
           <div class="form-group" style="width:100%">
             <label>Módulos liberados</label>
             <p style="font-size:.7rem;color:var(--muted);margin-bottom:8px">
@@ -162,7 +165,8 @@ function showUserModal(u) {
 window.adminTogglePermsBlock = function () {
   const actor = getCurrentUser();
   const canAssignAdmin = actor?.role === 'SUPER_ADMIN' || actor?.realUser?.role === 'SUPER_ADMIN';
-  const role = document.getElementById('uRole').value;
+  const roleSelect = document.getElementById('uRole');
+  const role = roleSelect ? roleSelect.value : 'GESTOR';
   const block = document.getElementById('uPermsBlock');
   if (block) block.style.display = role === 'ADMIN' && canAssignAdmin ? 'none' : '';
 };
@@ -171,16 +175,19 @@ window.adminUserSave = async function (id, isNew) {
   const nome = document.getElementById('uNome').value.trim();
   const email = isNew ? document.getElementById('uEmail').value.trim() : null;
   const senha = isNew ? document.getElementById('uSenha').value : null;
-  const role = document.getElementById('uRole').value;
+  const roleSelect = document.getElementById('uRole');
+  const requestedRole = roleSelect ? roleSelect.value : 'GESTOR';
+  const role = roleSelect?.disabled && !isNew ? null : requestedRole;
   const ativo = isNew ? true : document.getElementById('uAtivo').checked;
   const permissoes = Array.from(document.querySelectorAll('input[name="uPerm"]:checked')).map(el => el.value);
   if (!nome) return alert('Nome obrigatório.');
   if (isNew && (!email || !senha)) return alert('Email e senha obrigatórios.');
-  if (role === 'GESTOR' && permissoes.length === 0) {
+  if ((role || requestedRole) === 'GESTOR' && permissoes.length === 0) {
     if (!confirm('Este usuário GESTOR não terá acesso a nenhum módulo. Continuar mesmo assim?')) return;
   }
   try {
-    const body = { nome, role, permissoes };
+    const body = { nome, permissoes };
+    if (role) body.role = role;
     if (isNew) { body.email = email; body.senha = senha; }
     else { body.ativo = ativo; }
     if (isNew) await api.post('/api/users', body);

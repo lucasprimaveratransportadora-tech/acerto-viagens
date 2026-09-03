@@ -31,6 +31,14 @@ function getEmpresaId(req) {
   return req.user?.empresa_id;
 }
 
+function resolveManagedRole(req, requestedRole, currentRole = null) {
+  if (requestedRole === undefined) return currentRole;
+  if (requestedRole === 'SUPER_ADMIN') return currentRole === 'ADMIN' ? 'ADMIN' : 'GESTOR';
+  if (canAssignAdmin(req)) return requestedRole === 'ADMIN' ? 'ADMIN' : 'GESTOR';
+  if (currentRole === 'ADMIN') return 'ADMIN';
+  return 'GESTOR';
+}
+
 async function list(req) {
   const empresaId = getEmpresaId(req);
   return prisma.user.findMany({
@@ -45,7 +53,7 @@ async function create(req, { nome, email, senha, role, permissoes }) {
   const empresaId = getEmpresaId(req);
   const senha_hash = await hashPassword(senha);
   const perms = sanitizePermissoes(permissoes);
-  const resolvedRole = role === 'ADMIN' && canAssignAdmin(req) ? 'ADMIN' : 'GESTOR';
+  const resolvedRole = resolveManagedRole(req, role, null) || 'GESTOR';
   const user = await prisma.user.create({
     data: {
       nome,
@@ -80,7 +88,7 @@ async function update(id, req, { nome, role, ativo, permissoes }) {
 
   const data = {};
   if (nome !== undefined) data.nome = nome;
-  if (role !== undefined) data.role = role === 'ADMIN' && canAssignAdmin(req) ? 'ADMIN' : 'GESTOR';
+  if (role !== undefined) data.role = resolveManagedRole(req, role, before.role);
   if (ativo !== undefined) data.ativo = ativo;
   if (permissoes !== undefined) {
     const perms = sanitizePermissoes(permissoes);
