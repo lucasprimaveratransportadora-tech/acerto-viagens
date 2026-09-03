@@ -2,6 +2,7 @@ const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const audit = require('./audit.service');
 const { lockForLink, withLinkTransaction } = require('./fretesTerceiros.service');
+const { CTE_INCLUDE } = require('./ctes.service');
 
 // Campos do anexo de viagem que NÃO podem voltar em listagens (Bytes pesado)
 const TRIP_ANEXO_LIST_SELECT = {
@@ -194,7 +195,7 @@ async function listByTruck(truckId, empresaId) {
   const trips = await prisma.trip.findMany({
     where: { truck_id: truckId, deleted_at: null },
     include: {
-      ctes: true,
+      ctes: { include: CTE_INCLUDE },
       fuels: true,
       expenses: true,
       _count: { select: { trip_anexos: { where: { deleted_at: null } } } },
@@ -212,7 +213,7 @@ async function getById(id, empresaId) {
       truck: { empresa_id: empresaId, deleted_at: null },
     },
     include: {
-      ctes: true,
+      ctes: { include: CTE_INCLUDE },
       fuels: true,
       expenses: true,
       truck: { select: { id: true, placa: true, modelo: true, motorista: true } },
@@ -269,7 +270,7 @@ async function create(truckId, empresaId, req, data) {
     }
     return tx.trip.findUnique({
       where: { id: created.id },
-      include: { ctes: true, fuels: true, expenses: true },
+      include: { ctes: { include: CTE_INCLUDE }, fuels: true, expenses: true },
     });
   }, {
     isolationLevel: 'Serializable',
@@ -313,7 +314,7 @@ async function update(id, empresaId, req, data) {
 
     const after = await tx.trip.findUnique({
       where: { id },
-      include: { ctes: true, fuels: true, expenses: true },
+      include: { ctes: { include: CTE_INCLUDE }, fuels: true, expenses: true },
     });
     return { before, after };
   }, { isolationLevel: 'Serializable' });

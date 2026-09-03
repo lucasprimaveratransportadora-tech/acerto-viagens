@@ -109,7 +109,7 @@ function renderTable() {
     const rota = (f.origem || f.destino) ? `<div class="ft-row-meta">${esc(f.origem || '—')} → ${esc(f.destino || '—')}</div>` : '';
     const adi = f.forma_pagamento === 'ADIANTAMENTO_SALDO' ? `<small data-inline-field="valor_adiantamento">Adiant.: ${fmtBRL(f.valor_adiantamento)}</small>` : '';
     return `<tr data-frete-id="${esc(f.id)}" class="clickable ${f.trip_id ? 'linked' : ''}" onclick="ft.openDetails('${esc(f.id)}')">
-      <td class="mono ft-cell-edit" data-inline-field="data" data-label="Data">${fmtDate(f.data)}</td>
+      <td class="mono ft-cell-edit" data-inline-field="data" data-label="Data">${fmtDate(f.data)}<div class="ft-row-meta">${f.numero ? 'Nº ' + esc(f.numero) : 'Sem número'}</div></td>
       <td class="ft-cell-edit" data-inline-field="empresa_pagadora" data-label="Empresa"><div>${esc(f.empresa_pagadora)}</div>${rota}</td>
       <td class="ft-cell-edit" data-inline-field="motorista" data-label="Motorista">${esc(f.motorista)}</td>
       <td class="mono" data-label="Veículo">${esc(f.veiculo)} ${linked}</td>
@@ -237,6 +237,7 @@ function clearFilters() {
 function openNew() {
   state.editingId = null;
   document.getElementById('ftModalTitle').textContent = '+ Novo Frete Terceiro';
+  document.getElementById('ftNumero').value    = '';
   document.getElementById('ftEmpresa').value   = '';
   document.getElementById('ftData').value      = dateISO();
   const mot = document.getElementById('ftMotorista');
@@ -262,6 +263,7 @@ async function openEdit(id) {
     catch (e) { alert('Falha ao carregar frete: ' + e.message); return; }
   }
   document.getElementById('ftModalTitle').textContent = 'Editar Frete Terceiro';
+  document.getElementById('ftNumero').value    = f.numero || '';
   document.getElementById('ftEmpresa').value   = f.empresa_pagadora || '';
   document.getElementById('ftData').value      = dateISO(f.data);
   const mot = document.getElementById('ftMotorista');
@@ -315,6 +317,7 @@ async function save() {
   const forma = document.querySelector('[data-ft-pag].active')?.dataset.ftPag || 'INTEGRAL';
   const truckId = document.getElementById('ftTruck').value || null;
   const body = {
+    numero:           document.getElementById('ftNumero').value.trim() || null,
     empresa_pagadora: document.getElementById('ftEmpresa').value.trim(),
     data:             document.getElementById('ftData').value,
     motorista:        document.getElementById('ftMotorista').value.trim(),

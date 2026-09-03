@@ -413,6 +413,7 @@ model FreteTerceiro {
   empresa_id String
   empresa    Empresa @relation(fields: [empresa_id], references: [id])
 
+  numero           String? @db.VarChar(50)
   empresa_pagadora String
   data             DateTime
   motorista        String
@@ -451,6 +452,7 @@ model FreteTerceiro {
   deleted_at DateTime?
 
   @@index([empresa_id, created_at(sort: Desc)])
+  @@index([empresa_id, numero])
   @@index([truck_id])
   @@index([trip_id])
   @@index([status])

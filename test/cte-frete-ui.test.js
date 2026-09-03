@@ -56,6 +56,7 @@ function loadTripsModule({ api, state, document, window, alert = () => {}, setTi
     window,
     alert,
     setTimeout,
+    clearTimeout() {},
     globalThis: {
       __TEST_STUBS: {
         api,
@@ -164,4 +165,124 @@ test('mobile e html reservam estrutura acessivel para o seletor de frete do CTe'
   assert.match(tripsCss, /\.cte-frete-selector/);
   assert.match(tripsCss, /:focus-visible/);
   assert.match(mobileCss, /\.cte-creator-fields/);
+});
+
+function composerFixture() {
+  const trip = { id: 'trip1', ctes: [], expenses: [], fuels: [] };
+  const window = {};
+  const document = createDocument();
+  const loaded = loadTripsModule({ api: {}, state: { trips: [trip] }, document, window, setTimeout: () => 1 });
+  const source = fs.readFileSync(path.join(__dirname, '../public/js/trip-frete-link.js'), 'utf8')
+    .replace("import { api } from './api.js';", 'const api = globalThis.api;')
+    .replace("import { esc } from './utils.js';", 'const esc = String;');
+  const requests = [];
+  vm.runInNewContext(source, { window, document, URLSearchParams, api: {
+    get: async url => {
+      requests.push(url);
+      return [
+        { id: 'f1', numero: 'FT-001', origem: 'Campinas', destino: 'Recife', valor_total: '1800' },
+        { id: 'f2', numero: 'FT-002', origem: 'Santos', destino: null, valor_total: '2500' },
+      ];
+    },
+  } });
+  window.toggleInlineCteCreator(trip.id);
+  return { window, trip, requests, html: () => loaded.buildDetail(trip) };
+}
+
+function fieldValue(html, prefix) {
+  return html.match(new RegExp(`id="${prefix}_trip1"[^>]*value="([^"]*)"`))?.[1];
+}
+
+test('Trocar frete limpa origem destino valor autofill e permite selecionar dados do proximo', async () => {
+  const f = composerFixture();
+  f.window.queueCteFreteSearch('trip1', ' FT-00 ');
+  await f.window.runCteFreteSearch('trip1');
+  assert.deepEqual(f.requests, ['/api/ctes/fretes-disponiveis?q=FT-00']);
+  f.window.selectCteFrete('trip1', 'f1');
+  assert.equal(fieldValue(f.html(), 'inCteOri'), 'Campinas');
+  f.window.clearCteFreteSelection('trip1');
+  for (const field of ['inCteOri', 'inCteDst', 'inCteVal', 'inCteFreteId']) {
+    assert.equal(fieldValue(f.html(), field), '', field);
+  }
+  f.window.selectCteFrete('trip1', 'f2');
+  assert.equal(fieldValue(f.html(), 'inCteOri'), 'Santos');
+  assert.equal(fieldValue(f.html(), 'inCteDst'), '');
+  assert.equal(fieldValue(f.html(), 'inCteVal'), '2500');
+  assert.equal(fieldValue(f.html(), 'inCteFreteId'), 'f2');
+});
+
+test('selecionar outro resultado diretamente substitui o autofill anterior', async () => {
+  const f = composerFixture();
+  f.window.queueCteFreteSearch('trip1', 'FT-00');
+  await f.window.runCteFreteSearch('trip1');
+  f.window.selectCteFrete('trip1', 'f1');
+  f.window.selectCteFrete('trip1', 'f2');
+  assert.equal(fieldValue(f.html(), 'inCteOri'), 'Santos');
+  assert.equal(fieldValue(f.html(), 'inCteDst'), '');
+  assert.equal(fieldValue(f.html(), 'inCteVal'), '2500');
+});
+
+test('troca preserva campos manuais e data numero do CTe', async () => {
+  const f = composerFixture();
+  f.window.syncCteComposerField('trip1', 'origem', 'Manual');
+  f.window.syncCteComposerField('trip1', 'numero', 'CT-88');
+  f.window.syncCteComposerField('trip1', 'data', '2026-09-02');
+  f.window.queueCteFreteSearch('trip1', 'FT-00');
+  await f.window.runCteFreteSearch('trip1');
+  f.window.selectCteFrete('trip1', 'f1');
+  f.window.syncCteComposerField('trip1', 'valor', '1999');
+  f.window.clearCteFreteSelection('trip1');
+  f.window.selectCteFrete('trip1', 'f2');
+  assert.equal(fieldValue(f.html(), 'inCteOri'), 'Manual');
+  assert.equal(fieldValue(f.html(), 'inCteVal'), '1999');
+  assert.equal(fieldValue(f.html(), 'inCteNum'), 'CT-88');
+  assert.equal(fieldValue(f.html(), 'inCteDate'), '2026-09-02');
+});
+
+test('UI do frete permite cadastrar editar limpar e exibir numero estruturado', async () => {
+  const elements = {};
+  for (const id of ['ftNumero', 'ftEmpresa', 'ftData', 'ftMotorista', 'ftTruck', 'ftOrigem',
+    'ftDestino', 'ftValor', 'ftAdi', 'ftObs', 'ftModalTitle', 'ftAdiRow', 'ftFreteModal', 'ftTbody']) {
+    elements[id] = { value: '', innerHTML: '', style: {}, classList: { add() {}, remove() {} } };
+  }
+  elements.ftTruck.options = [];
+  elements.ftTruck.selectedIndex = -1;
+  const calls = [];
+  const stored = { id: 'f1', numero: 'FT-0012', empresa_pagadora: 'Pagadora', motorista: 'Motorista',
+    truck_id: 't1', data: '2026-09-02', valor_total: 1500, valor_pago: 0 };
+  const api = {
+    get: async url => url.startsWith('/api/fretes-terceiros?') ? [stored]
+      : url === '/api/trucks' ? [] : url.endsWith('/summary') ? {} : stored,
+    post: async (url, body) => { calls.push({ url, body }); },
+    patch: async (url, body) => { calls.push({ url, body }); },
+  };
+  const document = createDocument(elements);
+  const window = {};
+  const source = fs.readFileSync(path.join(__dirname, '../public/js/frete-terceiro.js'), 'utf8')
+    .replace("import { api } from './api.js';", 'const api = globalThis.api;')
+    .replace("import { esc, fmtD } from './utils.js';", 'const esc = String; const fmtD = String;')
+    .replace("import { wireInlineFrete } from './frete-terceiro.inline.js';", '')
+    .replace('export async function initFreteTerceiro', 'async function initFreteTerceiro');
+  vm.runInNewContext(source, { window, document, api, URLSearchParams, console,
+    alert: message => assert.fail(message) });
+  elements.ftNumero.value = 'anterior';
+  window.ft.openNew();
+  assert.equal(elements.ftNumero.value, '');
+  Object.assign(elements.ftEmpresa, { value: 'Pagadora' });
+  elements.ftNumero.value = '  FT-0012  ';
+  elements.ftMotorista.value = 'Motorista';
+  elements.ftTruck.value = 't1';
+  elements.ftValor.value = '1500';
+  await window.ft.save();
+  assert.equal(calls[0].body.numero, 'FT-0012');
+  assert.match(elements.ftTbody.innerHTML, /FT-0012/);
+  await window.ft.openEdit('f1');
+  assert.equal(elements.ftNumero.value, 'FT-0012');
+  elements.ftNumero.value = '';
+  await window.ft.save();
+  assert.equal(calls[1].url, '/api/fretes-terceiros/f1');
+  assert.equal(calls[1].body.numero, null);
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.match(html, /<label for="ftNumero">/);
+  assert.match(html, /id="ftNumero"[^>]*maxlength="50"/);
 });

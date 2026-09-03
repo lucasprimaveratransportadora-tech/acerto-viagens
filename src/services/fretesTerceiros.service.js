@@ -70,6 +70,7 @@ async function list(empresaId, filters = {}) {
   }
   if (filters.q) {
     where.OR = [
+      { numero:           { contains: filters.q, mode: 'insensitive' } },
       { empresa_pagadora: { contains: filters.q, mode: 'insensitive' } },
       { motorista:        { contains: filters.q, mode: 'insensitive' } },
       { veiculo:          { contains: filters.q, mode: 'insensitive' } },
@@ -139,6 +140,7 @@ async function create(empresaId, req, data) {
   const frete = await prisma.freteTerceiro.create({
     data: {
       empresa_id:         empresaId,
+      numero:             data.numero?.trim() || null,
       empresa_pagadora:   data.empresa_pagadora,
       data:               new Date(data.data),
       motorista:          data.motorista,
@@ -172,6 +174,7 @@ async function update(id, empresaId, req, data) {
   const status = computeStatus({ valor_total: total, valor_pago: pago });
 
   const patch = {};
+  if (data.numero !== undefined)    patch.numero = data.numero?.trim() || null;
   if (data.empresa_pagadora != null) patch.empresa_pagadora = data.empresa_pagadora;
   if (data.data != null)             patch.data = new Date(data.data);
   if (data.motorista != null)        patch.motorista = data.motorista;

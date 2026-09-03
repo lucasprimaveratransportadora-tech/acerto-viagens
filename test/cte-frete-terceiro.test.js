@@ -26,6 +26,102 @@ if (databaseUrl) {
 const ctes = require('../src/services/ctes.service');
 const fretes = require('../src/services/fretesTerceiros.service');
 const trips = require('../src/services/trips.service');
+const freteValidators = require('../src/validators/freteTerceiro.validator');
+
+for (const kind of ['createFreteTerceiro', 'updateFreteTerceiro']) {
+  test(`${kind}: numero estruturado opcional preserva zeros e normaliza espacos`, async () => {
+    for (const numero of [undefined, null, '', '  ', '  FT-00012  ', '00012']) {
+      const req = { body: { numero } };
+      for (const rule of freteValidators[kind]) await rule.run(req);
+      assert.deepEqual(validationResult(req).array().filter(e => e.path === 'numero'), []);
+      assert.equal(req.body.numero, numero == null ? numero : numero.trim());
+    }
+  });
+  test(`${kind}: numero rejeita arrays objetos numeros e texto maior que 50`, async () => {
+    for (const numero of [['12'], [], {}, 12, 'x'.repeat(51)]) {
+      const req = { body: { numero } };
+      for (const rule of freteValidators[kind]) await rule.run(req);
+      assert.ok(validationResult(req).array().some(e => e.path === 'numero'), JSON.stringify(numero));
+    }
+  });
+}
+
+for (const operation of ['listByTruck', 'getById', 'update']) {
+  test(`viagem ${operation} carrega dados minimos do frete no CTe`, integration, async t => {
+    const f = await fixture(t);
+    const frete = await f.makeFrete();
+    const cte = await f.create(frete.id);
+    const result = operation === 'listByTruck'
+      ? (await trips.listByTruck(f.a.truck.id, f.a.empresa.id))[0]
+      : operation === 'getById' ? await trips.getById(f.a.trip.id, f.a.empresa.id)
+        : await trips.update(f.a.trip.id, f.a.empresa.id, f.req, { observacoes: 'fix task4' });
+    assert.equal(result.ctes[0].id, cte.id);
+    const linked = result.ctes[0].frete_terceiro;
+    assert.ok(linked, 'relacao frete_terceiro ausente no payload de viagem');
+    assert.equal(linked.id, frete.id);
+    assert.equal(linked.empresa_pagadora, frete.empresa_pagadora);
+    assert.equal(linked.motorista, frete.motorista);
+    assert.equal(linked.veiculo, frete.veiculo);
+    assert.equal(Number(linked.valor_total), 1500);
+    for (const key of ['created_by', 'paid_by', 'anexos', 'baixas', 'observacoes']) assert.equal(key in linked, false);
+    await assert.rejects(() => trips.getById(f.a.trip.id, f.b.empresa.id), { statusCode: 404 });
+  });
+}
+
+test('endpoints de frete criam editam buscam numero real mantendo tenant e 1:1', integration, async t => {
+  const f = await fixture(t);
+  const user = await db.user.create({ data: {
+    empresa_id: f.a.empresa.id, nome: 'Teste', email: `${randomUUID()}@example.test`, senha_hash: 'unused',
+  } });
+  const app = require('express')();
+  app.use(require('express').json());
+  app.use('/api/fretes-terceiros', require('../src/routes/fretesTerceiros.routes'));
+  app.use('/api/ctes', require('../src/routes/ctes.routes'));
+  app.use((err, req, res, next) => res.status(err.statusCode || 500).json({ error: err.message }));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const token = require('jsonwebtoken').sign({ id: user.id }, require('../src/config').jwt.secret);
+  const request = (url, method = 'GET', body) => fetch(base + url, {
+    method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const response = await request('/api/fretes-terceiros', 'POST', {
+    numero: '  FT-00012  ', empresa_pagadora: 'Pagadora', data: '2026-09-02', motorista: 'Teste',
+    truck_id: f.a.truck.id, valor_total: 1500, empresa_id: f.b.empresa.id,
+  });
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  assert.equal(created.numero, 'FT-00012');
+  assert.equal(created.empresa_id, f.a.empresa.id);
+  const foreign = await f.makeFrete({ empresa_id: f.b.empresa.id, numero: 'FT-00012' });
+  await f.makeFrete({ numero: 'FT-00012', status: 'CANCELADO' });
+  await f.makeFrete({ numero: 'FT-00012', deleted_at: new Date() });
+  await f.makeFrete({ numero: 'FT-00012', trip_id: f.a.trip.id });
+  let available = await request(`/api/ctes/fretes-disponiveis?q=ft-00012&empresa_id=${f.b.empresa.id}`);
+  assert.deepEqual((await available.json()).map(row => [row.id, row.numero]), [[created.id, 'FT-00012']]);
+  assert.equal((await request(`/api/fretes-terceiros/${foreign.id}`, 'PATCH', { numero: 'INVASAO' })).status, 404);
+  assert.equal((await request(`/api/fretes-terceiros/${created.id}`, 'PATCH', { numero: ['ruim'] })).status, 400);
+  const updated = await request(`/api/fretes-terceiros/${created.id}`, 'PATCH', { numero: '00013' });
+  assert.equal((await updated.json()).numero, '00013');
+  const listed = await request('/api/fretes-terceiros?q=00013');
+  assert.deepEqual((await listed.json()).map(row => [row.id, row.numero]), [[created.id, '00013']]);
+  const cte = await f.create(created.id);
+  assert.equal(cte.frete_terceiro.numero, '00013');
+  assert.equal((await trips.getById(f.a.trip.id, f.a.empresa.id)).ctes[0].frete_terceiro.numero, '00013');
+  available = await request('/api/ctes/fretes-disponiveis?q=00013');
+  assert.deepEqual(await available.json(), []);
+  await assert.rejects(() => f.create(created.id), { statusCode: 409 });
+  await request(`/api/fretes-terceiros/${created.id}`, 'PATCH', { motorista: 'Outro' });
+  assert.equal((await fretes.getById(created.id, f.a.empresa.id)).numero, '00013');
+  for (const numero of [null, '   ']) {
+    const cleared = await request(`/api/fretes-terceiros/${created.id}`, 'PATCH', { numero });
+    assert.equal((await cleared.json()).numero, null);
+  }
+  assert.equal((await fretes.getById(foreign.id, f.b.empresa.id)).numero, 'FT-00012');
+  assert.equal((await fretes.getById(created.id, f.a.empresa.id)).cte.id, cte.id);
+});
 
 async function fixture(t) {
   const empresas = [];

@@ -5,7 +5,7 @@ const { lockForLink, withLinkTransaction } = require('./fretesTerceiros.service'
 
 // Só os dados necessários para identificar o frete; nunca usuários/baixas/anexos.
 const FRETE_SELECT = {
-  id: true, trip_id: true, empresa_pagadora: true, data: true, motorista: true,
+  id: true, numero: true, trip_id: true, empresa_pagadora: true, data: true, motorista: true,
   veiculo: true, origem: true, destino: true, valor_total: true, status: true,
 };
 const CTE_INCLUDE = { frete_terceiro: { select: FRETE_SELECT } };
@@ -72,10 +72,9 @@ async function listFretesDisponiveis(empresaId, q = '') {
   const search = q.trim();
   if (search) {
     const contains = { contains: search, mode: 'insensitive' };
-    where.OR = ['empresa_pagadora', 'motorista', 'veiculo', 'origem', 'destino', 'observacoes']
+    where.OR = ['numero', 'empresa_pagadora', 'motorista', 'veiculo', 'origem', 'destino', 'observacoes']
       .map(field => ({ [field]: contains }));
-    // FreteTerceiro não tem campo numero. O número já registrado no nome/descrição
-    // do anexo CTE é pesquisável, sem inventar uma coluna ou buscar outro tenant.
+    // Mantém também a busca textual dos anexos legados, além do número estruturado.
     where.OR.push({ anexos: { some: {
       tipo: 'CTE', deleted_at: null, OR: [{ nome: contains }, { descricao: contains }],
     } } });
@@ -166,4 +165,4 @@ async function remove(id, empresaId, req) {
   return after;
 }
 
-module.exports = { listFretesDisponiveis, listByTrip, create, update, remove };
+module.exports = { CTE_INCLUDE, listFretesDisponiveis, listByTrip, create, update, remove };

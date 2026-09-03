@@ -1,6 +1,8 @@
 const { body } = require('express-validator');
 
 const createFreteTerceiro = [
+  body('numero').optional({ nullable: true }).isString().withMessage('Número deve ser texto.').bail()
+    .trim().isLength({ max: 50 }).withMessage('Número deve ter no máximo 50 caracteres.'),
   body('empresa_pagadora').notEmpty().withMessage('Empresa pagadora obrigatória.').isLength({ max: 200 }),
   body('data').notEmpty().withMessage('Data obrigatória.').isISO8601().withMessage('Data inválida.'),
   body('motorista').notEmpty().withMessage('Motorista obrigatório.').isLength({ max: 120 }),
@@ -16,6 +18,8 @@ const createFreteTerceiro = [
 ];
 
 const updateFreteTerceiro = [
+  body('numero').optional({ nullable: true }).isString().withMessage('Número deve ser texto.').bail()
+    .trim().isLength({ max: 50 }).withMessage('Número deve ter no máximo 50 caracteres.'),
   body('empresa_pagadora').optional().notEmpty().isLength({ max: 200 }),
   body('data').optional().isISO8601(),
   body('motorista').optional().notEmpty().isLength({ max: 120 }),

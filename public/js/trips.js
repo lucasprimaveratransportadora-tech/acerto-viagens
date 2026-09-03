@@ -16,6 +16,7 @@ function ensureCteComposer(tripId) {
       error: '',
       results: [],
       selected: null,
+      autofill: {},
       data: '',
       numero: '',
       origem: '',
@@ -34,6 +35,7 @@ function resetCteComposer(tripId) {
     error: '',
     results: [],
     selected: null,
+    autofill: {},
     data: '',
     numero: '',
     origem: '',
@@ -654,6 +656,7 @@ window.toggleInlineCteCreator = function (tripId) {
 window.syncCteComposerField = function (tripId, field, value) {
   const ui = ensureCteComposer(tripId);
   ui[field] = value;
+  delete ui.autofill[field];
 };
 
 window.queueCteFreteSearch = function (tripId, value) {
@@ -692,19 +695,34 @@ window.runCteFreteSearch = async function (tripId) {
   }
 };
 
+function clearCteFreteAutofill(ui) {
+  for (const field of Object.keys(ui.autofill)) ui[field] = '';
+  ui.autofill = {};
+}
+
 window.selectCteFrete = function (tripId, freteId) {
   const ui = ensureCteComposer(tripId);
   const selected = ui.results.find(item => item.id === freteId);
   if (!selected) return;
+  clearCteFreteAutofill(ui);
   ui.selected = selected;
-  if (!ui.origem) ui.origem = selected.origem || '';
-  if (!ui.destino) ui.destino = selected.destino || '';
-  if (!ui.valor) ui.valor = selected.valor_total != null ? String(selected.valor_total) : '';
+  const values = {
+    origem: selected.origem || '',
+    destino: selected.destino || '',
+    valor: selected.valor_total != null ? String(selected.valor_total) : '',
+  };
+  for (const [field, value] of Object.entries(values)) {
+    if (!ui[field]) {
+      ui[field] = value;
+      ui.autofill[field] = true;
+    }
+  }
   renderCteSection(tripId);
 };
 
 window.clearCteFreteSelection = function (tripId) {
   const ui = ensureCteComposer(tripId);
+  clearCteFreteAutofill(ui);
   ui.selected = null;
   const freteField = document.getElementById('inCteFreteId_' + tripId);
   if (freteField) freteField.value = '';

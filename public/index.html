@@ -731,7 +731,7 @@
           </div>
           <div class="form-group" style="flex:1;min-width:160px">
             <label>Buscar</label>
-            <input type="text" id="ftFilterQ" placeholder="empresa, motorista, placa…" onkeydown="if(event.key==='Enter')ft.applyFilters()">
+            <input type="text" id="ftFilterQ" placeholder="número, empresa, motorista, placa…" onkeydown="if(event.key==='Enter')ft.applyFilters()">
           </div>
           <div class="form-group">
             <label>De</label>
@@ -782,6 +782,13 @@
 <div class="modal-overlay" id="ftFreteModal">
   <div class="modal" style="width:640px;max-width:96vw">
     <div class="modal-title" id="ftModalTitle">+ Novo Frete Terceiro</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="ftNumero">Número do frete / CT-e</label>
+        <input type="text" id="ftNumero" maxlength="50" placeholder="ex: FT-0012" autocomplete="off">
+      </div>
+    </div>
 
     <div class="form-row">
       <div class="form-group" style="flex:2">
